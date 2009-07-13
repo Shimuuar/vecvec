@@ -13,6 +13,7 @@ import Data.VectorSpace
 
 -- | 2-dimensional vector
 data Vec2D a = Vec2D a a 
+               deriving (Show,Eq)
 
 instance Num a => AdditiveGroup (Vec2D a) where
     zeroV = Vec2D 0 0 
@@ -25,8 +26,9 @@ instance Num a => InnerSpace (Vec2D a) where
     (Vec2D x1 y1) <.> (Vec2D x2 y2) = x1*x2 + y1*y2
 
 
--- | 3-dimensioanl vector 
+-- | 3-dimensional vector 
 data Vec3D a = Vec3D a a a
+               deriving (Show,Eq)
 
 instance Num a => AdditiveGroup (Vec3D a) where
     zeroV = Vec3D 0 0 0
