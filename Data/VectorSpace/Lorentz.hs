@@ -54,12 +54,14 @@ boostZ gamma (Lorentz t x y z) = Lorentz (gamma*(t + v*z)) x y (gamma*(z + v*t))
 
 boost :: Floating a => Vec3D a -> Lorentz a -> Lorentz a 
 boost l (Lorentz t x y z) =
-    let gamma = magnitude l
+    let gamma  = magnitude l
+        gamma1 = gamma - 1 
+
         v     = gammaToV gamma
         (Vec3D nx ny nz) = l ^/ gamma 
         t' = gamma*(t + v*(nx*x + ny*y + nz*z))
-        x' = gamma*v*nx*t + (gamma*nx-nx+1)*x
-        y' = gamma*v*ny*t + (gamma*ny-ny+1)*y
-        z' = gamma*v*nz*t + (gamma*nz-nz+1)*z
+        x' = gamma*v*nx*t + (gamma1*nx*nx + 1)*x + gamma1*nx*ny*y       + gamma1*nx*nz*z
+        y' = gamma*v*ny*t + gamma1*nx*ny*x       + (gamma1*ny*ny + 1)*y + gamma1*ny*nz*z
+        z' = gamma*v*nz*t + gamma1*nx*nz*x       + gamma1*ny*nz*y       + (gamma1*nz*nz + 1)*z
     in Lorentz t' x' y' z'
-        
+
