@@ -29,7 +29,9 @@ import Data.VectorSpace
 
 
 -- | 2-dimensional vector.
-data Vec2D a = Vec2D a a 
+data Vec2D a = Vec2D { vecX2 :: a
+                     , vecY2 :: a 
+                     }
                deriving (Show,Eq)
 
 instance Num a => AdditiveGroup (Vec2D a) where
@@ -44,7 +46,10 @@ instance Num a => InnerSpace (Vec2D a) where
 
 
 -- | 3-dimensional vector.
-data Vec3D a = Vec3D a a a
+data Vec3D a = Vec3D { vecX3 :: a
+                     , vecY3 :: a
+                     , vecZ3 :: a
+                     }
                deriving (Show,Eq)
 
 instance Num a => AdditiveGroup (Vec3D a) where
