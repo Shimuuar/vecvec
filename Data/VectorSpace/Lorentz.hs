@@ -23,6 +23,8 @@ module Data.VectorSpace.Lorentz ( -- * Lorentz vector
                                 , boostX
                                 , boostY
                                 , boostZ
+                                , boost1D
+                                , boost1Dn
                                 ) where
 
 import Data.Monoid
@@ -132,6 +134,22 @@ boostY (Boost1D φ) (Lorentz t x y z) = Lorentz (cosh φ * t + sinh φ * y) x (s
 -- | Boost along Z axis 
 boostZ :: Floating a => Boost1D a -> Lorentz a -> Lorentz a
 boostZ (Boost1D φ) (Lorentz t x y z) = Lorentz (cosh φ * t + sinh φ * z) x y (sinh φ * t + cosh φ * z)
+
+-- | Boost along arbitrary axis
+boost1D :: Floating a => Boost1D a -> Vec3D a -> Lorentz a -> Lorentz a
+boost1D b v = boost1Dn b (v ^/ magnitude v)
+
+-- | Boost along arbitrary axis. Same as boost1D but direction vector
+--   is assumed to be normalized. It isn't checked
+boost1Dn :: Floating a => Boost1D a -> Vec3D a -> Lorentz a -> Lorentz a
+boost1Dn (Boost1D φ) n v@(Lorentz t _ _ _) = 
+    let p     = spatialPart v
+        pMod  = n <.> p
+        (Vec3D x' y' z') = p ^+^ ((ch*pMod + sh*t - 1) *^ n)
+        ch = cosh φ
+        sh = sinh φ
+    in Lorentz (ch * t + sinh pMod) x' y' z'
+
 
 ----------------------------------------------------------------
 -- Generi boosts
