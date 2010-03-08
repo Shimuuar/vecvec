@@ -145,10 +145,10 @@ boost1Dn :: Floating a => Boost1D a -> Vec3D a -> Lorentz a -> Lorentz a
 boost1Dn (Boost1D φ) n v@(Lorentz t _ _ _) = 
     let p     = spatialPart v
         pMod  = n <.> p
-        (Vec3D x' y' z') = p ^+^ ((ch*pMod + sh*t - 1) *^ n)
+        (Vec3D x' y' z') = p ^+^ ((ch*pMod + sh*t - pMod) *^ n)
         ch = cosh φ
         sh = sinh φ
-    in Lorentz (ch * t + sinh pMod) x' y' z'
+    in Lorentz (ch*t + sh*pMod) x' y' z'
 
 
 ----------------------------------------------------------------
