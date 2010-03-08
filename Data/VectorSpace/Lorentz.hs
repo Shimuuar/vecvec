@@ -83,9 +83,7 @@ gammaToRapidity = acosh
 ----------------------------------------------------------------
 
 -- | One dimensinal boost. It deserve specian treatment since it forms
---   a group.
---
---   It's parametrized by rapidity.
+--   a group. Internally it's parametrized by rapidity.
 newtype Boost1D a = Boost1D a
                     deriving (Eq,Show,Read)
 
@@ -94,21 +92,27 @@ instance Floating a => Monoid (Boost1D a) where
     mappend (Boost1D x) (Boost1D y) = Boost1D (x + y)
 
 
+-- | Create 1D boost from rapidity
 rapidityBoost1D :: Floating a => a -> Boost1D a
 rapidityBoost1D = Boost1D
 
+-- | Get rapidity from 1D boost
 boost1Drapidity :: Floating a => Boost1D a -> a
 boost1Drapidity (Boost1D x) = x
 
+-- | construct boost from gamma factor
 gammaBoost1D :: Floating a => a -> Boost1D a
 gammaBoost1D = Boost1D . gammaToRapidity
 
+-- | Get gamma factor which correspond to boost
 boost1Dgamma :: Floating a => Boost1D a -> a
 boost1Dgamma (Boost1D x) = rapidityToGamma x
 
+-- | Construct boost from speed 
 vBoost1D :: Floating a => a -> Boost1D a 
 vBoost1D = Boost1D . vToRapidity
 
+-- | Get speed
 boost1Dv :: Floating a => Boost1D a -> a
 boost1Dv (Boost1D x) = rapidityToV x
 
