@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.VectorSpace.Lorentz ( -- * Lorentz vector
                                   Lorentz(..)
+                                , spatialPart
                                 -- ** Convert between rapidity, gamma factor & speed
                                 , vToRapidity
                                 , vToGamma
@@ -39,6 +40,10 @@ data Lorentz a = Lorentz { lorentzT :: a
                          , lorentzZ :: a
                          }
                  deriving (Eq, Show, Read)
+
+-- | Spatial part of Lorentz vector
+spatialPart :: Lorentz a -> Vec3D a
+spatialPart (Lorentz _ x y z) = Vec3D x y z
 
 instance Num a => AdditiveGroup (Lorentz a) where
     zeroV = Lorentz 0 0 0 0
@@ -120,11 +125,11 @@ boost1Dv (Boost1D x) = rapidityToV x
 boostX :: Floating a => Boost1D a -> Lorentz a -> Lorentz a
 boostX (Boost1D φ) (Lorentz t x y z) = Lorentz (cosh φ * t + sinh φ * x) (sinh φ * t + cosh φ * x) y z
 
--- | Boost againist Y axis
+-- | Boost along Y axis
 boostY :: Floating a => Boost1D a -> Lorentz a -> Lorentz a
 boostY (Boost1D φ) (Lorentz t x y z) = Lorentz (cosh φ * t + sinh φ * y) x (sinh φ * t + cosh φ * y) z 
 
--- | Boost againist Z axis 
+-- | Boost along Z axis 
 boostZ :: Floating a => Boost1D a -> Lorentz a -> Lorentz a
 boostZ (Boost1D φ) (Lorentz t x y z) = Lorentz (cosh φ * t + sinh φ * z) x y (sinh φ * t + cosh φ * z)
 
