@@ -14,16 +14,16 @@
 -----------------------------------------------------------------------------
 
 
-module Data.VectorSpace.LowDim ( -- * Vector data types
-                                 Vec2D(..)
-                               , Vec3D(..)
-                               -- * Unit vectors
-                               , unitX2D
-                               , unitY2D
-                               , unitX3D
-                               , unitY3D
-                               , unitZ3D 
-                               ) where
+module Data.VectorSpace.Spatial ( -- * Vector data types
+                                  Vec2D(..)
+                                , Vec3D(..)
+                                -- * Unit vectors
+                                , unitX2D
+                                , unitY2D
+                                , unitX3D
+                                , unitY3D
+                                , unitZ3D 
+                                ) where
 
 import Data.VectorSpace 
 

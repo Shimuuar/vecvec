@@ -26,7 +26,7 @@ module Data.VectorSpace.Lorentz ( -- * Lorentz vector
 
 import Data.Monoid
 import Data.VectorSpace
-import Data.VectorSpace.LowDim
+import Data.VectorSpace.Spatial
 
 ----------------------------------------------------------------
 -- Lorentz vectors

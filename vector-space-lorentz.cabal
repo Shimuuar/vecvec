@@ -10,7 +10,6 @@ Synopsis:	Lorenz vectors based on vector-space package.
 Build-Type:     Simple
 
 Library
-  Build-Depends:        base, vector-space >= 0.5, vector-space-lowdim
+  Build-Depends:        base, vector-space >= 0.5
   Exposed-modules:      Data.VectorSpace.Lorentz
-
-
+                        Data.VectorSpace.Spatial
