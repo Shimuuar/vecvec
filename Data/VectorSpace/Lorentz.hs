@@ -14,6 +14,7 @@ module Data.VectorSpace.Lorentz ( -- * Lorentz vector
                                 -- * Boosts 
                                 -- ** One dimesional boosts
                                 , Boost1D
+                                , inverseBoost1D
                                 -- *** Constructors & deconstructors
                                 , rapidityBoost1D
                                 , boost1Drapidity
@@ -108,6 +109,9 @@ instance Floating a => Monoid (Boost1D a) where
     mempty = Boost1D 0
     mappend (Boost1D x) (Boost1D y) = Boost1D (x + y)
 
+-- | Create inverse boost
+inverseBoost1D :: Num a => Boost1D a -> Boost1D a
+inverseBoost1D (Boost1D x) = Boost1D (negate x)
 
 -- | Create 1D boost from rapidity
 rapidityBoost1D :: Floating a => a -> Boost1D a
