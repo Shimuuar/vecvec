@@ -2,6 +2,8 @@
 module Data.VectorSpace.Lorentz ( -- * Lorentz vector
                                   Lorentz(..)
                                 , spatialPart
+                                , spatialMag
+                                , spatialMagSq
                                 -- ** Convert between rapidity, gamma factor & speed
                                 , vToRapidity
                                 , vToGamma
@@ -46,6 +48,14 @@ data Lorentz a = Lorentz { lorentzT :: a
 -- | Spatial part of Lorentz vector
 spatialPart :: Lorentz a -> Vec3D a
 spatialPart (Lorentz _ x y z) = Vec3D x y z
+
+-- | Spatial part of Lorentz vector
+spatialMagSq :: Num a => Lorentz a -> a
+spatialMagSq (Lorentz _ x y z) = x*x + y*y + z*z
+
+-- | Spatial part of Lorentz vector
+spatialMag :: Floating a => Lorentz a -> a
+spatialMag = sqrt . spatialMagSq
 
 instance Num a => AdditiveGroup (Lorentz a) where
     zeroV = Lorentz 0 0 0 0
