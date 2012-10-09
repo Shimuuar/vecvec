@@ -11,11 +11,16 @@ module Data.Vector.Fixed (
     -- * Type-level naturals
     Z
   , S
+  , Nat(..)
     -- * N-ary functions
   , Fn
   , Fun
   , Arity(..)
-    -- *
+    -- * Vector type class
+  , Dim
+  , Vector(..)
+  , length
+    -- * Generic functions
   , replicate
   , map
   , foldl
@@ -23,7 +28,7 @@ module Data.Vector.Fixed (
   ) where
 
 import Data.Complex
-import Prelude hiding (replicate,map,zipWith,foldl)
+import Prelude hiding (replicate,map,zipWith,foldl,length)
 
 
 
@@ -35,6 +40,18 @@ import Prelude hiding (replicate,map,zipWith,foldl)
 data Z
 -- | Successor of n
 data S n
+
+-- | Type class for natural numbers
+class Nat n where
+  toInt :: n -> Int
+
+instance          Nat  Z    where toInt _ = 0
+instance Nat n => Nat (S n) where
+  toInt n = 1 + toInt (prevN n)
+    where
+      prevN :: S i -> i
+      prevN _ = undefined
+
 
 -- | Type family for n-ary functions
 type family   Fn n a b
@@ -86,9 +103,13 @@ class Arity (Dim v) => Vector v a where
   -- | Deconstruction of vectors
   inspect   :: v a -> Fun (Dim v) a b -> b
 
+length :: Nat (Dim v) => v a -> Int
+{-# INLINE length #-}
+length = toInt . dim
+  where
+    dim :: v a -> Dim v
+    dim _ = undefined
 
--- | Newtype wrapper for vector length
--- newtype VecLen n = VecLen Int
 
 
 ----------------------------------------------------------------
