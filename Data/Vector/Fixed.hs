@@ -14,7 +14,7 @@ module Data.Vector.Fixed (
   , Nat(..)
     -- * N-ary functions
   , Fn
-  , Fun
+  , Fun(..)
   , Arity(..)
     -- * Vector type class
   , Dim
