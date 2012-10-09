@@ -25,10 +25,7 @@ module Data.Vector.Fixed (
 import Data.Complex
 import Prelude hiding (replicate,map,zipWith,foldl)
 
-type instance Dim Complex = S (S Z)
-instance RealFloat a => Vector Complex a where
-  construct = Fun (:+)
-  inspect (x :+ y) (Fun f) = f x y
+
 
 ----------------------------------------------------------------
 -- N-ary functions
@@ -164,7 +161,7 @@ data T_zip a c r n = T_zip (Vec n a) (Fn n c r)
 
 zipWithF :: forall n a b c d. Arity n
          => (a -> b -> c) -> Fun n c d -> Fun n a (Fun n b d)
-zipWithF f (Fun g0) = 
+zipWithF f (Fun g0) =
   fmap (\v -> Fun $ accum
               (\(T_zip (Vec (a:as)) g) b -> T_zip (Vec as) (g (f a b)))
               (\(T_zip _ x) -> x)
@@ -209,3 +206,14 @@ toListF = Fun $ accum
 -- toList v = inspect v $ toListF
 
 newtype Flip f a n = Flip (f n a)
+
+
+----------------------------------------------------------------
+-- Instances
+----------------------------------------------------------------
+
+type instance Dim Complex = S (S Z)
+
+instance RealFloat a => Vector Complex a where
+  construct = Fun (:+)
+  inspect (x :+ y) (Fun f) = f x y
