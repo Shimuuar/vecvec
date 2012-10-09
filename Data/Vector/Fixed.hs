@@ -65,27 +65,37 @@ newtype Fun n a b = Fun (Fn n a b)
 -- | Type class for handling N-ary functions
 class Arity n where
   -- | Accumulation. Basically a fold
-  accum :: (forall m. tag (S m) -> a -> tag m) -- ^ Reduction function
+  accum :: (forall k. tag (S k) -> a -> tag k) -- ^ Reduction function
         -> (tag Z -> b)                        -- ^ Final case
         -> tag n                               -- ^ Initial tag
         -> Fn n a b                            -- ^ Reduction function
+  -- | Monadic accumulation
+  accumM :: Monad m
+         => (forall k. tag (S k) -> a -> m (tag k))
+         -> (tag Z -> m b)
+         -> m (tag n)
+         -> Fn n a (m b)
   -- | Unfold
-  apply :: (forall m. tag (S m) -> (a, tag m)) -- ^ Unfolding function
+  apply :: (forall k. tag (S k) -> (a, tag k)) -- ^ Unfolding function
         -> tag n                               -- ^ Initial tag
         -> Fn n a b                            -- ^ Function which produces unfolded result
         -> b
 
 instance Arity Z where
-  accum _ g t = g t
-  apply _ _ h = h
-  {-# INLINE accum #-}
-  {-# INLINE apply #-}
+  accum  _ g t = g t
+  accumM _ g t = g =<< t
+  apply  _ _ h = h
+  {-# INLINE accum  #-}
+  {-# INLINE accumM #-}
+  {-# INLINE apply  #-}
 
 instance Arity n => Arity (S n) where
-  accum f g t = \a -> accum f g (f t a)
-  apply f t h = case f t of (a,u) -> apply f u (h a)
-  {-# INLINE accum #-}
-  {-# INLINE apply #-}
+  accum  f g t = \a -> accum f g (f t a)
+  accumM f g t = \a -> accumM f g $ flip f a =<< t
+  apply  f t h = case f t of (a,u) -> apply f u (h a)
+  {-# INLINE accum  #-}
+  {-# INLINE accumM #-}
+  {-# INLINE apply  #-}
 
 
 
