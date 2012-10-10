@@ -28,7 +28,7 @@ data Vec n a = Vec {-# UNPACK #-} !Int       -- Offset from start
 
 type instance Dim (Vec n) = n
 
-instance (Arity n, Prim a, Nat n) => Vector (Vec n) a where
+instance (Arity n, Prim a) => Vector (Vec n) a where
   construct = fmap makeVec construct
   inspect   = inspectVec
 
@@ -42,7 +42,7 @@ inspectVec v (Fun f)
 -- It's downright impossible to write construct for Vec using
 -- accum. runST require existential quantification and mess everything
 -- up!
-makeVec :: forall n a. (Arity n, Prim a, Nat n) => VecList n a -> Vec n a
+makeVec :: forall n a. (Arity n, Prim a) => VecList n a -> Vec n a
 makeVec v@(VecList xs) = runST $ do
   arr <- newByteArray $! n * sizeOf (undefined :: a)
   forM_ (zip [0..] xs) $ \(i,x) -> do

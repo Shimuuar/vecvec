@@ -11,7 +11,6 @@ module Data.Vector.Fixed (
     -- * Type-level naturals
     Z
   , S
-  , Nat(..)
     -- * N-ary functions
   , Fn
   , Fun(..)
@@ -43,17 +42,6 @@ data Z
 -- | Successor of n
 data S n
 
--- | Type class for natural numbers
-class Nat n where
-  toInt :: n -> Int
-
-instance          Nat  Z    where toInt _ = 0
-instance Nat n => Nat (S n) where
-  toInt n = 1 + toInt (prevN n)
-    where
-      prevN :: S i -> i
-      prevN _ = undefined
-
 
 -- | Type family for n-ary functions
 type family   Fn n a b
@@ -82,19 +70,27 @@ class Arity n where
         -> tag n                               -- ^ Initial tag
         -> Fn n a b                            -- ^ Function which produces unfolded result
         -> b
+  -- | Arity
+  arity :: n -> Int
 
 instance Arity Z where
   accum  _ g t = g t
   accumM _ g t = g =<< t
   apply  _ _ h = h
+  arity  _ = 0
   {-# INLINE accum  #-}
   {-# INLINE accumM #-}
   {-# INLINE apply  #-}
+  {-# INLINE arity  #-}
 
 instance Arity n => Arity (S n) where
   accum  f g t = \a -> accum f g (f t a)
   accumM f g t = \a -> accumM f g $ flip f a =<< t
   apply  f t h = case f t of (a,u) -> apply f u (h a)
+  arity  n = 1 + arity (prevN n)
+    where
+      prevN :: S n -> n
+      prevN _ = undefined
   {-# INLINE accum  #-}
   {-# INLINE accumM #-}
   {-# INLINE apply  #-}
@@ -115,9 +111,9 @@ class Arity (Dim v) => Vector v a where
   -- | Deconstruction of vectors
   inspect   :: v a -> Fun (Dim v) a b -> b
 
-length :: Nat (Dim v) => v a -> Int
+length :: Arity (Dim v) => v a -> Int
 {-# INLINE length #-}
-length = toInt . dim
+length = arity . dim
   where
     dim :: v a -> Dim v
     dim _ = undefined
