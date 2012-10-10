@@ -35,12 +35,14 @@ instance (Arity n, Prim a) => Vector (Vec n) a where
   {-# INLINE construct #-}
   {-# INLINE inspect   #-}
 
--- Deconstruct vector
+
+newtype T_idx n = T_idx Int
+
 inspectVec :: forall n a b. (Arity n, Prim a) => Vec n a -> Fun n a b -> b
 {-# INLINE inspectVec #-}
 inspectVec v (Fun f)
   = apply (\(T_idx i) -> (index i v, T_idx (i+1)))
-          (T_idx 0 `asVec` v)
+          (T_idx 0 :: T_idx n)
           f
 
 -- It's downright impossible to write construct for Vec using
@@ -62,12 +64,6 @@ makeVec v@(VecList xs) = runST $ do
 ----------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------
-
--- Index accumulator
-newtype T_idx n = T_idx Int
-
-asVec :: T_idx n -> Vec n a -> T_idx n
-asVec x _ = x
 
 -- Low level indexing operation
 index :: Prim a => Int -> Vec n a -> a
