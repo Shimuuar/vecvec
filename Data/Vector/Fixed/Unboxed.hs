@@ -32,9 +32,12 @@ type instance Dim (Vec n) = n
 instance (Arity n, Prim a) => Vector (Vec n) a where
   construct = fmap makeVec construct
   inspect   = inspectVec
+  {-# INLINE construct #-}
+  {-# INLINE inspect   #-}
 
 -- Deconstruct vector
 inspectVec :: forall n a b. (Arity n, Prim a) => Vec n a -> Fun n a b -> b
+{-# INLINE inspectVec #-}
 inspectVec v (Fun f)
   = apply (\(T_idx i) -> (index i v, T_idx (i+1)))
           (T_idx 0 `asVec` v)
@@ -44,6 +47,7 @@ inspectVec v (Fun f)
 -- accum. runST require existential quantification and mess everything
 -- up!
 makeVec :: forall n a. (Arity n, Prim a) => VecList n a -> Vec n a
+{-# INLINE makeVec #-}
 makeVec v@(VecList xs) = runST $ do
   arr <- newByteArray $! n * sizeOf (undefined :: a)
   forM_ (zip [0..] xs) $ \(i,x) -> do
@@ -64,7 +68,6 @@ newtype T_idx n = T_idx Int
 
 asVec :: T_idx n -> Vec n a -> T_idx n
 asVec x _ = x
-
 
 -- Low level indexing operation
 index :: Prim a => Int -> Vec n a -> a
