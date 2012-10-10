@@ -24,13 +24,13 @@ module Data.Vector.Fixed (
   , map
   , foldl
   , zipWith
+  , toList
     -- * Special types
   , VecList(..)
   ) where
 
 import Data.Complex
 import Prelude hiding (replicate,map,zipWith,foldl,length)
-import Control.Monad.ST
 
 
 ----------------------------------------------------------------
@@ -50,6 +50,16 @@ type instance Fn (S n) a b = a -> Fn n a b
 
 -- | Newtype which is used to make Fn injective
 newtype Fun n a b = Fun (Fn n a b)
+
+newtype T_fmap a b n = T_fmap (Fn n a b)
+
+instance Arity n => Functor (Fun n a) where
+  fmap (f :: b -> c) (Fun g0 :: Fun n a b)
+     = Fun $ accum
+             (\(T_fmap g) a -> T_fmap (g a))
+             (\(T_fmap x) -> f x)
+             (T_fmap g0 :: T_fmap a b n)
+  {-# INLINE fmap #-}
 
 
 -- | Type class for handling N-ary functions
@@ -150,8 +160,8 @@ foldl f z v = inspect v
 newtype T_foldl b n = T_foldl b
 
 foldlF :: forall n a b. Arity n => (b -> a -> b) -> b -> Fun n a b
-foldlF f b = Fun $ accum (\(T_foldl b) a -> T_foldl (f b a))
-                         (\(T_foldl b) -> b)
+foldlF f b = Fun $ accum (\(T_foldl r) a -> T_foldl (f r a))
+                         (\(T_foldl r) -> r)
                          (T_foldl b :: T_foldl b n)
 
 
@@ -167,8 +177,8 @@ map f v = inspect v
 newtype T_map b c n = T_map (Fn n b c)
 
 mapF :: forall n a b c. Arity n => (a -> b) -> Fun n b c -> Fun n a c
-mapF f (Fun h) = Fun $ accum (\(T_map h) a -> T_map (h (f a)))
-                             (\(T_map h)   -> h)
+mapF f (Fun h) = Fun $ accum (\(T_map g) a -> T_map (g (f a)))
+                             (\(T_map g)   -> g)
                              (T_map h :: T_map b c n)
 
 
@@ -197,44 +207,41 @@ zipWithF f (Fun g0) =
               (T_zip v g0 :: T_zip a c d n)
        ) construct
 
-newtype Fmap a b n = Fmap (Fn n a b)
-instance Arity n => Functor (Fun n a) where
-  fmap (f :: b -> c) (Fun g0 :: Fun n a b) = Fun $ accum
-        (\(Fmap g) a -> Fmap (g a))
-        (\(Fmap x) -> f x)
-         (Fmap g0 :: Fmap a b n)
+
+----------------------------------------------------------------
+
+-- | Convert vector to the list
+toList :: (Vector v a) => v a -> [a]
+toList v = inspect v $ toListF
+
+newtype T_reverse a n = T_reverse [a]
+
+toListF :: forall n a. Arity n => Fun n a [a]
+toListF = Fun $ accum
+          (\(T_reverse xs) x -> T_reverse (x:xs))
+          (\(T_reverse xs) -> reverse xs)
+          (T_reverse [] :: T_reverse a n)
 
 
+
+----------------------------------------------------------------
+-- Data types
+----------------------------------------------------------------
+
+-- | Vector based on the lists. Not very useful by itself but is
+--   necessary for implementation.
 newtype VecList n a = VecList [a]
 
 type instance Dim (VecList n) = n
 
+newtype Flip f a n = Flip (f n a)
+
 instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
-              (\(Reverse xs) x -> Reverse (x:xs))
-              (\(Reverse xs) -> VecList (reverse xs) :: VecList n a)
-              (Reverse [] :: Reverse a n)
+              (\(T_reverse xs) x -> T_reverse (x:xs))
+              (\(T_reverse xs) -> VecList (reverse xs) :: VecList n a)
+              (T_reverse [] :: T_reverse a n)
   inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
-
-
-newtype Reverse a n = Reverse [a]
-
-reverseF :: forall n a b c. Arity n => Fun n a [a]
-reverseF = Fun $ accum
-           (\(Reverse xs) x -> Reverse (x:xs))
-           (\(Reverse xs) -> xs)
-           (Reverse [] :: Reverse a n)
-
-toListF :: forall n a b c. Arity n => Fun n a [a]
-toListF = Fun $ accum
-          (\(Reverse xs) x -> Reverse (x:xs))
-          (\(Reverse xs) -> reverse xs)
-          (Reverse [] :: Reverse a n)
-
--- toList :: (Vector v a) => v a -> [a]
--- toList v = inspect v $ toListF
-
-newtype Flip f a n = Flip (f n a)
 
 
 ----------------------------------------------------------------

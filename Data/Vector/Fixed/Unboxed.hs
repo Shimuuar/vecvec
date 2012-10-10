@@ -23,6 +23,7 @@ import Data.Vector.Fixed
 -- Data type
 ----------------------------------------------------------------
 
+-- | Unboxed vector with fixed length
 data Vec n a = Vec {-# UNPACK #-} !Int       -- Offset from start
                    {-# UNPACK #-} !ByteArray -- Data array
 
