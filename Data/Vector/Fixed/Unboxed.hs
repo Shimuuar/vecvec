@@ -13,7 +13,10 @@ import Control.Monad
 import Control.Monad.ST
 import Data.Primitive.ByteArray
 import Data.Primitive
-import Prelude hiding (length)
+import Prelude hiding (length,replicate,zipWith,map,foldl)
+
+import Data.Classes.AdditiveGroup
+import Data.Classes.VectorSpace
 
 import Data.Vector.Fixed
 
@@ -58,6 +61,33 @@ makeVec v@(VecList xs) = runST $ do
   return $ Vec 0 vec
   where
     n = length v
+
+
+----------------------------------------------------------------
+-- Instances
+----------------------------------------------------------------
+
+instance (Arity n, Prim a, Show a) => Show (Vec n a) where
+  show = show . toList
+
+type instance Scalar (Vec n a) = a
+
+instance (Arity n, Prim a, Num a) => AdditiveMonoid (Vec n a) where
+  zeroV = replicate 0
+  (^+^) = zipWith (+)
+
+instance (Arity n, Prim a, Num a) => AdditiveGroup (Vec n a) where
+  negateV = map negate
+  (^-^)   = zipWith (-)
+
+instance (Arity n, Prim a, Num a) => LeftModule  (Vec n a) where
+  a *^ v = map (a *) v
+
+instance (Arity n, Prim a, Num a) => RightModule (Vec n a) where
+  v ^* a = map (a *) v
+
+instance (Arity n, Prim a, Num a) => InnerSpace (Vec n a) where
+  v <.> u = foldl (+) 0 $ zipWith (*) u v
 
 
 
