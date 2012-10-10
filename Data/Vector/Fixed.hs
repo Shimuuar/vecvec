@@ -242,6 +242,8 @@ instance Arity n => Vector (VecList n) a where
               (\(T_reverse xs) -> VecList (reverse xs) :: VecList n a)
               (T_reverse [] :: T_reverse a n)
   inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
+  {-# INLINE construct #-}
+  {-# INLINE inspect   #-}
 
 
 ----------------------------------------------------------------
