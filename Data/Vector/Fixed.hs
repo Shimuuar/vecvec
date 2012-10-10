@@ -194,7 +194,7 @@ zipWith f v u = inspect u
               $ zipWithF f
               $ construct
 
--- E. Kmett's version of zipWith. It must be checked for performance0
+-- E. Kmett's version of zipWith. It must be checked for performance
 
 data T_zip a c r n = T_zip (VecList n a) (Fn n c r)
 
@@ -244,6 +244,13 @@ instance Arity n => Vector (VecList n) a where
   inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
   {-# INLINE construct #-}
   {-# INLINE inspect   #-}
+  
+-- FIXME:
+-- reverse precludes inlining! It's recursive and this is a problem!
+-- That's simply terrible and stops GHC simplifier
+--
+-- It's needed because of left fold. Elements in the list are
+-- accumulated in reverse order and should be reversed. Very bad.
 
 
 ----------------------------------------------------------------

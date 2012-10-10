@@ -75,20 +75,26 @@ type instance Scalar (Vec n a) = a
 instance (Arity n, Prim a, Num a) => AdditiveMonoid (Vec n a) where
   zeroV = replicate 0
   (^+^) = zipWith (+)
+  {-# INLINE zeroV #-}
+  {-# INLINE (^+^) #-}
 
 instance (Arity n, Prim a, Num a) => AdditiveGroup (Vec n a) where
   negateV = map negate
   (^-^)   = zipWith (-)
+  {-# INLINE negateV #-}
+  {-# INLINE (^-^)   #-}
 
 instance (Arity n, Prim a, Num a) => LeftModule  (Vec n a) where
   a *^ v = map (a *) v
+  {-# INLINE (*^) #-}
 
 instance (Arity n, Prim a, Num a) => RightModule (Vec n a) where
   v ^* a = map (a *) v
+  {-# INLINE (^*) #-}
 
 instance (Arity n, Prim a, Num a) => InnerSpace (Vec n a) where
   v <.> u = foldl (+) 0 $ zipWith (*) u v
-
+  {-# INLINE (<.>) #-}
 
 
 ----------------------------------------------------------------
