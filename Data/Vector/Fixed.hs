@@ -25,11 +25,13 @@ module Data.Vector.Fixed (
   , map
   , foldl
   , zipWith
+    -- * Special types
+  , VecList(..)
   ) where
 
 import Data.Complex
 import Prelude hiding (replicate,map,zipWith,foldl,length)
-
+import Control.Monad.ST
 
 
 ----------------------------------------------------------------
@@ -188,13 +190,13 @@ zipWith f v u = inspect u
 
 -- E. Kmett's version of zipWith. It must be checked for performance0
 
-data T_zip a c r n = T_zip (Vec n a) (Fn n c r)
+data T_zip a c r n = T_zip (VecList n a) (Fn n c r)
 
 zipWithF :: forall n a b c d. Arity n
          => (a -> b -> c) -> Fun n c d -> Fun n a (Fun n b d)
 zipWithF f (Fun g0) =
   fmap (\v -> Fun $ accum
-              (\(T_zip (Vec (a:as)) g) b -> T_zip (Vec as) (g (f a b)))
+              (\(T_zip (VecList (a:as)) g) b -> T_zip (VecList as) (g (f a b)))
               (\(T_zip _ x) -> x)
               (T_zip v g0 :: T_zip a c d n)
        ) construct
@@ -207,16 +209,16 @@ instance Arity n => Functor (Fun n a) where
          (Fmap g0 :: Fmap a b n)
 
 
-newtype Vec n a = Vec [a]
+newtype VecList n a = VecList [a]
 
-type instance Dim (Vec n) = n
+type instance Dim (VecList n) = n
 
-instance Arity n => Vector (Vec n) a where
+instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
               (\(Reverse xs) x -> Reverse (x:xs))
-              (\(Reverse xs) -> Vec (reverse xs) :: Vec n a)
+              (\(Reverse xs) -> VecList (reverse xs) :: VecList n a)
               (Reverse [] :: Reverse a n)
-  inspect v (Fun f) = apply (\(Flip (Vec (x:xs))) -> (x, Flip (Vec xs))) (Flip v) f
+  inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
 
 
 newtype Reverse a n = Reverse [a]
