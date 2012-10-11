@@ -33,7 +33,7 @@ data Vec n a = Vec {-# UNPACK #-} !Int       -- Offset from start
 type instance Dim (Vec n) = n
 
 instance (Arity n, Prim a) => Vector (Vec n) a where
-  construct = fmap makeVec construct
+  construct = constructVec
   inspect   = inspectVec
   {-# INLINE construct #-}
   {-# INLINE inspect   #-}
@@ -48,19 +48,29 @@ inspectVec v (Fun f)
           (T_idx 0 :: T_idx n)
           f
 
--- It's downright impossible to write construct for Vec using
--- accum. runST require existential quantification and mess everything
--- up!
-makeVec :: forall n a. (Arity n, Prim a) => VecList n a -> Vec n a
-{-# INLINE makeVec #-}
-makeVec v@(VecList xs) = runST $ do
-  arr <- newByteArray $! n * sizeOf (undefined :: a)
-  forM_ (zip [0..] xs) $ \(i,x) -> do
-    writeByteArray arr i x
-  vec <- unsafeFreezeByteArray arr
-  return $ Vec 0 vec
-  where
-    n = length v
+constructVec :: forall n a. (Arity n, Prim a) => Fun n a (Vec n a)
+{-# INLINE constructVec #-}
+constructVec = Fun $
+  accum  step
+        (fini :: T_new a Z -> Vec n a)
+        (new  :: T_new a n)
+
+data T_new a n = T_new Int (forall s. ST s (MutableByteArray s))
+
+fini :: (Arity n, Prim a) => T_new a Z -> Vec n a
+fini (T_new _ st) = runST $ do
+  vec <- unsafeFreezeByteArray =<< st
+  return $! Vec 0 vec
+
+step :: (Prim a) => T_new a (S n) -> a -> T_new a n
+step (T_new i st) x = T_new (i+1) $ do
+  arr <- st
+  writeByteArray arr i x
+  return arr
+
+new :: forall n a. (Arity n, Prim a) => T_new a n
+new = T_new 0 $ newByteArray $! arity (undefined :: n) * sizeOf (undefined :: a)
+
 
 
 ----------------------------------------------------------------
