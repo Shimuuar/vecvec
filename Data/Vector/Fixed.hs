@@ -237,21 +237,17 @@ type instance Dim (VecList n) = n
 
 newtype Flip f a n = Flip (f n a)
 
+newtype T_list a n = T_list ([a] -> [a])
+
 instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
-              (\(T_reverse xs) x -> T_reverse (x:xs))
-              (\(T_reverse xs) -> VecList (reverse xs) :: VecList n a)
-              (T_reverse [] :: T_reverse a n)
+              (\(T_list xs) x -> T_list ((x:) . xs))
+              (\(T_list xs) -> VecList (xs []) :: VecList n a)
+              (T_list id :: T_list a n)
   inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
   {-# INLINE construct #-}
   {-# INLINE inspect   #-}
-  
--- FIXME:
--- reverse precludes inlining! It's recursive and this is a problem!
--- That's simply terrible and stops GHC simplifier
---
--- It's needed because of left fold. Elements in the list are
--- accumulated in reverse order and should be reversed. Very bad.
+
 
 
 ----------------------------------------------------------------
