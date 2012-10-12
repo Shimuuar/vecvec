@@ -194,8 +194,6 @@ zipWith f v u = inspect u
               $ zipWithF f
               $ construct
 
--- E. Kmett's version of zipWith. It must be checked for performance
-
 data T_zip a c r n = T_zip (VecList n a) (Fn n c r)
 
 zipWithF :: forall n a b c d. Arity n
@@ -232,6 +230,8 @@ newtype Flip f a n = Flip (f n a)
 
 newtype T_list a n = T_list ([a] -> [a])
 
+-- It's vital to avoid 'reverse' and build list using [a]->[a]
+-- functions. Reverse is recursive and interferes with inlining.
 instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
     (\(T_list xs) x -> T_list ((x:) . xs))
