@@ -7,6 +7,8 @@
 -- |
 -- Generic vectors with fixed length. In style of Roman of Leshchinskiy
 -- <http://unlines.wordpress.com/2010/11/15/generics-for-small-fixed-size-vectors/>
+--
+-- Note that vector operations do not fuse. Probably it could be fixed.
 module Data.Vector.Fixed (
     -- * Type-level naturals
     Z
