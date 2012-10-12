@@ -241,10 +241,13 @@ newtype T_list a n = T_list ([a] -> [a])
 
 instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
-              (\(T_list xs) x -> T_list ((x:) . xs))
-              (\(T_list xs) -> VecList (xs []) :: VecList n a)
-              (T_list id :: T_list a n)
-  inspect v (Fun f) = apply (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs))) (Flip v) f
+    (\(T_list xs) x -> T_list ((x:) . xs))
+    (\(T_list xs) -> VecList (xs []) :: VecList n a)
+    (T_list id :: T_list a n)
+  inspect v (Fun f) = apply
+    (\(Flip (VecList (x:xs))) -> (x, Flip (VecList xs)))
+    (Flip v)
+    f
   {-# INLINE construct #-}
   {-# INLINE inspect   #-}
 
