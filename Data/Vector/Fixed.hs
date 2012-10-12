@@ -212,15 +212,8 @@ zipWithF f (Fun g0) =
 
 -- | Convert vector to the list
 toList :: (Vector v a) => v a -> [a]
-toList v = inspect v $ toListF
-
-newtype T_reverse a n = T_reverse [a]
-
-toListF :: forall n a. Arity n => Fun n a [a]
-toListF = Fun $ accum
-          (\(T_reverse xs) x -> T_reverse (x:xs))
-          (\(T_reverse xs) -> reverse xs)
-          (T_reverse [] :: T_reverse a n)
+toList v
+  = case inspect v construct of VecList xs -> xs
 
 
 
