@@ -231,6 +231,7 @@ toListF = Fun $ accum
 -- | Vector based on the lists. Not very useful by itself but is
 --   necessary for implementation.
 newtype VecList n a = VecList [a]
+                      deriving (Show,Eq)
 
 type instance Dim (VecList n) = n
 
