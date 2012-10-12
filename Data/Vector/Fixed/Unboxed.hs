@@ -30,6 +30,11 @@ import Data.Vector.Fixed
 data Vec n a = Vec {-# UNPACK #-} !Int       -- Offset from start
                    {-# UNPACK #-} !ByteArray -- Data array
 
+
+----------------------------------------------------------------
+-- Vector instance
+----------------------------------------------------------------
+
 type instance Dim (Vec n) = n
 
 instance (Arity n, Prim a) => Vector (Vec n) a where
@@ -105,6 +110,7 @@ instance (Arity n, Prim a, Num a) => RightModule (Vec n a) where
 instance (Arity n, Prim a, Num a) => InnerSpace (Vec n a) where
   v <.> u = foldl (+) 0 $ zipWith (*) u v
   {-# INLINE (<.>) #-}
+
 
 
 ----------------------------------------------------------------
