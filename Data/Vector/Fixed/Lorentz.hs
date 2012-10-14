@@ -1,11 +1,17 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 -- |
 -- Unboxed Lorentz vectors
 module Data.Vector.Fixed.Lorentz (
+    -- * Data type
     LorentzN
   , Lorentz
+    -- * Boosts
+  , Gamma(..)
+  , Rapidity(..)
+  , Speed(..)
   ) where
 
 import Control.Monad
@@ -37,6 +43,24 @@ instance (Arity n, Prim a) => Vector (LorentzN n) a where
 
 instance (Arity n, Prim a, Show a) => Show (LorentzN n a) where
   show = show . toList
+
+
+----------------------------------------------------------------
+-- Boosts
+----------------------------------------------------------------
+
+-- | Gamma factor
+newtype Gamma = Gamma { getGamma :: Double }
+                deriving (Show,Eq,Ord,Num)
+
+-- | Rapidity
+newtype Rapidity = Rapidity { getRapidity :: Double }
+                 deriving (Show,Eq,Ord,Num)
+
+-- | Speed in fractions of c
+newtype Speed = Speed { getSpeed :: Double }
+                 deriving (Show,Eq,Ord,Num)
+
 
 
 ----------------------------------------------------------------
