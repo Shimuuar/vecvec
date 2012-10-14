@@ -22,11 +22,19 @@ module Data.Vector.Fixed (
   , Vector(..)
   , length
     -- * Generic functions
+    -- ** Construction
   , replicate
   , basis
+    -- *** Literals
+  , New
+  , vec
+  , con
+  , (|>)
+    -- ** Transformation
   , map
   , foldl
   , zipWith
+    -- ** Conversion
   , toList
     -- * Special types
   , VecList(..)
@@ -165,6 +173,31 @@ basisF n0 (Fun f)
   = apply (\(T_basis n) -> ((if n == 0 then 1 else 0) :: a, T_basis (n - 1)))
           (T_basis n0 :: T_basis n)
           f
+
+----------------------------------------------------------------
+
+-- | Newtype wrapper
+newtype New n v a = New (Fn n a (v a))
+
+-- | Convert to vector
+vec :: New Z v a -> v a
+{-# INLINE vec #-}
+vec (New v) = v
+
+-- | Seed constructor
+con :: Vector v a => New (Dim v) v a
+{-# INLINE con #-}
+con = f2n construct
+
+(|>) :: New (S n) v a -> a -> New n v a
+{-# INLINE  (|>) #-}
+New f |> a = New (f a)
+infixl 1 |>
+
+f2n :: Fun n a (v a) -> New n v a
+{-# INLINE f2n #-}
+f2n (Fun f) = New f
+
 
 ----------------------------------------------------------------
 
