@@ -35,7 +35,8 @@ instance (Arity n, Prim a) => Vector (LorentzN n) a where
   construct             = fmap Lorentz construct
   inspect (Lorentz v) f = inspect v f
 
-
+instance (Arity n, Prim a, Show a) => Show (LorentzN n a) where
+  show = show . toList
 
 
 ----------------------------------------------------------------
