@@ -23,6 +23,7 @@ module Data.Vector.Fixed (
   , length
     -- * Generic functions
   , replicate
+  , basis
   , map
   , foldl
   , zipWith
@@ -150,6 +151,20 @@ replicateF x (Fun h)
           (T_replicate :: T_replicate n)
           h
 
+----------------------------------------------------------------
+
+-- | Unit vector along Nth axis,
+basis :: forall v a. (Vector v a, Num a) => Int -> v a
+{-# INLINE basis #-}
+basis n = basisF n $ construct
+
+newtype T_basis n = T_basis Int
+
+basisF :: forall n a b. (Num a, Arity n) => Int -> Fun n a b -> b
+basisF n0 (Fun f)
+  = apply (\(T_basis n) -> ((if n == 0 then 1 else 0) :: a, T_basis (n - 1)))
+          (T_basis n0 :: T_basis n)
+          f
 
 ----------------------------------------------------------------
 
