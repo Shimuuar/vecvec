@@ -67,5 +67,8 @@ instance (Arity n, Prim a, Num a) => RightModule (LorentzN n a) where
 
 -- 
 instance (Arity n, Prim a, Num a) => InnerSpace (LorentzN n a) where
-  Lorentz v <.> Lorentz u = error "Uninplemented"
+  v <.> u = foldl (+) 0 $ izipWith minkovsky v u
+    where
+      minkovsky 0 x y =   x*y
+      minkovsky _ x y = -(x*y)
   {-# INLINE (<.>) #-}
