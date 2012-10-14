@@ -7,6 +7,8 @@
 -- Unboxed vectors with fixed length
 module Data.Vector.Fixed.Unboxed (
     Vec
+  , Vec2
+  , Vec3
   ) where
 
 import Control.Monad
@@ -29,6 +31,10 @@ import Data.Vector.Fixed
 -- | Unboxed vector with fixed length
 data Vec n a = Vec {-# UNPACK #-} !Int       -- Offset from start
                    {-# UNPACK #-} !ByteArray -- Data array
+
+type Vec2 = Vec (S (S Z))
+type Vec3 = Vec (S (S (S Z)))
+
 
 
 ----------------------------------------------------------------
