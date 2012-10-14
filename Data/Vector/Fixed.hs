@@ -236,7 +236,7 @@ newtype T_list a n = T_list ([a] -> [a])
 -- functions. Reverse is recursive and interferes with inlining.
 instance Arity n => Vector (VecList n) a where
   construct = Fun $ accum
-    (\(T_list xs) x -> T_list ((x:) . xs))
+    (\(T_list xs) x -> T_list (xs . (x:)))
     (\(T_list xs) -> VecList (xs []) :: VecList n a)
     (T_list id :: T_list a n)
   inspect v (Fun f) = apply
