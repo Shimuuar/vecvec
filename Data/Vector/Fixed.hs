@@ -34,6 +34,7 @@ module Data.Vector.Fixed (
   , map
   , foldl
   , zipWith
+  , izipWith
     -- ** Conversion
   , toList
     -- * Special types
@@ -253,6 +254,27 @@ zipWithF f (Fun g0) =
               (\(T_zip (VecList (a:as)) g) b -> T_zip (VecList as) (g (f a b)))
               (\(T_zip _ x) -> x)
               (T_zip v g0 :: T_zip a c d n)
+       ) construct
+
+
+-- | Zip two vector together.
+izipWith :: (Vector v a, Vector v b, Vector v c)
+         => (Int -> a -> b -> c) -> v a -> v b -> v c
+{-# INLINE izipWith #-}
+izipWith f v u = inspect u
+               $ inspect v
+               $ izipWithF f
+               $ construct
+
+data T_izip a c r n = T_izip Int (VecList n a) (Fn n c r)
+
+izipWithF :: forall n a b c d. Arity n
+          => (Int -> a -> b -> c) -> Fun n c d -> Fun n a (Fun n b d)
+izipWithF f (Fun g0) =
+  fmap (\v -> Fun $ accum
+              (\(T_izip i (VecList (a:as)) g) b -> T_izip (i+1) (VecList as) (g (f i a b)))
+              (\(T_izip _ _ x) -> x)
+              (T_izip 0 v g0 :: T_izip a c d n)
        ) construct
 
 
