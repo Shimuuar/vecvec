@@ -1,10 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 -- |
 -- Unboxed Lorentz vectors
-module Data.Vector.Fixed.Lorentz (
+module Data.Vector.Lorentz (
     -- * Data type
     LorentzN
   , Lorentz
@@ -15,13 +17,12 @@ module Data.Vector.Fixed.Lorentz (
   ) where
 
 import Control.Monad
-import Data.Primitive (Prim)
 import Prelude hiding (length,replicate,zipWith,map,foldl)
 
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
-import Data.Vector.Fixed
+import Data.Vector.Fixed         as F
 import Data.Vector.Fixed.Unboxed
 
 
@@ -33,16 +34,14 @@ import Data.Vector.Fixed.Unboxed
 newtype LorentzN n a = Lorentz (Vec (S n) a)
 
 -- | Normal 4-dimensional Lorentz vector
-type Lorentz = LorentzN (S (S (S Z)))
+type Lorentz = LorentzN N3
 
-type instance Dim (LorentzN n) = S n
+type instance Dim  (LorentzN n) = S n
 
-instance (Arity n, Prim a) => Vector (LorentzN n) a where
+instance (Arity n, Unbox (S n) a) => Vector (LorentzN n) a where
   construct             = fmap Lorentz construct
   inspect (Lorentz v) f = inspect v f
 
-instance (Arity n, Prim a, Show a) => Show (LorentzN n a) where
-  show = show . toList
 
 
 ----------------------------------------------------------------
@@ -69,28 +68,27 @@ newtype Speed = Speed { getSpeed :: Double }
 
 type instance Scalar (LorentzN n a) = a
 
-instance (Arity n, Prim a, Num a) => AdditiveMonoid (LorentzN n a) where
-  zeroV = Lorentz zeroV
-  Lorentz v ^+^ Lorentz u = Lorentz $ v ^+^ u
+instance (Arity n, Unbox (S n) a, Num a) => AdditiveMonoid (LorentzN n a) where
+  zeroV = replicate 0
+  (^+^) = zipWith (+)
   {-# INLINE zeroV #-}
   {-# INLINE (^+^) #-}
 
-instance (Arity n, Prim a, Num a) => AdditiveGroup (LorentzN n a) where
-  negateV (Lorentz v)     = Lorentz $ negateV v
-  Lorentz v ^-^ Lorentz u = Lorentz $ v ^-^ u
+instance (Arity n, Unbox (S n) a, Num a) => AdditiveGroup (LorentzN n a) where
+  negateV = map negate
+  (^-^)   = zipWith (-)
   {-# INLINE negateV #-}
   {-# INLINE (^-^)   #-}
 
-instance (Arity n, Prim a, Num a) => LeftModule  (LorentzN n a) where
-  a *^ Lorentz v = Lorentz $ a *^ v
+instance (Arity n, Unbox (S n) a, Num a) => LeftModule  (LorentzN n a) where
+  a *^ v = map (a *) v
   {-# INLINE (*^) #-}
 
-instance (Arity n, Prim a, Num a) => RightModule (LorentzN n a) where
-  Lorentz v ^* a = Lorentz $ v ^* a
+instance (Arity n, Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
+  v ^* a = map (* a) v
   {-# INLINE (^*) #-}
 
--- 
-instance (Arity n, Prim a, Num a) => InnerSpace (LorentzN n a) where
+instance (Arity n, Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
   v <.> u = foldl (+) 0 $ izipWith minkovsky v u
     where
       minkovsky 0 x y =   x*y
