@@ -17,7 +17,7 @@ module Data.Vector.Lorentz (
   ) where
 
 import Control.Monad
-import Prelude hiding (length,replicate,zipWith,map,foldl)
+import Prelude hiding (length,replicate,zipWith,map,foldl,sum)
 
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
@@ -89,7 +89,7 @@ instance (Arity n, Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
   {-# INLINE (^*) #-}
 
 instance (Arity n, Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
-  v <.> u = foldl (+) 0 $ izipWith minkovsky v u
+  v <.> u = sum $ izipWith minkovsky v u
     where
       minkovsky 0 x y =   x*y
       minkovsky _ x y = -(x*y)
