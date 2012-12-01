@@ -12,7 +12,9 @@ Build-Type:     Simple
 Library
   Build-Depends:
     base,
-    vectorspace-class >= 0.5
+    fixed-vector,
+    primitive,
+    vectorspace-class
   Exposed-modules:
-    Data.VectorSpace.Lorentz
-    Data.VectorSpace.Spatial
+    Data.Vector.Lorentz
+    Data.Vector.Spatial
