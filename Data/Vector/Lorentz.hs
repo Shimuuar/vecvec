@@ -38,7 +38,7 @@ type Lorentz = LorentzN N3
 
 type instance Dim  (LorentzN n) = S n
 
-instance (Arity n, Unbox (S n) a) => Vector (LorentzN n) a where
+instance (Unbox (S n) a) => Vector (LorentzN n) a where
   construct             = fmap Lorentz construct
   inspect (Lorentz v) f = inspect v f
 
@@ -68,27 +68,27 @@ newtype Speed = Speed { getSpeed :: Double }
 
 type instance Scalar (LorentzN n a) = a
 
-instance (Arity n, Unbox (S n) a, Num a) => AdditiveMonoid (LorentzN n a) where
+instance (Unbox (S n) a, Num a) => AdditiveMonoid (LorentzN n a) where
   zeroV = replicate 0
   (^+^) = zipWith (+)
   {-# INLINE zeroV #-}
   {-# INLINE (^+^) #-}
 
-instance (Arity n, Unbox (S n) a, Num a) => AdditiveGroup (LorentzN n a) where
+instance (Unbox (S n) a, Num a) => AdditiveGroup (LorentzN n a) where
   negateV = map negate
   (^-^)   = zipWith (-)
   {-# INLINE negateV #-}
   {-# INLINE (^-^)   #-}
 
-instance (Arity n, Unbox (S n) a, Num a) => LeftModule  (LorentzN n a) where
+instance (Unbox (S n) a, Num a) => LeftModule  (LorentzN n a) where
   a *^ v = map (a *) v
   {-# INLINE (*^) #-}
 
-instance (Arity n, Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
+instance (Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
   v ^* a = map (* a) v
   {-# INLINE (^*) #-}
 
-instance (Arity n, Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
+instance (Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
   v <.> u = sum $ izipWith minkovsky v u
     where
       minkovsky 0 x y =   x*y
