@@ -12,9 +12,13 @@ module Data.Vector.Lorentz (
   , Lorentz
   , spatialPart
     -- * Boosts
+    -- ** Variables
   , Speed(..)
   , Gamma(..)
   , Rapidity(..)
+  , Convert(..)
+    -- ** Transformations
+  , Boost1D(..)
   ) where
 
 import Control.Monad
