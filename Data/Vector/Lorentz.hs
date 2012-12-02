@@ -10,6 +10,7 @@ module Data.Vector.Lorentz (
     -- * Data type
     LorentzN
   , Lorentz
+  , spatialPart
     -- * Boosts
   , Gamma(..)
   , Rapidity(..)
@@ -41,6 +42,10 @@ type instance Dim  (LorentzN n) = S n
 instance (Unbox (S n) a) => Vector (LorentzN n) a where
   construct             = fmap Lorentz construct
   inspect (Lorentz v) f = inspect v f
+
+-- | Spatial part of the Lorentz vector.
+spatialPart :: (Unbox n a, Unbox (S n) a) => LorentzN n a -> Vec n a
+spatialPart (Lorentz v) = F.tail v
 
 
 
