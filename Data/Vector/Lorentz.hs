@@ -12,14 +12,15 @@ module Data.Vector.Lorentz (
   , Lorentz
   , spatialPart
     -- * Boosts
+  , Speed(..)
   , Gamma(..)
   , Rapidity(..)
-  , Speed(..)
   ) where
 
 import Control.Monad
 import Prelude hiding (length,replicate,zipWith,map,foldl,sum)
 
+import Data.Monoid    (Monoid(..))
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
@@ -53,17 +54,21 @@ spatialPart (Lorentz v) = F.tail v
 -- Boosts
 ----------------------------------------------------------------
 
+-- | Speed in fractions of c
+newtype Speed = Speed { getSpeed :: Double }
+                 deriving (Show,Eq,Ord)
+
 -- | Gamma factor
 newtype Gamma = Gamma { getGamma :: Double }
-                deriving (Show,Eq,Ord,Num)
+                deriving (Show,Eq,Ord)
 
 -- | Rapidity
 newtype Rapidity = Rapidity { getRapidity :: Double }
-                 deriving (Show,Eq,Ord,Num)
+                 deriving (Show,Eq,Ord)
 
--- | Speed in fractions of c
-newtype Speed = Speed { getSpeed :: Double }
-                 deriving (Show,Eq,Ord,Num)
+instance Monoid Rapidity where
+  mempty = Rapidity 0
+  mappend (Rapidity a) (Rapidity b) = Rapidity $ a + b
 
 
 
