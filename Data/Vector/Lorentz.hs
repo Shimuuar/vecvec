@@ -24,7 +24,7 @@ import Data.Monoid    (Monoid(..))
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
-import Data.Vector.Fixed         as F
+import Data.Vector.Fixed         as F hiding (convert)
 import Data.Vector.Fixed.Unboxed
 
 
@@ -69,6 +69,41 @@ newtype Rapidity = Rapidity { getRapidity :: Double }
 instance Monoid Rapidity where
   mempty = Rapidity 0
   mappend (Rapidity a) (Rapidity b) = Rapidity $ a + b
+
+
+-- | Class for total conversion functions
+class Convert a b where
+  convert :: a -> b
+
+instance Convert Speed Gamma where
+  convert (Speed v) = Gamma $ 1 / sqrt (1 - v*v)
+instance Convert Speed Rapidity where
+  convert (Speed v) = Rapidity $ atanh v
+instance Convert Gamma Speed where
+  convert (Gamma γ) = Speed $ sqrt $ (g2 -1) / g2 where g2 = γ*γ
+instance Convert Gamma Rapidity where
+  convert (Gamma γ) = Rapidity $ acosh γ
+instance Convert Rapidity Speed where
+  convert (Rapidity φ) = Speed $ tanh φ
+instance Convert Rapidity Gamma where
+  convert (Rapidity φ) = Gamma $ cosh φ
+
+-- | Boost for 1+1 space.
+class Boost1D a where
+  boost1D :: a                  -- ^ Boost parameter
+          -> (Double,Double)    -- ^ (time,coordinate)
+          -> (Double,Double)
+
+instance Boost1D Gamma where
+  boost1D (Gamma γ) (t,x)
+    = (γ*(t + v*x), γ*(v*t + x)) where Speed v = convert (Gamma γ)
+
+instance Boost1D Rapidity where
+  boost1D (Rapidity φ) (t,x)
+    = (c*t + s*x, s*t + c*x)
+    where
+      c = cosh φ
+      s = sinh φ
 
 
 
