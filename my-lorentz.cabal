@@ -1,0 +1,18 @@
+Name:		my-lorentz
+Version:	0.1
+Cabal-Version:  >= 1.2
+License:	BSD3
+License-File:	LICENSE
+Author:		Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Category:	Math
+Synopsis:	Lorenz vectors.
+Build-Type:     Simple
+
+Library
+  Build-Depends:
+    base,
+    fixed-vector >= 0.2,
+    primitive,
+    my-vectorspace
+  Exposed-modules:
+    Data.Vector.Lorentz

@@ -119,23 +119,23 @@ type instance Scalar (LorentzN n a) = a
 
 instance (Unbox (S n) a, Num a) => AdditiveMonoid (LorentzN n a) where
   zeroV = replicate 0
-  (^+^) = zipWith (+)
+  (.+.) = zipWith (+)
   {-# INLINE zeroV #-}
-  {-# INLINE (^+^) #-}
+  {-# INLINE (.+.) #-}
 
 instance (Unbox (S n) a, Num a) => AdditiveGroup (LorentzN n a) where
   negateV = map negate
-  (^-^)   = zipWith (-)
+  (.-.)   = zipWith (-)
   {-# INLINE negateV #-}
-  {-# INLINE (^-^)   #-}
+  {-# INLINE (.-.)   #-}
 
 instance (Unbox (S n) a, Num a) => LeftModule  (LorentzN n a) where
-  a *^ v = map (a *) v
-  {-# INLINE (*^) #-}
+  a *. v = map (a *) v
+  {-# INLINE (*.) #-}
 
 instance (Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
-  v ^* a = map (* a) v
-  {-# INLINE (^*) #-}
+  v .* a = map (* a) v
+  {-# INLINE (.*) #-}
 
 instance (Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
   v <.> u = sum $ izipWith minkovsky v u
