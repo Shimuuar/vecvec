@@ -1,12 +1,12 @@
-Name:		my-lorentz
-Version:	0.1
-Cabal-Version:  >= 1.2
-License:	BSD3
-License-File:	LICENSE
-Author:		Aleksey Khudyakov <alexey.skladnoy@gmail.com>
-Category:	Math
-Synopsis:	Lorenz vectors.
-Build-Type:     Simple
+Name:		     my-lorentz
+Version:	     0.1
+License-file:        LICENSE
+Author:              Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:          Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Category:            Math
+Build-type:          Simple
+Cabal-version:       >=1.6
+Synopsis:            Lorentz vectors
 
 Library
   Build-Depends:
