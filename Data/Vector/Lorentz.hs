@@ -9,7 +9,11 @@
 -- Unboxed Lorentz vectors
 module Data.Vector.Lorentz (
     -- * Data type
-    LorentzN
+    LorentzG
+  , LorentzU
+  , Lorentz2
+  , Lorentz3
+  , Lorentz4
   , Lorentz
   , spatialPart
     -- * Boosts
@@ -53,6 +57,12 @@ instance (VectorN v n a) => VectorN (LorentzG v) n a
 -- | Lorentz vector which uses unboxed vector as strorage
 type LorentzU = LorentzG Vec
 
+-- | 2-dimensional Lorentz vector.
+type Lorentz2 v = LorentzG v N2
+
+-- | 3-dimensional Lorentz vector.
+type Lorentz3 v = LorentzG v N3
+
 -- | 4-dimensional Lorentz vector.
 type Lorentz4 v = LorentzG v N4
 
@@ -73,18 +83,18 @@ spatialPart (Lorentz v) = F.tail v
 ----------------------------------------------------------------
 
 -- | Speed in fractions of c
-newtype Speed = Speed { getSpeed :: Double }
+newtype Speed a = Speed { getSpeed :: a }
                  deriving (Show,Eq,Ord)
 
 -- | Gamma factor
-newtype Gamma = Gamma { getGamma :: Double }
+newtype Gamma a = Gamma { getGamma :: a }
                 deriving (Show,Eq,Ord)
 
 -- | Rapidity
-newtype Rapidity = Rapidity { getRapidity :: Double }
+newtype Rapidity a = Rapidity { getRapidity :: a }
                  deriving (Show,Eq,Ord)
 
-instance Monoid Rapidity where
+instance Num a => Monoid (Rapidity a) where
   mempty = Rapidity 0
   mappend (Rapidity a) (Rapidity b) = Rapidity $ a + b
 
@@ -93,24 +103,24 @@ instance Monoid Rapidity where
 class Convert a b where
   convert :: a -> b
 
-instance Convert Speed Gamma where
+instance Floating a => Convert (Speed a) (Gamma a) where
   convert (Speed v)    = Gamma $ 1 / sqrt (1 - v*v)
-instance Convert Speed Rapidity where
+instance Floating a => Convert (Speed a) (Rapidity a) where
   convert (Speed v)    = Rapidity $ atanh v
-instance Convert Gamma Speed where
+instance Floating a => Convert (Gamma a) (Speed a) where
   convert (Gamma γ)    = Speed $ sqrt $ (g2 -1) / g2 where g2 = γ*γ
-instance Convert Gamma Rapidity where
+instance Floating a => Convert (Gamma a) (Rapidity a) where
   convert (Gamma γ)    = Rapidity $ acosh γ
-instance Convert Rapidity Speed where
+instance Floating a => Convert (Rapidity a) (Speed a) where
   convert (Rapidity φ) = Speed $ tanh φ
-instance Convert Rapidity Gamma where
+instance Floating a => Convert (Rapidity a) (Gamma a) where
   convert (Rapidity φ) = Gamma $ cosh φ
 
 -- | Boost for 1+1 space.
-class Boost1D a where
-  boost1D :: (Vector v Double, Dim v ~ N2)
-          =>  a                  -- ^ Boost parameter
-          -> v Double -> v Double
+class Boost1D b where
+  boost1D :: (VectorN v N2 a, Floating a)
+          => b a                  -- ^ Boost parameter
+          -> Lorentz2 v a -> Lorentz2 v a
 
 instance Boost1D Speed where
   boost1D (Speed v) (F.convert -> (t,x))
