@@ -29,7 +29,7 @@ import Data.Monoid    (Monoid(..))
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
-import           Data.Vector.Fixed (Vector,Dim,S,N2,N3)
+import           Data.Vector.Fixed (Vector,VectorN,Dim,S,N2,N3,N4)
 import qualified Data.Vector.Fixed as F
 import Data.Vector.Fixed.Unboxed   (Vec,Unbox)
 
@@ -38,21 +38,33 @@ import Data.Vector.Fixed.Unboxed   (Vec,Unbox)
 -- Data type
 ----------------------------------------------------------------
 
--- | Lorentz vector with /n/-dimensional spatial part.
-newtype LorentzN n a = Lorentz (Vec (S n) a)
+-- | Generic Lorentz vector which could be based on any array-based
+--   vector. Parameter /n/ is size of vector.
+newtype LorentzG v n a = Lorentz (v n a)
 
--- | Normal 4-dimensional Lorentz vector
-type Lorentz = LorentzN N3
+type instance Dim (LorentzG v n) = n
 
-type instance Dim (LorentzN n) = S n
-
-instance (Unbox (S n) a) => Vector (LorentzN n) a where
+instance (VectorN v n a) => Vector (LorentzG v n) a where
   construct             = fmap Lorentz F.construct
   inspect (Lorentz v) f = F.inspect v f
 
+instance (VectorN v n a) => VectorN (LorentzG v) n a
+
+-- | Lorentz vector which uses unboxed vector as strorage
+type LorentzU = LorentzG Vec
+
+-- | 4-dimensional Lorentz vector.
+type Lorentz4 v = LorentzG v N4
+
+-- | Unboxed 4-dimensional Lorentz vector
+type Lorentz = LorentzU N4
+
+
 -- | Spatial part of the Lorentz vector.
-spatialPart :: (Unbox n a, Unbox (S n) a) => LorentzN n a -> Vec n a
+spatialPart :: (VectorN v n a, VectorN v (S n) a)
+            => LorentzG v (S n) a -> v n a
 spatialPart (Lorentz v) = F.tail v
+{-# INLINE spatialPart #-}
 
 
 
@@ -128,29 +140,29 @@ instance Boost1D Rapidity where
 -- Instances
 ----------------------------------------------------------------
 
-type instance Scalar (LorentzN n a) = a
+type instance Scalar (LorentzG v n a) = a
 
-instance (Unbox (S n) a, Num a) => AdditiveMonoid (LorentzN n a) where
+instance (VectorN v n a, Num a) => AdditiveMonoid (LorentzG v n a) where
   zeroV = F.replicate 0
   (.+.) = F.zipWith (+)
   {-# INLINE zeroV #-}
   {-# INLINE (.+.) #-}
 
-instance (Unbox (S n) a, Num a) => AdditiveGroup (LorentzN n a) where
+instance (VectorN v n a, Num a) => AdditiveGroup (LorentzG v n a) where
   negateV = F.map negate
   (.-.)   = F.zipWith (-)
   {-# INLINE negateV #-}
   {-# INLINE (.-.)   #-}
 
-instance (Unbox (S n) a, Num a) => LeftModule  (LorentzN n a) where
+instance (VectorN v n a, Num a) => LeftModule  (LorentzG v n a) where
   a *. v = F.map (a *) v
   {-# INLINE (*.) #-}
 
-instance (Unbox (S n) a, Num a) => RightModule (LorentzN n a) where
+instance (VectorN v n a, Num a) => RightModule (LorentzG v n a) where
   v .* a = F.map (* a) v
   {-# INLINE (.*) #-}
 
-instance (Unbox (S n) a, Num a) => InnerSpace (LorentzN n a) where
+instance (VectorN v n a, Num a) => InnerSpace (LorentzG v n a) where
   v <.> u = F.sum $ F.izipWith minkovsky v u
     where
       minkovsky 0 x y =   x*y
