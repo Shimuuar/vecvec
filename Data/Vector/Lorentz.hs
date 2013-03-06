@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -35,7 +34,7 @@ import Data.Classes.VectorSpace
 
 import           Data.Vector.Fixed (Vector,VectorN,Dim,S,N2,N3,N4)
 import qualified Data.Vector.Fixed as F
-import Data.Vector.Fixed.Unboxed   (Vec,Unbox)
+import Data.Vector.Fixed.Unboxed   (Vec)
 
 
 ----------------------------------------------------------------
@@ -124,22 +123,22 @@ class Boost1D b where
 
 instance Boost1D Speed where
   boost1D (Speed v) (F.convert -> (t,x))
-    = F.mk2 (γ*(t + v*x))
-            (γ*(v*t + x))
+    = F.mk2 (γ*(   t - v*x))
+            (γ*(-v*t +   x))
     where
       Gamma γ = convert (Speed v)
 
 instance Boost1D Gamma where
   boost1D (Gamma γ) (F.convert -> (t,x))
-    = F.mk2 (γ*(t + v*x))
-            (γ*(v*t + x))
+    = F.mk2 (γ*(   t - v*x))
+            (γ*(-v*t +   x))
     where
       Speed v = convert (Gamma γ)
 
 instance Boost1D Rapidity where
   boost1D (Rapidity φ) (F.convert -> (t,x))
-    = F.mk2 (c*t + s*x)
-            (s*t + c*x)
+    = F.mk2 ( c*t - s*x)
+            (-s*t + c*x)
     where
       c = cosh φ
       s = sinh φ
