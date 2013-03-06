@@ -44,6 +44,7 @@ import Data.Vector.Fixed.Unboxed   (Vec)
 -- | Generic Lorentz vector which could be based on any array-based
 --   vector. Parameter /n/ is size of vector.
 newtype LorentzG v n a = Lorentz (v n a)
+                         deriving Show
 
 type instance Dim (LorentzG v n) = n
 
