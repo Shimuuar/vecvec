@@ -21,8 +21,12 @@ module Data.Vector.Lorentz (
   , Gamma(..)
   , Rapidity(..)
   , Convert(..)
-    -- ** Transformations
-  , Boost1D(..)
+    -- ** Boosts
+  , BoostParam(..)
+  , boostAxis
+  , boostX
+  , boostY
+  , boostZ
   ) where
 
 import Control.Monad
@@ -32,7 +36,7 @@ import Data.Monoid    (Monoid(..))
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
-import           Data.Vector.Fixed (Vector,VectorN,Dim,S,N2,N3,N4)
+import           Data.Vector.Fixed (Vector,VectorN,Dim,S,N2,N3,N4,(!))
 import qualified Data.Vector.Fixed as F
 import Data.Vector.Fixed.Unboxed   (Vec)
 
@@ -79,7 +83,7 @@ spatialPart (Lorentz v) = F.tail v
 
 
 ----------------------------------------------------------------
--- Boosts
+-- Boost variables
 ----------------------------------------------------------------
 
 -- | Speed in fractions of c
@@ -116,34 +120,86 @@ instance Floating a => Convert (Rapidity a) (Speed a) where
 instance Floating a => Convert (Rapidity a) (Gamma a) where
   convert (Rapidity φ) = Gamma $ cosh φ
 
--- | Boost for 1+1 space.
-class Boost1D b where
-  boost1D :: (VectorN v N2 a, Floating a)
-          => b a                  -- ^ Boost parameter
-          -> Lorentz2 v a -> Lorentz2 v a
 
-instance Boost1D Speed where
-  boost1D (Speed v) (F.convert -> (t,x))
-    = F.mk2 (γ*(   t - v*x))
-            (γ*(-v*t +   x))
+
+----------------------------------------------------------------
+-- Boost
+----------------------------------------------------------------
+
+-- | Boost for 1+1 space.
+class BoostParam b where
+  -- | Lorentz transformation for @(t,x)@ pair.
+  boost1D :: (Floating a)
+          => b a                  -- ^ Boost parameter
+          -> (a,a) -> (a,a)
+
+
+instance BoostParam Speed where
+  boost1D (Speed v) (t,x)
+    = ( γ*(   t - v*x)
+      , γ*(-v*t +   x))
     where
       Gamma γ = convert (Speed v)
+  {-# INLINE boost1D #-}
 
-instance Boost1D Gamma where
-  boost1D (Gamma γ) (F.convert -> (t,x))
-    = F.mk2 (γ*(   t - v*x))
-            (γ*(-v*t +   x))
+instance BoostParam Gamma where
+  boost1D (Gamma γ) (t,x)
+    = ( γ*(   t - v*x)
+      , γ*(-v*t +   x))
     where
       Speed v = convert (Gamma γ)
+  {-# INLINE boost1D #-}
 
-instance Boost1D Rapidity where
-  boost1D (Rapidity φ) (F.convert -> (t,x))
-    = F.mk2 ( c*t - s*x)
-            (-s*t + c*x)
+instance BoostParam Rapidity where
+  boost1D (Rapidity φ) (t,x)
+    = ( c*t - s*x
+      ,-s*t + c*x)
     where
       c = cosh φ
       s = sinh φ
+  {-# INLINE boost1D #-}
 
+-- | Boost along axis
+boostAxis :: (BoostParam b, VectorN v n a, Floating a)
+          => b a                -- ^ Boost parameter
+          -> Int                -- ^ Axis number. /X/-0, /Y/-1 ...
+          -> LorentzG v n a
+          -> LorentzG v n a
+{-# INLINE boostAxis #-}
+boostAxis b n v
+  = F.imap trans v
+  where
+    trans i a | i == 0    = t'
+              | i == n+1  = x'
+              | otherwise = a
+    -- 1D boost
+    (t',x') = boost1D b (t,x)
+    t       = v ! 0
+    x       = v ! (n+1)
+
+-- | Boost along X axis.
+boostX :: (BoostParam b, VectorN v (S (S n)) a, Floating a)
+       => b a                -- ^ Boost parameter
+       -> LorentzG v (S (S n)) a
+       -> LorentzG v (S (S n)) a
+{-# INLINE boostX #-}
+boostX b = boostAxis b 0
+
+-- | Boost along X axis.
+boostY :: (BoostParam b, VectorN v (S (S (S n))) a, Floating a)
+       => b a                -- ^ Boost parameter
+       -> LorentzG v (S (S (S n))) a
+       -> LorentzG v (S (S (S n))) a
+{-# INLINE boostY #-}
+boostY b = boostAxis b 1
+
+-- | Boost along X axis.
+boostZ :: (BoostParam b, VectorN v (S (S (S (S n)))) a, Floating a)
+       => b a                -- ^ Boost parameter
+       -> LorentzG v (S (S (S (S n)))) a
+       -> LorentzG v (S (S (S (S n)))) a
+{-# INLINE boostZ #-}
+boostZ b = boostAxis b 2
 
 
 ----------------------------------------------------------------
