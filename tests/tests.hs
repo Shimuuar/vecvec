@@ -38,7 +38,7 @@ instance (Num a, Random a) => Arbitrary (Gamma a) where
     return $ if sign then Gamma γ else Gamma (-γ)
 
 instance (Num a, Random a) => Arbitrary (Rapidity a) where
-  arbitrary = Rapidity <$> choose (-5000,5000)
+  arbitrary = Rapidity <$> choose (-10,10)
 
 instance (Num a, Ord a, Random a) => Arbitrary (Speed a) where
   arbitrary = Speed <$> suchThat (choose (-1,1)) (\v -> v >= -1 && v < 1)
@@ -61,7 +61,10 @@ testConversion _ _ get a
   = printTestCase ("a  = " ++ show a )
   $ printTestCase ("b  = " ++ show b )
   $ printTestCase ("a' = " ++ show a')
-  $ eq 1e-12 (get a) (get a')
+  $ printTestCase ("ε  = " ++ show (abs (x - x') / max x x'))
+  $ eq 1e-9 x x'
   where
+    x  = get a
+    x' = get a'
     b  = convert a :: b
     a' = convert b
