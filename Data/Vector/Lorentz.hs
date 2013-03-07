@@ -140,7 +140,7 @@ instance BoostParam Speed where
     = ( γ*(   t - v*x)
       , γ*(-v*t +   x))
     where
-      Gamma γ = convert (Speed v)
+      γ = abs $ getGamma $ convert (Speed v)
   {-# INLINE boost1D #-}
 
 instance BoostParam Gamma where

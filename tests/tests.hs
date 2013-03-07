@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts     #-}
 import Control.Applicative
 
+import Data.Classes.VectorSpace
 import qualified Data.Vector.Fixed as F
 import           Data.Vector.Fixed.Unboxed (Unbox)
 import Data.Vector.Lorentz
@@ -26,6 +27,19 @@ main = do
         , testProperty "φ→v→φ" $ testConversion (T :: T (Rapidity Double)) (T :: T (Speed Double)) getRapidity
         , testProperty "φ→γ→φ" $ testConversion (T :: T (Rapidity Double)) (T :: T (Gamma Double)) getRapidity
         ]
+    , testGroup "Norm preservation"
+        [ testProperty "γ X" $ testTransformNorm (T :: T (Gamma Double)) boostX
+        , testProperty "γ X" $ testTransformNorm (T :: T (Gamma Double)) boostY
+        , testProperty "γ X" $ testTransformNorm (T :: T (Gamma Double)) boostZ
+          --
+        , testProperty "v X" $ testTransformNorm (T :: T (Speed Double)) boostX
+        , testProperty "v X" $ testTransformNorm (T :: T (Speed Double)) boostY
+        , testProperty "v X" $ testTransformNorm (T :: T (Speed Double)) boostZ
+          --
+        , testProperty "φ X" $ testTransformNorm (T :: T (Rapidity Double)) boostX
+        , testProperty "φ X" $ testTransformNorm (T :: T (Rapidity Double)) boostY
+        , testProperty "φ X" $ testTransformNorm (T :: T (Rapidity Double)) boostZ          
+        ]
     ]
 ----------------------------------------------------------------
 -- QC Instances
@@ -33,7 +47,7 @@ main = do
 
 instance (Num a, Random a) => Arbitrary (Gamma a) where
   arbitrary = do
-    γ    <- choose (1,1000)
+    γ    <- choose (1,500)
     sign <- arbitrary
     return $ if sign then Gamma γ else Gamma (-γ)
 
@@ -55,6 +69,7 @@ instance (Arbitrary a, Unbox F.N4 a) => Arbitrary (Lorentz a) where
 ----------------------------------------------------------------
 
 
+-- Conversions should roundtrip correctly
 testConversion :: forall a b. (Convert a b, Convert b a, Show a, Show b)
                => T a -> T b -> (a -> Double) -> a -> Property
 testConversion _ _ get a
@@ -68,3 +83,18 @@ testConversion _ _ get a
     x' = get a'
     b  = convert a :: b
     a' = convert b
+
+-- Lorentz transformation should preserve norm
+testTransformNorm :: (BoostParam b)
+                  => T (b Double)
+                  -> (b Double -> Lorentz Double -> Lorentz Double)
+                  ->  b Double -> Lorentz Double -> Property
+testTransformNorm _ boost p v
+  = printTestCase ("m  = " ++ show m')
+  $ printTestCase ("m' = " ++ show m')
+  $ printTestCase ("ε  = " ++ show (abs (m - m') / max m m'))
+  $ eq 1e-6 m m'
+  where
+    v' = boost p v
+    m  = magnitudeSq v
+    m' = magnitudeSq v'
