@@ -6,7 +6,7 @@ Author:              Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Maintainer:          Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Category:            Math
 Build-type:          Simple
-Cabal-version:       >=1.6
+Cabal-version:       >=1.8
 Synopsis:            Lorentz vectors
 
 Library
@@ -16,3 +16,12 @@ Library
     my-vectorspace >= 0.2
   Exposed-modules:
     Data.Vector.Lorentz
+
+test-suite tests
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is:        tests.hs
+  build-depends:
+    base,
+    my-lorentz,
+    QuickCheck
