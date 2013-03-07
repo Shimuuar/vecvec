@@ -90,7 +90,8 @@ spatialPart (Lorentz v) = F.tail v
 newtype Speed a = Speed { getSpeed :: a }
                  deriving (Show,Eq,Ord)
 
--- | Gamma factor
+-- | Gamma factor. Negative values of gamma factor are accepted and
+--   means then boost will be performed in opposite direction.
 newtype Gamma a = Gamma { getGamma :: a }
                 deriving (Show,Eq,Ord)
 
@@ -107,18 +108,18 @@ instance Num a => Monoid (Rapidity a) where
 class Convert a b where
   convert :: a -> b
 
-instance Floating a => Convert (Speed a) (Gamma a) where
-  convert (Speed v)    = Gamma $ 1 / sqrt (1 - v*v)
-instance Floating a => Convert (Speed a) (Rapidity a) where
+instance (Floating a, a ~ a') => Convert (Speed a) (Gamma a') where
+  convert (Speed v)    = Gamma $ signum v / sqrt (1 - v*v)
+instance (Floating a, a ~ a') => Convert (Speed a) (Rapidity a) where
   convert (Speed v)    = Rapidity $ atanh v
-instance Floating a => Convert (Gamma a) (Speed a) where
-  convert (Gamma γ)    = Speed $ sqrt $ (g2 -1) / g2 where g2 = γ*γ
-instance Floating a => Convert (Gamma a) (Rapidity a) where
-  convert (Gamma γ)    = Rapidity $ acosh γ
-instance Floating a => Convert (Rapidity a) (Speed a) where
+instance (Floating a, a ~ a') => Convert (Gamma a) (Speed a') where
+  convert (Gamma γ)    = Speed $ signum γ * sqrt ((g2 -1) / g2) where g2 = γ*γ
+instance (Floating a, a ~ a') => Convert (Gamma a) (Rapidity a') where
+  convert (Gamma γ)    = Rapidity $ signum γ * acosh (abs γ)
+instance (Floating a, a ~ a')  => Convert (Rapidity a) (Speed a') where
   convert (Rapidity φ) = Speed $ tanh φ
-instance Floating a => Convert (Rapidity a) (Gamma a) where
-  convert (Rapidity φ) = Gamma $ cosh φ
+instance (Floating a, a ~ a') => Convert (Rapidity a) (Gamma a') where
+  convert (Rapidity φ) = Gamma $ signum φ * cosh φ
 
 
 
