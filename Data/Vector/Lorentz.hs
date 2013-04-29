@@ -84,15 +84,18 @@ spatialPart (Lorentz v) = F.tail v
 
 
 -- | Constrcut Lorentz vector from mass and momentum of particle
-fromMomentum :: (VectorN v n a, VectorN v (S n) a)
-             => Double          -- ^ Mass of particle
-             -> v n a           -- ^ Momentum
-             -> LorentzG v (S n) a
+fromMomentum
+  :: (VectorN v n a, VectorN v (S n) a , Floating a, Scalar (v n a) ~ a, InnerSpace (v n a))
+  => a                          -- ^ Mass of particle
+  -> v n a                      -- ^ Momentum
+  -> LorentzG v (S n) a
 {-# INLINE fromMomentum #-}
 fromMomentum m p
   = F.cons e p
   where
     e = sqrt $ m*m + magnitudeSq p
+
+
 
 ----------------------------------------------------------------
 -- Boost variables
