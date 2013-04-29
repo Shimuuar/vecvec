@@ -12,7 +12,7 @@ Synopsis:            Lorentz vectors
 Library
   Build-Depends:
     base           >=3 && <5,
-    fixed-vector   >= 0.3,
+    fixed-vector   >= 0.4.1,
     my-vectorspace >= 0.2
   Exposed-modules:
     Data.Vector.Lorentz

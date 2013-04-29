@@ -15,6 +15,8 @@ module Data.Vector.Lorentz (
   , Lorentz4
   , Lorentz
   , spatialPart
+    -- * Constructors
+  , fromMomentum
     -- * Boosts
     -- ** Variables
   , Speed(..)
@@ -81,6 +83,16 @@ spatialPart (Lorentz v) = F.tail v
 {-# INLINE spatialPart #-}
 
 
+-- | Constrcut Lorentz vector from mass and momentum of particle
+fromMomentum :: (VectorN v n a, VectorN v (S n) a)
+             => Double          -- ^ Mass of particle
+             -> v n a           -- ^ Momentum
+             -> LorentzG v (S n) a
+{-# INLINE fromMomentum #-}
+fromMomentum m p
+  = F.cons e p
+  where
+    e = sqrt $ m*m + magnitudeSq p
 
 ----------------------------------------------------------------
 -- Boost variables
