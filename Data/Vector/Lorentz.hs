@@ -15,6 +15,7 @@ module Data.Vector.Lorentz (
   , Lorentz4
   , Lorentz
   , spatialPart
+  , splitLorentz
     -- * Constructors
   , fromMomentum
     -- * Boosts
@@ -79,9 +80,14 @@ type Lorentz = LorentzU N4
 -- | Spatial part of the Lorentz vector.
 spatialPart :: (VectorN v n a, VectorN v (S n) a)
             => LorentzG v (S n) a -> v n a
-spatialPart (Lorentz v) = F.tail v
+spatialPart = F.tail
 {-# INLINE spatialPart #-}
 
+-- | Split Lorentz vector.
+splitLorentz :: (VectorN v n a, VectorN v (S n) a)
+             => LorentzG v (S n) a -> (a, v n a)
+splitLorentz p = (F.head p, F.tail p)
+{-# INLINE splitLorentz #-}
 
 -- | Constrcut Lorentz vector from mass and momentum of particle
 fromMomentum
@@ -216,6 +222,32 @@ boostZ :: (BoostParam b, VectorN v (S (S (S (S n)))) a, Floating a)
        -> LorentzG v (S (S (S (S n)))) a
 {-# INLINE boostZ #-}
 boostZ b = boostAxis b 2
+
+
+-- | Boost along arbitrary direction
+boostAlong
+  :: ( VectorN v (S n) a, VectorN v n a
+     , BoostParam b
+     , InnerSpace (v n a), Scalar (v n a) ~ a, Floating a
+     )
+  => b a                        -- ^ Boost parameter
+  -> v n a                      -- ^ Vector along which boost should
+                                --   be performed. Need not to be normalized.
+  -> LorentzG v (S n) a
+  -> LorentzG v (S n) a
+{-# INLINE boostAlong #-}
+boostAlong b k p
+  = F.cons t' (proj'*.n .+. xPerp)
+  where
+    -- Split vector into spatial
+    (t,x) = splitLorentz p
+    proj  = x <.> n
+    xPerp = x .-. proj*.n
+    -- boost boost
+    (t',proj') = boost1D b (t,proj)
+    -- Normalized direction
+    n = k ./ magnitude k
+
 
 
 ----------------------------------------------------------------
