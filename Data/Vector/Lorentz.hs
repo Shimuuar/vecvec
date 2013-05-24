@@ -30,7 +30,9 @@ module Data.Vector.Lorentz (
   , boostX
   , boostY
   , boostZ
+  , boostAlong
     -- * Helper functions
+  , momentumToE
   ) where
 
 import Control.Monad
@@ -292,4 +294,4 @@ instance (VectorN v n a, Num a) => InnerSpace (LorentzG v n a) where
 
 -- | Convert module of momentum to energy if particle mass is known.
 momentumToE :: Double -> Double -> Double
-momentumToE m p = sqrt $ m^2 + p^2
+momentumToE m p = sqrt $ m*m + p*p
