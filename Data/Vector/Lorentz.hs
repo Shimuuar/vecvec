@@ -30,6 +30,7 @@ module Data.Vector.Lorentz (
   , boostX
   , boostY
   , boostZ
+    -- * Helper functions
   ) where
 
 import Control.Monad
@@ -282,3 +283,13 @@ instance (VectorN v n a, Num a) => InnerSpace (LorentzG v n a) where
       minkovsky 0 x y =   x*y
       minkovsky _ x y = -(x*y)
   {-# INLINE (<.>) #-}
+
+
+
+----------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------
+
+-- | Convert module of momentum to energy if particle mass is known.
+momentumToE :: Double -> Double -> Double
+momentumToE m p = sqrt $ m^2 + p^2
