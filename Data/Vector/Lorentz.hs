@@ -18,6 +18,7 @@ module Data.Vector.Lorentz (
   , splitLorentz
     -- * Constructors
   , fromMomentum
+  , fromEnergy
     -- * Boosts
     -- ** Variables
   , Speed(..)
@@ -105,6 +106,16 @@ fromMomentum m p
   where
     e = sqrt $ m*m + magnitudeSq p
 
+-- | Construct energy-momentum vector from energy and mass of
+--   particle. Obviously wa can't recover direction so we have to use
+--   1+1 lorentz vectors. Still it's useful for simple calculations
+fromEnergy
+  :: (VectorN v N2 a, Num a)
+  => a                          -- ^ Mass of particle
+  -> a                          -- ^ Energy of particle
+  -> LorentzG v N2 a
+{-# INLINE fromEnergy #-}
+fromEnergy m e = F.mk2 e (e*e - m*m)
 
 
 ----------------------------------------------------------------
