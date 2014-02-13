@@ -110,12 +110,12 @@ fromMomentum m p
 --   particle. Obviously wa can't recover direction so we have to use
 --   1+1 lorentz vectors. Still it's useful for simple calculations
 fromEnergy
-  :: (VectorN v N2 a, Num a)
+  :: (VectorN v N2 a, Floating a)
   => a                          -- ^ Mass of particle
   -> a                          -- ^ Energy of particle
   -> LorentzG v N2 a
 {-# INLINE fromEnergy #-}
-fromEnergy m e = F.mk2 e (e*e - m*m)
+fromEnergy m e = F.mk2 e (sqrt $ e*e - m*m)
 
 
 ----------------------------------------------------------------
