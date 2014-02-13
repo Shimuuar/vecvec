@@ -92,7 +92,8 @@ splitLorentz :: (VectorN v n a, VectorN v (S n) a)
 splitLorentz p = (F.head p, F.tail p)
 {-# INLINE splitLorentz #-}
 
--- | Constrcut Lorentz vector from mass and momentum of particle
+-- | Constrcut energy-momentum vector from mass and momentum of
+--   particle
 fromMomentum
   :: (VectorN v n a, VectorN v (S n) a , Floating a, Scalar (v n a) ~ a, InnerSpace (v n a))
   => a                          -- ^ Mass of particle
