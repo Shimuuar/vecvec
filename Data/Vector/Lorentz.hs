@@ -169,6 +169,8 @@ class BoostParam b where
   boost1D :: (Floating a)
           => b a                  -- ^ Boost parameter
           -> (a,a) -> (a,a)
+  -- | Invert boost parameter
+  invertBoostP :: Num a => b a -> b a
 
 
 instance BoostParam Speed where
@@ -178,14 +180,16 @@ instance BoostParam Speed where
     where
       γ = abs $ getGamma $ convert (Speed v)
   {-# INLINE boost1D #-}
+  invertBoostP = Speed . negate . getSpeed
 
 instance BoostParam Gamma where
   boost1D (Gamma γ) (t,x)
-    = ( γ*(   t - v*x)
-      , γ*(-v*t +   x))
+    = ( abs γ*(   t - v*x)
+      , abs γ*(-v*t +   x))
     where
       Speed v = convert (Gamma γ)
   {-# INLINE boost1D #-}
+  invertBoostP = Gamma . negate . getGamma
 
 instance BoostParam Rapidity where
   boost1D (Rapidity φ) (t,x)
@@ -195,6 +199,7 @@ instance BoostParam Rapidity where
       c = cosh φ
       s = sinh φ
   {-# INLINE boost1D #-}
+  invertBoostP = Rapidity . negate . getRapidity
 
 -- | Boost along axis
 boostAxis :: (BoostParam b, VectorN v n a, Floating a)
