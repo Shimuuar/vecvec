@@ -32,6 +32,7 @@ module Data.Vector.Lorentz (
   , boostY
   , boostZ
   , boostAlong
+  , factorLorentz
     -- * Helper functions
   , momentumToE
   ) where
@@ -268,6 +269,17 @@ boostAlong b k p
     -- Normalized direction
     n = k ./ magnitude k
 
+-- | Factor Lorentz vector into vector with zero spatial part and
+--   Lorentz transformation
+--
+-- > let (m,f) = factorLorentz v
+-- > f (m,0,0,0) == v
+factorLorentz :: Lorentz Double -> (Double, Lorentz Double -> Lorentz Double)
+factorLorentz v
+  = (m, boostAlong (Gamma (e/m)) p)
+  where
+    m     = magnitude    v
+    (e,p) = splitLorentz v
 
 
 ----------------------------------------------------------------
