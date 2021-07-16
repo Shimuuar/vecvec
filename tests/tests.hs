@@ -74,10 +74,10 @@ instance (Arbitrary a, Unbox 4 a) => Arbitrary (Lorentz a) where
 testConversion :: forall a b. (Convert a b, Convert b a, Show a, Show b)
                => T a -> T b -> (a -> Double) -> a -> Property
 testConversion _ _ get a
-  = printTestCase ("a  = " ++ show a )
-  $ printTestCase ("b  = " ++ show b )
-  $ printTestCase ("a' = " ++ show a')
-  $ printTestCase ("ε  = " ++ show (abs (x - x') / max x x'))
+  = counterexample ("a  = " ++ show a )
+  $ counterexample ("b  = " ++ show b )
+  $ counterexample ("a' = " ++ show a')
+  $ counterexample ("ε  = " ++ show (abs (x - x') / max x x'))
   $ eq 1e-9 x x'
   where
     x  = get a
@@ -91,9 +91,9 @@ testTransformNorm :: (BoostParam b)
                   -> (b Double -> Lorentz Double -> Lorentz Double)
                   ->  b Double -> Lorentz Double -> Property
 testTransformNorm _ boost p v
-  = printTestCase ("m  = " ++ show m')
-  $ printTestCase ("m' = " ++ show m')
-  $ printTestCase ("ε  = " ++ show (abs (m - m') / max m m'))
+  = counterexample ("m  = " ++ show m')
+  $ counterexample ("m' = " ++ show m')
+  $ counterexample ("ε  = " ++ show (abs (m - m') / max m m'))
   $ eq 1e-6 m m'
   where
     v' = boost p v
