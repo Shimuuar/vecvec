@@ -1,9 +1,12 @@
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 -- |
 -- Unboxed Lorentz vectors
 module Data.Vector.Lorentz (
@@ -40,14 +43,13 @@ module Data.Vector.Lorentz (
 import Control.Monad
 import Prelude hiding (length,replicate,zipWith,map,foldl,sum)
 
-import Data.Monoid    (Monoid(..))
 import Data.Classes.AdditiveGroup
 import Data.Classes.VectorSpace
 
-import           Data.Vector.Fixed (Vector,VectorN,Dim,S,N2,N3,N4,(!))
+import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
 import qualified Data.Vector.Fixed as F
 import Data.Vector.Fixed.Unboxed   (Vec)
-
+import GHC.TypeLits
 
 ----------------------------------------------------------------
 -- Data type
@@ -70,37 +72,44 @@ instance (VectorN v n a) => VectorN (LorentzG v) n a
 type LorentzU = LorentzG Vec
 
 -- | 2-dimensional Lorentz vector.
-type Lorentz2 v = LorentzG v N2
+type Lorentz2 v = LorentzG v 2
 
 -- | 3-dimensional Lorentz vector.
-type Lorentz3 v = LorentzG v N3
+type Lorentz3 v = LorentzG v 3
 
 -- | 4-dimensional Lorentz vector.
-type Lorentz4 v = LorentzG v N4
+type Lorentz4 v = LorentzG v 4
 
 -- | Unboxed 4-dimensional Lorentz vector
-type Lorentz = LorentzU N4
+type Lorentz = LorentzU 4
 
 
 -- | Spatial part of the Lorentz vector.
-spatialPart :: (VectorN v n a, VectorN v (S n) a)
-            => LorentzG v (S n) a -> v n a
+spatialPart :: (VectorN v n a, VectorN v (n+1) a)
+            => LorentzG v (n+1) a -> v n a
 spatialPart = F.tail
 {-# INLINE spatialPart #-}
 
 -- | Split Lorentz vector.
-splitLorentz :: (VectorN v n a, VectorN v (S n) a)
-             => LorentzG v (S n) a -> (a, v n a)
+splitLorentz :: ( VectorN v n a
+                , VectorN v (n+1) a
+                , 1 <= (n+1)
+                )
+             => LorentzG v (n+1) a -> (a, v n a)
 splitLorentz p = (F.head p, F.tail p)
 {-# INLINE splitLorentz #-}
 
 -- | Constrcut energy-momentum vector from mass and momentum of
 --   particle
 fromMomentum
-  :: (VectorN v n a, VectorN v (S n) a , Floating a, Scalar (v n a) ~ a, InnerSpace (v n a))
+  :: ( VectorN v n a
+     , VectorN v (n+1) a
+     , Floating a
+     , Scalar (v n a) ~ a
+     , InnerSpace (v n a))
   => a                          -- ^ Mass of particle
   -> v n a                      -- ^ Momentum
-  -> LorentzG v (S n) a
+  -> LorentzG v (n+1) a
 {-# INLINE fromMomentum #-}
 fromMomentum m p
   = F.cons e p
@@ -111,10 +120,10 @@ fromMomentum m p
 --   particle. Obviously wa can't recover direction so we have to use
 --   1+1 lorentz vectors. Still it's useful for simple calculations
 fromEnergy
-  :: (VectorN v N2 a, Floating a)
+  :: (VectorN v 2 a, Floating a)
   => a                          -- ^ Mass of particle
   -> a                          -- ^ Energy of particle
-  -> LorentzG v N2 a
+  -> LorentzG v 2 a
 {-# INLINE fromEnergy #-}
 fromEnergy m e = F.mk2 e (sqrt $ e*e - m*m)
 
@@ -136,9 +145,10 @@ newtype Gamma a = Gamma { getGamma :: a }
 newtype Rapidity a = Rapidity { getRapidity :: a }
                  deriving (Show,Eq,Ord)
 
+instance Num a => Semigroup (Rapidity a) where
+  Rapidity a <> Rapidity b = Rapidity $ a + b
 instance Num a => Monoid (Rapidity a) where
   mempty = Rapidity 0
-  mappend (Rapidity a) (Rapidity b) = Rapidity $ a + b
 
 
 -- | Class for total conversion functions
@@ -220,42 +230,44 @@ boostAxis b n v
     t       = v ! 0
     x       = v ! (n+1)
 
+
 -- | Boost along X axis.
-boostX :: (BoostParam b, VectorN v (S (S n)) a, Floating a)
+boostX :: (BoostParam b, VectorN v n a, Floating a, 2 <= n)
        => b a                -- ^ Boost parameter
-       -> LorentzG v (S (S n)) a
-       -> LorentzG v (S (S n)) a
+       -> LorentzG v n a
+       -> LorentzG v n a
 {-# INLINE boostX #-}
 boostX b = boostAxis b 0
 
 -- | Boost along X axis.
-boostY :: (BoostParam b, VectorN v (S (S (S n))) a, Floating a)
+boostY :: (BoostParam b, VectorN v n a, Floating a, 3 <= n)
        => b a                -- ^ Boost parameter
-       -> LorentzG v (S (S (S n))) a
-       -> LorentzG v (S (S (S n))) a
+       -> LorentzG v n a
+       -> LorentzG v n a
 {-# INLINE boostY #-}
 boostY b = boostAxis b 1
 
 -- | Boost along X axis.
-boostZ :: (BoostParam b, VectorN v (S (S (S (S n)))) a, Floating a)
+boostZ :: (BoostParam b, VectorN v n a, Floating a, 4 <= n)
        => b a                -- ^ Boost parameter
-       -> LorentzG v (S (S (S (S n)))) a
-       -> LorentzG v (S (S (S (S n)))) a
+       -> LorentzG v n a
+       -> LorentzG v n a
 {-# INLINE boostZ #-}
 boostZ b = boostAxis b 2
 
 
 -- | Boost along arbitrary direction
 boostAlong
-  :: ( VectorN v (S n) a, VectorN v n a
+  :: ( VectorN v (n+1) a, VectorN v n a
      , BoostParam b
      , InnerSpace (v n a), Scalar (v n a) ~ a, Floating a
+     , 1 <= n+1
      )
   => b a                        -- ^ Boost parameter
   -> v n a                      -- ^ Vector along which boost should
                                 --   be performed. Need not to be normalized.
-  -> LorentzG v (S n) a
-  -> LorentzG v (S n) a
+  -> LorentzG v (n+1) a
+  -> LorentzG v (n+1) a
 {-# INLINE boostAlong #-}
 boostAlong b k p
   = F.cons t' (proj'*.n .+. xPerp)
