@@ -1,7 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 import Control.Applicative
 
 import Data.Classes.VectorSpace
@@ -10,15 +12,14 @@ import           Data.Vector.Fixed.Unboxed (Unbox)
 import Data.Vector.Lorentz
 
 import Test.QuickCheck
-import Test.Framework                       (Test,testGroup,defaultMain)
-import Test.Framework.Providers.QuickCheck2 (testProperty)
-
+import Test.Tasty
+import Test.Tasty.QuickCheck
 import System.Random (Random)
 import Helpers
 
 main :: IO ()
 main = do
-  defaultMain
+  defaultMain $ testGroup "Lorentz"
     [ testGroup "Conversions"
         [ testProperty "γ→v→γ" $ testConversion (T :: T (Gamma Double)) (T :: T (Speed    Double)) getGamma
         , testProperty "γ→φ→γ" $ testConversion (T :: T (Gamma Double)) (T :: T (Rapidity Double)) getGamma
@@ -57,7 +58,7 @@ instance (Num a, Random a) => Arbitrary (Rapidity a) where
 instance (Num a, Ord a, Random a) => Arbitrary (Speed a) where
   arbitrary = Speed <$> suchThat (choose (-1,1)) (\v -> v >= -1 && v < 1)
 
-instance (Arbitrary a, Unbox F.N4 a) => Arbitrary (Lorentz a) where
+instance (Arbitrary a, Unbox 4 a) => Arbitrary (Lorentz a) where
   arbitrary =  F.mk4
            <$> arbitrary
            <*> arbitrary

@@ -21,7 +21,12 @@ test-suite tests
   type:           exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is:        tests.hs
-  build-depends:
-    base,
-    my-lorentz,
-    QuickCheck
+  build-depends: base
+               , my-lorentz
+               , my-vectorspace
+               , QuickCheck
+               , tasty
+               , tasty-quickcheck
+               , fixed-vector
+               , math-functions >= 0.3
+               , random
