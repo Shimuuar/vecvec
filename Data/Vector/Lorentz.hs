@@ -1,12 +1,14 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Unboxed Lorentz vectors
 module Data.Vector.Lorentz (
@@ -40,6 +42,7 @@ module Data.Vector.Lorentz (
   , momentumToE
   ) where
 
+import Control.DeepSeq
 import Control.Monad
 import Prelude hiding (length,replicate,zipWith,map,foldl,sum)
 
@@ -58,7 +61,8 @@ import GHC.TypeLits
 -- | Generic Lorentz vector which could be based on any array-based
 --   vector. Parameter /n/ is size of vector.
 newtype LorentzG v n a = Lorentz (v n a)
-                         deriving Show
+  deriving stock   Show
+  deriving newtype NFData
 
 type instance Dim (LorentzG v n) = n
 

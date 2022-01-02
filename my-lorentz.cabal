@@ -12,6 +12,7 @@ Synopsis:            Lorentz vectors
 Library
   Build-Depends:
     base           >= 4.12 && <5,
+    deepseq,
     fixed-vector   >= 1.2,
     my-vectorspace >= 0.2
   Exposed-modules:
