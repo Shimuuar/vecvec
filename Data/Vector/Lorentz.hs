@@ -61,7 +61,7 @@ import GHC.TypeLits
 -- | Generic Lorentz vector which could be based on any array-based
 --   vector. Parameter /n/ is size of vector.
 newtype LorentzG v n a = Lorentz (v n a)
-  deriving stock   Show
+  deriving stock   (Show, Eq)
   deriving newtype NFData
 
 type instance Dim (LorentzG v n) = n
