@@ -3,6 +3,7 @@
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -30,6 +31,10 @@ module Vecvec.Classes
   , NormedScalar(..)
   , InnerSpace(..)
   , magnitude
+    -- * Matrix operations
+  , MatMul(..)
+  , Tr(..)
+  , Conj(..)
     -- * Deriving via
   , AsNum(..)
   , AsVector(..)
@@ -148,6 +153,24 @@ class (Num v, Num (R v)) => NormedScalar v where
   scalarNormSq :: v -> R v
 
 
+----------------------------------------------------------------
+-- Matrix operations
+----------------------------------------------------------------
+
+-- | Matrix and vector multiplication. There are a lot of possible
+--   representations of matrices: dense, banded, etc. Thus we have to
+--   make this class extremely generic.
+class MatMul a b r | a b -> r where
+  (@@) :: a -> b -> r
+
+infixl 7 @@
+
+-- | Newtype for passing matrix\/vector to '@@' as transposed.
+newtype Tr a = Tr { getTr :: a }
+
+-- | Newtype for passing matrix\/vector to '@@' as conjugated.
+newtype Conj a = Conj { getConj :: a }
+
 
 ----------------------------------------------------------------
 -- Deriving
@@ -227,6 +250,9 @@ instance (NormedScalar a, F.Vector v a) => InnerSpace (AsFixedVec v a) where
   {-# INLINE (<.>)       #-}
 
 
+----------------------------------------------------------------
+-- Instances boilerplate
+----------------------------------------------------------------
 
 deriving via AsNum Integer instance AdditiveSemigroup  Integer
 deriving via AsNum Integer instance AdditiveMonoid     Integer
