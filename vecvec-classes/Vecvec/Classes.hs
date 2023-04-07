@@ -28,6 +28,7 @@ module Vecvec.Classes
   , AdditiveGroup
     -- * Vector spaces
   , VectorSpace(..)
+  , (./)
   , NormedScalar(..)
   , InnerSpace(..)
   , magnitude
@@ -121,7 +122,9 @@ class AdditiveQuasigroup v => VectorSpace v where
 infixl 7 .*
 infixr 7 *.
 
--- FIXME: What to do with ./ /.?
+(./) :: (Fractional (Scalar v), VectorSpace v) => v -> Scalar v -> v
+v ./ x = v .* recip x
+
 
 -- | Vector space equipped with inner product. We follow convention of
 --   physics and conjugate first element of scalar product
