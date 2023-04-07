@@ -1,0 +1,30 @@
+Name:           vecvec-classes
+Version:        0.0.1
+Synopsis:       Type classes for working iwth linear algebra
+Description:
+  This package package defines set of type classes used for working with liner algebra
+
+Cabal-Version:  >= 1.10
+License:        BSD3
+License-File:   LICENSE
+Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
+Category:       Data
+Build-Type:     Simple
+extra-source-files:
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: http://github.com/Shimuuar/vecvec
+
+Library
+  Ghc-options:          -Wall
+  Default-Language:     Haskell2010
+  Build-Depends:        base             >=4.12 && <5
+                      , vector           >=0.13
+                      , vector-stream    >=0.1
+                      , fixed-vector     >=1.2.2.1
+  Exposed-modules:
+    Vecvec.Classes
