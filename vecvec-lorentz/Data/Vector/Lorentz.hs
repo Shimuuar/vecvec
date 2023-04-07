@@ -1,10 +1,14 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -44,15 +48,15 @@ module Data.Vector.Lorentz (
 
 import Control.DeepSeq
 import Control.Monad
-import Prelude hiding (length,replicate,zipWith,map,foldl,sum)
-
-import Data.Classes.AdditiveGroup
-import Data.Classes.VectorSpace
+import Data.Coerce
 
 import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
-import qualified Data.Vector.Fixed as F
+import qualified Data.Vector.Fixed      as F
+import qualified Data.Vector.Fixed.Cont as FC
 import Data.Vector.Fixed.Unboxed   (Vec)
 import GHC.TypeLits
+
+import Vecvec.Classes
 
 ----------------------------------------------------------------
 -- Data type
@@ -60,7 +64,7 @@ import GHC.TypeLits
 
 -- | Generic Lorentz vector which could be based on any array-based
 --   vector. Parameter /n/ is size of vector.
-newtype LorentzG v n a = Lorentz (v n a)
+newtype LorentzG v (n :: Nat) a = Lorentz (v n a)
   deriving stock   (Show, Eq)
   deriving newtype NFData
 
@@ -106,11 +110,12 @@ splitLorentz p = (F.head p, F.tail p)
 -- | Constrcut energy-momentum vector from mass and momentum of
 --   particle
 fromMomentum
-  :: ( VectorN v n a
+  :: ( VectorN v n     a
      , VectorN v (n+1) a
      , Floating a
-     , Scalar (v n a) ~ a
-     , InnerSpace (v n a))
+     , NormedScalar a
+     , R a ~ a
+     )
   => a                          -- ^ Mass of particle
   -> v n a                      -- ^ Momentum
   -> LorentzG v (n+1) a
@@ -118,7 +123,7 @@ fromMomentum
 fromMomentum m p
   = F.cons e p
   where
-    e = sqrt $ m*m + magnitudeSq p
+    e = sqrt $ m*m + magnitudeSq (AsFixedVec p)
 
 -- | Construct energy-momentum vector from energy and mass of
 --   particle. Obviously wa can't recover direction so we have to use
@@ -150,7 +155,7 @@ newtype Rapidity a = Rapidity { getRapidity :: a }
                  deriving (Show,Eq,Ord)
 
 instance Num a => Semigroup (Rapidity a) where
-  Rapidity a <> Rapidity b = Rapidity $ a + b
+  (<>) = coerce ((+) @a)
 instance Num a => Monoid (Rapidity a) where
   mempty = Rapidity 0
 
@@ -266,6 +271,7 @@ boostAlong
      , BoostParam b
      , InnerSpace (v n a), Scalar (v n a) ~ a, Floating a
      , 1 <= n+1
+     , R a ~ a
      )
   => b a                        -- ^ Boost parameter
   -> v n a                      -- ^ Vector along which boost should
@@ -302,35 +308,26 @@ factorLorentz v
 -- Instances
 ----------------------------------------------------------------
 
-type instance Scalar (LorentzG v n a) = a
+deriving via (AsFixedVec (LorentzG v n) a)
+    instance (VectorN v n a, Num a) => AdditiveSemigroup (LorentzG v n a)
+deriving via (AsFixedVec (LorentzG v n) a)
+    instance (VectorN v n a, Num a) => AdditiveMonoid (LorentzG v n a)
+deriving via (AsFixedVec (LorentzG v n) a)
+    instance (VectorN v n a, Num a) => AdditiveQuasigroup (LorentzG v n a)
+deriving via (AsFixedVec (LorentzG v n) a)
+    instance (VectorN v n a, Num a) => VectorSpace (LorentzG v n a)
 
-instance (VectorN v n a, Num a) => AdditiveMonoid (LorentzG v n a) where
-  zeroV = F.replicate 0
-  (.+.) = F.zipWith (+)
-  {-# INLINE zeroV #-}
-  {-# INLINE (.+.) #-}
-
-instance (VectorN v n a, Num a) => AdditiveGroup (LorentzG v n a) where
-  negateV = F.map negate
-  (.-.)   = F.zipWith (-)
-  {-# INLINE negateV #-}
-  {-# INLINE (.-.)   #-}
-
-instance (VectorN v n a, Num a) => LeftModule  (LorentzG v n a) where
-  a *. v = F.map (a *) v
-  {-# INLINE (*.) #-}
-
-instance (VectorN v n a, Num a) => RightModule (LorentzG v n a) where
-  v .* a = F.map (* a) v
-  {-# INLINE (.*) #-}
-
-instance (VectorN v n a, Num a) => InnerSpace (LorentzG v n a) where
+instance (VectorN v n a, NormedScalar a) => InnerSpace (LorentzG v n a) where
   v <.> u = F.sum $ F.izipWith minkovsky v u
     where
-      minkovsky 0 x y =   x*y
-      minkovsky _ x y = -(x*y)
-  {-# INLINE (<.>) #-}
-
+      minkovsky 0 x y =   conjugate x * y
+      minkovsky _ x y = -(conjugate x * y)
+  magnitudeSq = FC.sum . FC.imap minkovsky . FC.cvec
+    where
+      minkovsky 0 x = scalarNormSq x
+      minkovsky _ x = -(scalarNormSq x)
+  {-# INLINE (<.>)       #-}
+  {-# INLINE magnitudeSq #-}
 
 
 ----------------------------------------------------------------
