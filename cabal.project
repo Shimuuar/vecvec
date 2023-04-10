@@ -1,3 +1,4 @@
 packages:
         vecvec-classes
         vecvec-lorentz
+        vecvec-hmatrix

@@ -1,0 +1,31 @@
+Name:           vecvec-hmatrix
+Version:        0.0.1
+Synopsis:       Vecvec instances for hmatrix
+Description:
+  This package instances for hmatrix data types
+
+Cabal-Version:  >= 1.10
+License:        BSD3
+License-File:   LICENSE
+Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
+Category:       Data
+Build-Type:     Simple
+extra-source-files:
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: http://github.com/Shimuuar/vecvec
+
+Library
+  Ghc-options:          -Wall
+  Default-Language:     Haskell2010
+  Build-Depends:        base             >=4.12 && <5
+                      , vecvec-classes   >=0.0.1
+                        --
+                      , vector           >=0.13
+                      , hmatrix          >=0.20
+  Exposed-modules:
+    Vecvec.HMatrix
