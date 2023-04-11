@@ -173,9 +173,13 @@ infixl 7 @@
 
 -- | Newtype for passing matrix\/vector to '@@' as transposed.
 newtype Tr a = Tr { getTr :: a }
+  deriving stock   (Show, Eq, Ord)
+  deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
 -- | Newtype for passing matrix\/vector to '@@' as conjugated.
 newtype Conj a = Conj { getConj :: a }
+  deriving stock   (Show, Eq, Ord)
+  deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
 
 ----------------------------------------------------------------
