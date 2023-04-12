@@ -52,7 +52,6 @@ class Storable a => LAPACKy a where
        -> Ptr a -> CInt -- ^ Source vector
        -> Ptr a -> CInt -- ^ Target vector
        -> IO ()
--- const MKL_INT n, const void *a, const void *x, const MKL_INT incx, void *y, const MKL_INT incy);
 
 instance LAPACKy Float where
   axpy = s_axpy
