@@ -1,0 +1,28 @@
+Name:           vecvec-lapack-ffi
+Version:        0.0.1
+Synopsis:       Low level LAPACK bindings
+Description:
+  Linear algebra for haskell
+
+Cabal-Version:  >= 1.10
+License:        BSD3
+License-File:   LICENSE
+Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
+Category:       Data
+Build-Type:     Simple
+extra-source-files:
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: http://github.com/Shimuuar/vecvec
+
+Library
+  Ghc-options:          -Wall
+  Default-Language:     Haskell2010
+  Build-Depends:        base             >=4.12 && <5
+                      , storable-complex >=0.2.2
+  Exposed-modules:
+    Vecvec.LAPACK.FFI

@@ -3,3 +3,4 @@ packages:
         vecvec-lorentz
         vecvec-hmatrix
         vecvec-lapack
+        vecvec-lapack-ffi
