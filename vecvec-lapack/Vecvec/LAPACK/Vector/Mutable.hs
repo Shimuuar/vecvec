@@ -1,12 +1,15 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE NegativeLiterals    #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE ViewPatterns        #-}
 -- |
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Vecvec.LAPACK.Vector.Mutable
   ( clone
   , scal
   , axpy
+  , dot
+  , nrm2
   ) where
 
 import Control.Monad.Primitive
@@ -26,7 +29,6 @@ import Vecvec.Classes
 ----------------------------------------------------------------
 -- Public API
 ----------------------------------------------------------------
-
 
 -- | Create copy of a vector
 clone :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
@@ -70,6 +72,29 @@ scal a (MVec lenX incX fpX)
   $ unsafeWithForeignPtr fpX $ \pX ->
     C.scal (fromIntegral lenX) a pX (fromIntegral incX)
 
+-- | Compute scalar product of two vectors
+dot
+  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  => MVec s a -- ^ Vector @x@
+  -> MVec s a -- ^ Vector @y@
+  -> m a
+dot (MVec lenX incX fpX) (MVec lenY incY fpY)
+  | lenX /= lenY = error "Length mismatch"
+  | otherwise    = unsafePrimToPrim
+    $ unsafeWithForeignPtr fpX $ \pX ->
+      unsafeWithForeignPtr fpY $ \pY ->
+      C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+
+-- | Compute euclidean norm or two vectors
+nrm2
+  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  => MVec s a -- ^ Vector @x@
+  -> m (R a)
+nrm2 (MVec lenX incX fpX)
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr fpX $ \pX ->
+    C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)
+
 ----------------------------------------------------------------
 -- Instances
 ----------------------------------------------------------------
@@ -103,6 +128,15 @@ instance LAPACKy a => VectorSpace (Vec a) where
     scal a mr
     VG.unsafeFreeze mr
   (.*) = flip (*.)
+
+instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
+  v <.> u = runST $ do
+    mv <- VG.unsafeThaw v
+    mu <- VG.unsafeThaw u
+    dot mv mu
+  magnitudeSq v = runST $ do
+    mv <- VG.unsafeThaw v
+    nrm2 mv
 
 
 ----------------------------------------------------------------

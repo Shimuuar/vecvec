@@ -18,6 +18,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal
 import Foreign.Storable.Complex ()
+import Vecvec.Classes           (NormedScalar(..))
 
 -- We want to be able to easily switch how we do foreign calls. ccall
 -- is slightly faster while capi allows to check
@@ -58,33 +59,58 @@ class (Num a, Storable a) => LAPACKy a where
        -> Ptr a -> CInt -- ^ Vector to modify
        -> IO ()
 
+  dot  :: CInt
+       -> Ptr a -> CInt
+       -> Ptr a -> CInt
+       -> IO a
+
+  nrm2 :: CInt
+       -> Ptr a -> CInt
+       -> IO (R a)
+
 instance LAPACKy Float where
   axpy = s_axpy
   copy = s_copy
   scal = s_scal
+  dot  = s_dot
+  nrm2 = s_nrm2
 
 instance LAPACKy Double where
   axpy = d_axpy
   copy = d_copy
   scal = d_scal
+  dot  = d_dot
+  nrm2 = d_nrm2
 
 instance LAPACKy (Complex Float) where
+  copy = c_copy
+  nrm2 = c_nrm2
+  --
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     c_axpy n p_a x incX y incY
-  copy = c_copy
+  --
   scal n a x incX = alloca $ \p_a -> do
     poke p_a a
     c_scal n p_a x incX
+  --
+  dot n x incX y incY = alloca $ \p_a -> do
+    c_dot n x incX y incY p_a >> peek p_a
 
 instance LAPACKy (Complex Double) where
+  copy = z_copy
+  nrm2 = z_nrm2
+  --
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     z_axpy n p_a x incX y incY
-  copy = z_copy
+  --
   scal n a x incX = alloca $ \p_a -> do
     poke p_a a
     z_scal n p_a x incX
+  --
+  dot n x incX y incY = alloca $ \p_a -> do
+    z_dot n x incX y incY p_a >> peek p_a
 
 
 
@@ -106,3 +132,13 @@ foreign import CCALL unsafe "cblas.h cblas_sscal" s_scal :: CInt -> S     -> ARR
 foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: CInt -> D     -> ARR D (IO ())
 foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: CInt -> Ptr C -> ARR C (IO ())
 foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR Z (IO ())
+
+foreign import CCALL unsafe "cblas.h cblas_sdot" s_dot :: CInt -> ARR S (ARR S (IO S))
+foreign import CCALL unsafe "cblas.h cblas_ddot" d_dot :: CInt -> ARR D (ARR D (IO D))
+foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dot :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dot :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+
+foreign import CCALL unsafe "cblas.h cblas_snrm2"  s_nrm2 :: CInt -> ARR S (IO S)
+foreign import CCALL unsafe "cblas.h cblas_dnrm2"  d_nrm2 :: CInt -> ARR D (IO D)
+foreign import CCALL unsafe "cblas.h cblas_scnrm2" c_nrm2 :: CInt -> ARR C (IO S)
+foreign import CCALL unsafe "cblas.h cblas_dznrm2" z_nrm2 :: CInt -> ARR Z (IO D)
