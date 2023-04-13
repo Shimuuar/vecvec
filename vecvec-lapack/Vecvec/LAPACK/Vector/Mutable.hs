@@ -1,5 +1,7 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE NegativeLiterals    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE ViewPatterns        #-}
 -- |
@@ -31,10 +33,10 @@ import Vecvec.Classes
 ----------------------------------------------------------------
 
 -- | Create copy of a vector
-clone :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
-      => MVec s a
+clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+      => inp a
       -> m (MVec s a)
-clone (MVec len inc fp)
+clone (asInput @s -> Vec len inc fp)
   = unsafePrimToPrim
   $ unsafeWithForeignPtr fp $ \p -> do
       vec@(MVec _ inc' fp') <- MVG.unsafeNew len
@@ -46,12 +48,12 @@ clone (MVec len inc fp)
 --
 -- > y := a*x + y
 axpy
-  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
   => a        -- ^ Scalar @a@
-  -> MVec s a -- ^ Vector @x@
+  -> inp a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
-axpy a (MVec lenX incX fpX) (MVec lenY incY fpY)
+axpy a (asInput @s -> Vec lenX incX fpX) (MVec lenY incY fpY)
   | lenX /= lenY = error "Length mismatch"
   | otherwise    = unsafePrimToPrim
       $ unsafeWithForeignPtr fpX $ \pX ->
@@ -74,11 +76,11 @@ scal a (MVec lenX incX fpX)
 
 -- | Compute scalar product of two vectors
 dot
-  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
-  => MVec s a -- ^ Vector @x@
-  -> MVec s a -- ^ Vector @y@
+  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
+  => inpX a -- ^ Vector @x@
+  -> inpY a -- ^ Vector @y@
   -> m a
-dot (MVec lenX incX fpX) (MVec lenY incY fpY)
+dot (asInput @s -> Vec lenX incX fpX) (asInput @s -> Vec lenY incY fpY)
   | lenX /= lenY = error "Length mismatch"
   | otherwise    = unsafePrimToPrim
     $ unsafeWithForeignPtr fpX $ \pX ->
@@ -87,10 +89,10 @@ dot (MVec lenX incX fpX) (MVec lenY incY fpY)
 
 -- | Compute euclidean norm or two vectors
 nrm2
-  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
-  => MVec s a -- ^ Vector @x@
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  => inp a -- ^ Vector @x@
   -> m (R a)
-nrm2 (MVec lenX incX fpX)
+nrm2 (asInput @s -> Vec lenX incX fpX)
   = unsafePrimToPrim
   $ unsafeWithForeignPtr fpX $ \pX ->
     C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)
@@ -101,42 +103,31 @@ nrm2 (MVec lenX incX fpX)
 
 instance LAPACKy a => AdditiveSemigroup (Vec a) where
   v .+. u = runST $ do
-    mv <- VG.unsafeThaw v
-    mu <- VG.unsafeThaw u
-    mr <- clone mv
-    axpy 1 mu mr
+    mr <- clone v
+    axpy 1 u mr
     VG.unsafeFreeze mr
 
 instance LAPACKy a => AdditiveQuasigroup (Vec a) where
   v .-. u = runST $ do
-    mv <- VG.unsafeThaw v
-    mu <- VG.unsafeThaw u
-    mr <- clone mv
-    axpy -1 mu mr
+    mr <- clone v
+    axpy -1 u mr
     VG.unsafeFreeze mr
   negateV v = runST $ do
-    mv <- VG.unsafeThaw v
-    mr <- clone mv
+    mr <- clone v
     scal -1 mr
     VG.unsafeFreeze mr
 
 instance LAPACKy a => VectorSpace (Vec a) where
   type Scalar (Vec a) = a
   a *. v = runST $ do
-    mv <- VG.unsafeThaw v
-    mr <- clone mv
+    mr <- clone v
     scal a mr
     VG.unsafeFreeze mr
   (.*) = flip (*.)
 
 instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
-  v <.> u = runST $ do
-    mv <- VG.unsafeThaw v
-    mu <- VG.unsafeThaw u
-    dot mv mu
-  magnitudeSq v = runST $ do
-    mv <- VG.unsafeThaw v
-    nrm2 mv
+  v <.> u = runST $ dot v u
+  magnitudeSq v = runST $ nrm2 v
 
 
 ----------------------------------------------------------------

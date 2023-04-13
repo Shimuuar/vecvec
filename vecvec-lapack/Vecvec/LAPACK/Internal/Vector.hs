@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
@@ -10,6 +11,7 @@ module Vecvec.LAPACK.Internal.Vector
   ( MVec(..)
   , fromMVector
   , Vec(..)
+  , AsInput(..)
   ) where
 
 import Control.DeepSeq         (NFData(..), NFData1(..))
@@ -186,3 +188,18 @@ instance VS.Storable a => VG.Vector Vec a where
              | otherwise = do x <- liftBox $ VG.basicUnsafeIndexM src i
                               MVG.basicUnsafeWrite dst i x
                               loop (i+1)
+
+----------------------------------------------------------------
+-- Classes
+----------------------------------------------------------------
+
+-- | Type class for
+class AsInput s v where
+  asInput :: v a -> Vec a
+
+instance AsInput s Vec where
+  {-# INLINE asInput #-}
+  asInput = id
+instance s ~ s => AsInput s (MVec s') where
+  {-# INLINE asInput #-}
+  asInput (MVec len inc fp) = Vec len inc fp
