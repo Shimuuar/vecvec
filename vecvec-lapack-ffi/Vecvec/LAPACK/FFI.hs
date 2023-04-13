@@ -36,7 +36,7 @@ type ARR a r = Ptr a -> CInt -> r
 --   type class to provide overloading.
 --
 --   There're only 4 instances excluding newtypes.
-class Storable a => LAPACKy a where
+class (Num a, Storable a) => LAPACKy a where
   -- | Computes a vector-scalar product and adds the result to a vector.
   --
   -- > y := a*x + y
@@ -53,36 +53,56 @@ class Storable a => LAPACKy a where
        -> Ptr a -> CInt -- ^ Target vector
        -> IO ()
 
+  scal :: CInt
+       -> a             -- ^ Constant to scale vector
+       -> Ptr a -> CInt -- ^ Vector to modify
+       -> IO ()
+
 instance LAPACKy Float where
   axpy = s_axpy
   copy = s_copy
+  scal = s_scal
 
 instance LAPACKy Double where
   axpy = d_axpy
   copy = d_copy
+  scal = d_scal
 
 instance LAPACKy (Complex Float) where
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     c_axpy n p_a x incX y incY
   copy = c_copy
+  scal n a x incX = alloca $ \p_a -> do
+    poke p_a a
+    c_scal n p_a x incX
 
 instance LAPACKy (Complex Double) where
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     z_axpy n p_a x incX y incY
   copy = z_copy
+  scal n a x incX = alloca $ \p_a -> do
+    poke p_a a
+    z_scal n p_a x incX
+
+
 
 ----------------------------------------------------------------
 -- FFI
 ----------------------------------------------------------------
 
-foreign import CCALL "cblas.h cblas_saxpy" s_axpy :: CInt -> S     -> ARR S (ARR S (IO ()))
-foreign import CCALL "cblas.h cblas_daxpy" d_axpy :: CInt -> D     -> ARR D (ARR D (IO ()))
-foreign import CCALL "cblas.h cblas_caxpy" c_axpy :: CInt -> Ptr C -> ARR C (ARR C (IO ()))
-foreign import CCALL "cblas.h cblas_zaxpy" z_axpy :: CInt -> Ptr Z -> ARR Z (ARR Z (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_saxpy" s_axpy :: CInt -> S     -> ARR S (ARR S (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_daxpy" d_axpy :: CInt -> D     -> ARR D (ARR D (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_caxpy" c_axpy :: CInt -> Ptr C -> ARR C (ARR C (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zaxpy" z_axpy :: CInt -> Ptr Z -> ARR Z (ARR Z (IO ()))
 
-foreign import CCALL "cblas.h cblas_scopy" s_copy :: CInt -> ARR S (ARR S (IO ()))
-foreign import CCALL "cblas.h cblas_dcopy" d_copy :: CInt -> ARR D (ARR D (IO ()))
-foreign import CCALL "cblas.h cblas_ccopy" c_copy :: CInt -> ARR C (ARR C (IO ()))
-foreign import CCALL "cblas.h cblas_zcopy" z_copy :: CInt -> ARR Z (ARR Z (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_scopy" s_copy :: CInt -> ARR S (ARR S (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_dcopy" d_copy :: CInt -> ARR D (ARR D (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_ccopy" c_copy :: CInt -> ARR C (ARR C (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zcopy" z_copy :: CInt -> ARR Z (ARR Z (IO ()))
+
+foreign import CCALL unsafe "cblas.h cblas_sscal" s_scal :: CInt -> S     -> ARR S (IO ())
+foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: CInt -> D     -> ARR D (IO ())
+foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: CInt -> Ptr C -> ARR C (IO ())
+foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR Z (IO ())
