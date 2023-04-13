@@ -12,6 +12,7 @@ module Vecvec.LAPACK.Internal.Vector
   , Vec(..)
   ) where
 
+import Control.DeepSeq         (NFData(..), NFData1(..))
 import Control.Monad
 import Control.Monad.Primitive
 import Data.Primitive.Ptr      hiding (advancePtr)
@@ -20,11 +21,13 @@ import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Marshal.Array
+import Text.Read
 
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic          qualified as VG
 import Data.Vector.Generic.Mutable  qualified as MVG
+import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.LAPACK.Internal.Compat
@@ -125,11 +128,38 @@ data Vec a = Vec
   !Int -- Size of vector
   !Int -- Stride of vector
   {-# UNPACK #-} !(ForeignPtr a)
-  -- deriving newtype (Show, Eq, Ord)
 
 type instance VG.Mutable Vec = MVec
 
 
+instance NFData (Vec a) where
+  rnf (Vec _ _ _) = ()
+
+instance NFData1 Vec where
+  liftRnf _ (Vec _ _ _) = ()
+
+instance (Show a, Storable a) => Show (Vec a) where
+  showsPrec = VG.showsPrec
+
+instance (Read a, Storable a) => Read (Vec a) where
+  readPrec = VG.readPrec
+  readListPrec = readListPrecDefault
+
+instance (Storable a, Eq a) => Eq (Vec a) where
+  {-# INLINE (==) #-}
+  xs == ys = Bundle.eq (VG.stream xs) (VG.stream ys)
+
+instance (Storable a, Ord a) => Ord (Vec a) where
+  {-# INLINE compare #-}
+  compare xs ys = Bundle.cmp (VG.stream xs) (VG.stream ys)
+  {-# INLINE (<) #-}
+  xs < ys = Bundle.cmp (VG.stream xs) (VG.stream ys) == LT
+  {-# INLINE (<=) #-}
+  xs <= ys = Bundle.cmp (VG.stream xs) (VG.stream ys) /= GT
+  {-# INLINE (>) #-}
+  xs > ys = Bundle.cmp (VG.stream xs) (VG.stream ys) == GT
+  {-# INLINE (>=) #-}
+  xs >= ys = Bundle.cmp (VG.stream xs) (VG.stream ys) /= LT
 
 instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeFreeze #-}

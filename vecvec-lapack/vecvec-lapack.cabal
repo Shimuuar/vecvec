@@ -26,6 +26,7 @@ Library
                       , vecvec-lapack-ffi
                         --
                       , vector           >=0.13
+                      , deepseq          >=1.4.3
                       , primitive        >=0.7
   Exposed-modules:
     Vecvec.LAPACK
