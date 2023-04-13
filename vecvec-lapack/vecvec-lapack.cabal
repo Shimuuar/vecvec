@@ -23,6 +23,8 @@ Library
   Ghc-options:          -Wall
   Default-Language:     Haskell2010
   Build-Depends:        base             >=4.12 && <5
+                      , vecvec-lapack-ffi
+                        --
                       , vector           >=0.13
                       , primitive        >=0.7
   Exposed-modules:

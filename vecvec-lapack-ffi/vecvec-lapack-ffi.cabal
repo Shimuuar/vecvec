@@ -24,5 +24,6 @@ Library
   Default-Language:     Haskell2010
   Build-Depends:        base             >=4.12 && <5
                       , storable-complex >=0.2.2
+  extra-libraries:      openblas
   Exposed-modules:
     Vecvec.LAPACK.FFI
