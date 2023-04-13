@@ -30,6 +30,8 @@ Library
                       , primitive        >=0.7
   Exposed-modules:
     Vecvec.LAPACK
+    Vecvec.LAPACK.Vector.Mutable
+    --
     Vecvec.LAPACK.Internal.Vector
   Other-modules:
     Vecvec.LAPACK.Internal.Compat
