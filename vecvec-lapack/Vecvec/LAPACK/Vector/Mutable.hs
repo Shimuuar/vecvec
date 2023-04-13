@@ -1,6 +1,8 @@
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NegativeLiterals    #-}
 {-# LANGUAGE TypeFamilies        #-}
 -- |
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Vecvec.LAPACK.Vector.Mutable
   ( clone
   , scal
@@ -8,20 +10,23 @@ module Vecvec.LAPACK.Vector.Mutable
   ) where
 
 import Control.Monad.Primitive
+import Control.Monad.ST
 import Data.Coerce
 import Data.Vector.Generic.Mutable qualified as MVG
--- import Data.Vector.Generic         qualified as VG
+import Data.Vector.Generic         qualified as VG
 
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Compat (unsafeWithForeignPtr)
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
+import Vecvec.Classes
 
 -- FIXME: What to do with size difference between CInt and Int??
 
 ----------------------------------------------------------------
 -- Public API
 ----------------------------------------------------------------
+
 
 -- | Create copy of a vector
 clone :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
@@ -64,6 +69,40 @@ scal a (MVec lenX incX fpX)
   = unsafePrimToPrim
   $ unsafeWithForeignPtr fpX $ \pX ->
     C.scal (fromIntegral lenX) a pX (fromIntegral incX)
+
+----------------------------------------------------------------
+-- Instances
+----------------------------------------------------------------
+
+instance LAPACKy a => AdditiveSemigroup (Vec a) where
+  v .+. u = runST $ do
+    mv <- VG.unsafeThaw v
+    mu <- VG.unsafeThaw u
+    mr <- clone mv
+    axpy 1 mu mr
+    VG.unsafeFreeze mr
+
+instance LAPACKy a => AdditiveQuasigroup (Vec a) where
+  v .-. u = runST $ do
+    mv <- VG.unsafeThaw v
+    mu <- VG.unsafeThaw u
+    mr <- clone mv
+    axpy -1 mu mr
+    VG.unsafeFreeze mr
+  negateV v = runST $ do
+    mv <- VG.unsafeThaw v
+    mr <- clone mv
+    scal -1 mr
+    VG.unsafeFreeze mr
+
+instance LAPACKy a => VectorSpace (Vec a) where
+  type Scalar (Vec a) = a
+  a *. v = runST $ do
+    mv <- VG.unsafeThaw v
+    mr <- clone mv
+    scal a mr
+    VG.unsafeFreeze mr
+  (.*) = flip (*.)
 
 
 ----------------------------------------------------------------
