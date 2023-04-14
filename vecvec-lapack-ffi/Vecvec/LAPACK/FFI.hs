@@ -1,15 +1,24 @@
-{-# LANGUAGE CApiFFI                  #-}
-{-# LANGUAGE CPP                      #-}
-{-# LANGUAGE FlexibleInstances        #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE TypeFamilies             #-}
+{-# LANGUAGE CApiFFI                    #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE ForeignFunctionInterface   #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE TypeFamilies               #-}
 -- |
 module Vecvec.LAPACK.FFI
   ( LAPACKy(..)
+    -- * Type synonyms
   , S
   , D
   , C
   , Z
+    -- * Enumeration wrappers
+  , CEnum(..)
+  , MatrixOrder(..)
+  , MatrixTranspose(..)
   ) where
 
 import Data.Complex
@@ -31,6 +40,52 @@ type C = Complex Float
 type Z = Complex Double
 
 type ARR a r = Ptr a -> CInt -> r
+
+----------------------------------------------------------------
+-- Enumerations
+----------------------------------------------------------------
+
+class CEnum a where
+  toCEnum :: a -> CInt
+
+data MatrixOrder
+  = RowMajor
+  | ColMajor
+  deriving stock (Show,Eq)
+
+instance CEnum MatrixOrder where
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    RowMajor -> c_BLAS_ROW_MAJOR
+    ColMajor -> c_BLAS_COL_MAJOR
+
+foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CInt
+foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CInt
+
+data MatrixTranspose
+  = NoTrans
+  | Trans
+  | ConjTrans
+  | ConjNoTrans
+  deriving stock (Show,Eq)
+
+instance CEnum MatrixTranspose where
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    NoTrans     -> c_NO_TRANS
+    Trans       -> c_TRANS
+    ConjTrans   -> c_CONJ_TRANS
+    ConjNoTrans -> c_CONJ_NO_TRANS
+
+foreign import capi "cblas.h value CblasNoTrans"     c_NO_TRANS      :: CInt
+foreign import capi "cblas.h value CblasTrans"       c_TRANS         :: CInt
+foreign import capi "cblas.h value CblasConjTrans"   c_CONJ_TRANS    :: CInt
+foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CInt
+
+
+----------------------------------------------------------------
+-- Overload of BLAS functions
+----------------------------------------------------------------
 
 -- | LAPACK provides function for working with single and double
 --   precision numbers and corresponding complex numbers. We use this
@@ -133,8 +188,8 @@ foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: CInt -> D     -> ARR
 foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: CInt -> Ptr C -> ARR C (IO ())
 foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR Z (IO ())
 
-foreign import CCALL unsafe "cblas.h cblas_sdot" s_dot :: CInt -> ARR S (ARR S (IO S))
-foreign import CCALL unsafe "cblas.h cblas_ddot" d_dot :: CInt -> ARR D (ARR D (IO D))
+foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot :: CInt -> ARR S (ARR S (IO S))
+foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot :: CInt -> ARR D (ARR D (IO D))
 foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dot :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
 foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dot :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
 
