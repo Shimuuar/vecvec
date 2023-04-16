@@ -3,21 +3,31 @@
 {-# LANGUAGE TypeFamilies        #-}
 -- |
 module Vecvec.LAPACK.Internal.Matrix.Dense
-  ( Matrix(..)
+  ( -- * Immutable matrix
+    Matrix(..)
+  , nRows, nCols
+  , unsafeRead
+  , unsafeRow
+  , unsafeCol
+    -- * Creation of matrices
+  , fromRowsFF
+    -- * Conversion to\/from mutable
   , unsafeFreeze
   , freeze
   , thaw
-  , unsafeRead
   ) where
 
 
 import Control.Monad.Primitive
+import Control.Monad.ST
+import Data.List               (intercalate)
 import Foreign.ForeignPtr
 import Foreign.Storable
+import Foreign.Marshal.Array
 
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
-
+import Vecvec.LAPACK.Internal.Vector
 
 -- | Immutable matrix
 data Matrix a = Matrix
@@ -26,6 +36,16 @@ data Matrix a = Matrix
   , leadingDim :: !Int
   , buffer     :: !(ForeignPtr a)
   }
+
+nRows :: Matrix a -> Int
+nRows = nrows
+
+nCols :: Matrix a -> Int
+nCols = ncols
+
+instance (Show a, Storable a) => Show (Matrix a) where
+  show m = "[ " ++ intercalate "\n, " [ show (unsafeRow m i) | i <- [0 .. nRows m - 1]] ++ "]"
+
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
              => M.MMatrix s a -> m (Matrix a)
@@ -63,4 +83,18 @@ unsafeRead :: (Storable a) => Matrix a -> (Int, Int) -> a
 unsafeRead Matrix{..} (i,j)
   = unsafeInlineIO
   $ unsafeWithForeignPtr buffer $ \p -> do
-    peekElemOff p (i * leadingDim + j) 
+    peekElemOff p (i * leadingDim + j)
+
+
+
+unsafeRow :: (Storable a) => Matrix a -> Int -> Vec a
+unsafeRow Matrix{..} i =
+  Vec ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer)
+
+unsafeCol :: (Storable a) => Matrix a -> Int -> Vec a
+unsafeCol Matrix{..} i =
+  Vec nrows leadingDim (updPtr (`advancePtr` i) buffer)
+
+fromRowsFF :: (Storable a, Foldable f, Foldable g)
+           => f (g a) -> Matrix a
+fromRowsFF dat = runST $ unsafeFreeze =<< M.fromRowsFF dat

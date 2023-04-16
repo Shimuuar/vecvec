@@ -53,11 +53,12 @@ fromRowsFF dat
   | otherwise = unsafePrimToPrim $ do
       bufferM <- mallocForeignPtrArray (ncolsM * nrowsM)
       let step p row
-            | length row /= nrowsM = error "Row has different length"
-            | otherwise            = do pokeArray p (toList row)
-                                        pure $! advancePtr p nrowsM
+            | length row /= ncolsM = error "Row has different length"
+            | otherwise            = do
+                pokeArray p (toList row)
+                pure $! advancePtr p ncolsM
       _ <- unsafeWithForeignPtr bufferM $ \p -> foldM step p dat
-      pure MMatrix { leadingDimM = nrowsM
+      pure MMatrix { leadingDimM = ncolsM
                    , ..
                    }
   where
