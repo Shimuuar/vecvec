@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE TypeFamilies               #-}
+
 -- |
 module Vecvec.LAPACK.FFI
   ( LAPACKy(..)
@@ -17,7 +18,7 @@ module Vecvec.LAPACK.FFI
   , Z
     -- * Enumeration wrappers
   , CEnum(..)
-  , MatrixOrder(..)
+  , MatrixLayout(..)
   , MatrixTranspose(..)
   ) where
 
@@ -34,6 +35,10 @@ import Vecvec.Classes           (NormedScalar(..))
 #define CCALL capi
 
 
+----------------------------------------------------------------
+-- Type synonyms
+----------------------------------------------------------------
+
 type S = Float
 type D = Double
 type C = Complex Float
@@ -45,23 +50,30 @@ type ARR a r = Ptr a -> CInt -> r
 -- Enumerations
 ----------------------------------------------------------------
 
+-- | Type class for conversion of haskell representation of values and
+--   constants to representation used in FFI calls
 class CEnum a where
-  toCEnum :: a -> CInt
+  data CRepr a
+  toCEnum :: a -> CRepr a
 
-data MatrixOrder
+-- | Layout of matrix. Could be row or column major.
+data MatrixLayout
   = RowMajor
   | ColMajor
   deriving stock (Show,Eq)
 
-instance CEnum MatrixOrder where
+instance CEnum MatrixLayout where
+  newtype CRepr MatrixLayout = CMatrixLayout CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     RowMajor -> c_BLAS_ROW_MAJOR
     ColMajor -> c_BLAS_COL_MAJOR
 
-foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CInt
-foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CInt
+foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
+foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CRepr MatrixLayout
 
+
+-- | Whether matrix should be transposed, transposed and conjugater
 data MatrixTranspose
   = NoTrans
   | Trans
@@ -70,6 +82,7 @@ data MatrixTranspose
   deriving stock (Show,Eq)
 
 instance CEnum MatrixTranspose where
+  newtype CRepr MatrixTranspose = CMatrixTranspose CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     NoTrans     -> c_NO_TRANS
@@ -77,10 +90,10 @@ instance CEnum MatrixTranspose where
     ConjTrans   -> c_CONJ_TRANS
     ConjNoTrans -> c_CONJ_NO_TRANS
 
-foreign import capi "cblas.h value CblasNoTrans"     c_NO_TRANS      :: CInt
-foreign import capi "cblas.h value CblasTrans"       c_TRANS         :: CInt
-foreign import capi "cblas.h value CblasConjTrans"   c_CONJ_TRANS    :: CInt
-foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CInt
+foreign import capi "cblas.h value CblasNoTrans"     c_NO_TRANS      :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasTrans"       c_TRANS         :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasConjTrans"   c_CONJ_TRANS    :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CRepr MatrixTranspose
 
 
 ----------------------------------------------------------------
@@ -123,12 +136,34 @@ class (Num a, Storable a) => LAPACKy a where
        -> Ptr a -> CInt
        -> IO (R a)
 
+  -- | Matrix-vector multiplication. Compute one of:
+  --
+  -- > y := α·A·x       + β·y
+  -- > y := α·tr(A)·x   + β·y
+  -- > y := α·conj(A)·x + β·y
+  gemv
+    :: CRepr MatrixLayout     -- ^ Matrix layout
+    -> CRepr MatrixTranspose  -- ^ Whether matrix should be transposed
+    -> CInt                   -- ^ Number of rows
+    -> CInt                   -- ^ Number of columns
+    -> a                      -- ^ Scalar @α@
+    -> Ptr a                  -- ^ Pointer to matrix data @A@
+    -> CInt                   -- ^ Leading dimension size
+    -> Ptr a                  -- ^ Buffer for vector @x@
+    -> CInt                   -- ^ Stride of vector @x@
+    -> a                      -- ^ Scalar β
+    -> Ptr a                  -- ^ Buffer for vector @y@
+    -> CInt                   -- ^ Stride for vector @y@
+    -> IO ()
+
+
 instance LAPACKy Float where
   axpy = s_axpy
   copy = s_copy
   scal = s_scal
   dot  = s_dot
   nrm2 = s_nrm2
+  gemv = s_gemv
 
 instance LAPACKy Double where
   axpy = d_axpy
@@ -136,37 +171,67 @@ instance LAPACKy Double where
   scal = d_scal
   dot  = d_dot
   nrm2 = d_nrm2
+  gemv = d_gemv
 
 instance LAPACKy (Complex Float) where
   copy = c_copy
   nrm2 = c_nrm2
   --
+  {-# INLINE axpy #-}
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     c_axpy n p_a x incX y incY
   --
+  {-# INLINE scal #-}
   scal n a x incX = alloca $ \p_a -> do
     poke p_a a
     c_scal n p_a x incX
   --
+  {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
     c_dot n x incX y incY p_a >> peek p_a
+  --
+  -- FIXME: we should coalesce two alloca
+  {-# INLINE gemv #-}
+  gemv layout tr
+    n_r n_c α p_A ldA
+    p_x incX β p_y incY
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        c_gemv layout tr
+          n_r n_c p_α p_A ldA
+          p_x incX p_β p_y incY
 
 instance LAPACKy (Complex Double) where
   copy = z_copy
   nrm2 = z_nrm2
   --
+  {-# INLINE axpy #-}
   axpy n a x incX y incY = alloca $ \p_a -> do
     poke p_a a
     z_axpy n p_a x incX y incY
   --
+  {-# INLINE scal #-}
   scal n a x incX = alloca $ \p_a -> do
     poke p_a a
     z_scal n p_a x incX
   --
+  {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
     z_dot n x incX y incY p_a >> peek p_a
-
+  --
+  -- FIXME: we should coalesce two alloca
+  {-# INLINE gemv #-}
+  gemv layout tr
+    n_r n_c α p_A ldA
+    p_x incX β p_y incY
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        z_gemv layout tr
+          n_r n_c p_α p_A ldA
+          p_x incX p_β p_y incY
 
 
 ----------------------------------------------------------------
@@ -197,3 +262,25 @@ foreign import CCALL unsafe "cblas.h cblas_snrm2"  s_nrm2 :: CInt -> ARR S (IO S
 foreign import CCALL unsafe "cblas.h cblas_dnrm2"  d_nrm2 :: CInt -> ARR D (IO D)
 foreign import CCALL unsafe "cblas.h cblas_scnrm2" c_nrm2 :: CInt -> ARR C (IO S)
 foreign import CCALL unsafe "cblas.h cblas_dznrm2" z_nrm2 :: CInt -> ARR Z (IO D)
+
+
+foreign import CCALL unsafe "cblas.h cblas_sgemv" s_gemv
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CInt -> CInt -> S -> Ptr S -> CInt
+  -> ARR S (S -> ARR S (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_dgemv" d_gemv
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CInt -> CInt -> D -> Ptr D -> CInt
+  -> ARR D (D -> ARR D (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_cgemv" c_gemv
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CInt -> CInt -> Ptr C -> Ptr C -> CInt
+  -> ARR C (Ptr C -> ARR C (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zgemv" z_gemv
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CInt -> CInt -> Ptr Z -> Ptr Z -> CInt
+  -> ARR Z (Ptr Z -> ARR Z (IO ()))
