@@ -4,6 +4,7 @@
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -13,8 +14,11 @@
 module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   ( MMatrix(..)
   , MView(..)
+  , pattern AsMVec
   , unsafeRead
   , unsafeWrite
+  , unsafeCol
+  , unsafeRow
     -- * Matrix creation
   , clone
   , fromRowsFF
@@ -61,6 +65,17 @@ instance s ~ s' => AsMInput s' (MMatrix s) where
   {-# INLINE asMInput #-}
   asMInput = coerce
 
+pattern AsMVec :: MVec s a -> MMatrix s a
+pattern AsMVec v <- (tryMVec -> Just v)
+
+tryMVec :: MMatrix s a -> Maybe (MVec s a)
+{-# INLINE tryMVec #-}
+tryMVec (MMatrix MView{..})
+  | ncols /= leadingDim = Nothing
+  | otherwise           = Just (MVec (ncols * nrows) 1 buffer)
+
+
+
 -- | Create copy of mutable matrix
 clone :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
       => mat a -> m (MMatrix s a)
@@ -83,6 +98,13 @@ clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
   where
     n_elt = ncols * nrows
 
+unsafeRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeRow (MMatrix MView{..}) i =
+   MVec ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer)
+
+unsafeCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeCol (MMatrix MView{..}) i =
+  MVec nrows leadingDim (updPtr (`advancePtr` i) buffer)
 
 unsafeRead :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
            => mat a -> (Int, Int) -> m a

@@ -10,6 +10,7 @@ module Vecvec.LAPACK.Vector.Mutable
   ( clone
   , scal
   , axpy
+  , unsafeBlasAxpy
   , dot
   , nrm2
   ) where
@@ -53,13 +54,26 @@ axpy
   -> inp a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
-axpy a (asInput @s -> Vec lenX incX fpX) (MVec lenY incY fpY)
-  | lenX /= lenY = error "Length mismatch"
-  | otherwise    = unsafePrimToPrim
-      $ unsafeWithForeignPtr fpX $ \pX ->
-        unsafeWithForeignPtr fpY $ \pY ->
-          C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
-                                       pY (fromIntegral incY)
+axpy a vecX@(asInput @s -> Vec lenX _ _) vecY
+  | lenX /= MVG.length vecY = error "Length mismatch"
+  | otherwise               = unsafeBlasAxpy a vecX vecY
+
+-- | Compute vector-scalar product in place
+--
+-- > y := a*x + y
+unsafeBlasAxpy
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  => a        -- ^ Scalar @a@
+  -> inp a    -- ^ Vector @x@
+  -> MVec s a -- ^ Vector @y@
+  -> m ()
+{-# INLINE unsafeBlasAxpy #-}
+unsafeBlasAxpy a (asInput @s -> Vec lenX incX fpX) (MVec lenY incY fpY)
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
+                                   pY (fromIntegral incY)
 
 -- | Multiply vector by scalar in place
 --
