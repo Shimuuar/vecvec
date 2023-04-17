@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -18,9 +20,10 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , thaw
   ) where
 
-
+import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.ST
+import Data.Coerce
 import Data.List                    (intercalate)
 import Data.Vector.Generic.Mutable  qualified as MVG
 import Data.Vector.Generic          qualified as VG
@@ -37,18 +40,18 @@ import Vecvec.LAPACK.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
 
 -- | Immutable matrix
-data Matrix a = Matrix
-  { nrows      :: !Int
-  , ncols      :: !Int
-  , leadingDim :: !Int
-  , buffer     :: !(ForeignPtr a)
-  }
+newtype Matrix a = Matrix (M.MView M.Immut a)
+
 
 nRows :: Matrix a -> Int
-nRows = nrows
+nRows (Matrix m) = M.nrows m
 
 nCols :: Matrix a -> Int
-nCols = ncols
+nCols (Matrix m) = M.ncols m
+
+instance M.AsMInput s Matrix where
+  {-# INLINE asMInput #-}
+  asMInput = coerce
 
 instance (Show a, Storable a) => Show (Matrix a) where
   show m = "[ " ++ intercalate "\n, " [ show (unsafeRow m i) | i <- [0 .. nRows m - 1]] ++ "]"
@@ -65,54 +68,30 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
   -- FIXME: implement method
 
 instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Vec a') (Vec a) where
-  -- FIXME: Should be factored out to method working on mutable vectors
   m @@ v
     | nCols m /= VG.length v = error "matrix size mismatch"
-  Matrix{..} @@ Vec len incX fpX = unsafePerformIO $ do
-    vecY@(MVec _ incY fpY) <- MVG.new nrows
-    unsafeWithForeignPtr buffer $ \p_A ->
-      unsafeWithForeignPtr fpX  $ \p_x ->
-      unsafeWithForeignPtr fpY  $ \p_y ->
-        C.gemv (C.toCEnum C.RowMajor) (C.toCEnum C.NoTrans)
-          (fromIntegral nrows) (fromIntegral ncols) 1 p_A (fromIntegral leadingDim)
-          p_x (fromIntegral incX)
-          0 p_y (fromIntegral incY)
+  mat @@ vecX = unsafePerformIO $ do
+    vecY <- MVG.new (nRows mat)
+    M.unsafeBlasGemv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
              => M.MMatrix s a -> m (Matrix a)
-unsafeFreeze M.MMatrix{..} = pure $ do
-  Matrix { nrows      = nrowsM
-         , ncols      = ncolsM
-         , leadingDim = leadingDimM
-         , buffer     = bufferM
-         }
+unsafeFreeze = pure . coerce
+
 
 freeze :: (Storable a, PrimMonad m, s ~ PrimState m)
        => M.MMatrix s a -> m (Matrix a)
-freeze M.MMatrix{..} = do
-  -- FIXME: We need to allocate new buffer. Note that ncols /=
-  --        leadingDim in general case. We ma need to copy row by row
-  pure Matrix { nrows      = nrowsM
-              , ncols      = ncolsM
-              , leadingDim = ncolsM
-              , buffer     = undefined
-              }
+freeze = unsafeFreeze <=< M.clone
 
 thaw :: (Storable a, PrimMonad m, s ~ PrimState m)
      => Matrix a -> m (M.MMatrix s a)
-thaw Matrix{..} = do
-  -- FIXME: We need to allocate new buffer. Note that ncols /=
-  --        leadingDim in general case. We ma need to copy row by row
-  pure M.MMatrix { nrowsM      = nrows
-                 , ncolsM      = ncols
-                 , leadingDimM = ncols
-                 , bufferM     = undefined
-                 }
+thaw = M.clone
+
 
 unsafeRead :: (Storable a) => Matrix a -> (Int, Int) -> a
 {-# INLINE unsafeRead #-}
-unsafeRead Matrix{..} (i,j)
+unsafeRead (Matrix M.MView{..}) (i,j)
   = unsafeInlineIO
   $ unsafeWithForeignPtr buffer $ \p -> do
     peekElemOff p (i * leadingDim + j)
@@ -120,11 +99,11 @@ unsafeRead Matrix{..} (i,j)
 
 
 unsafeRow :: (Storable a) => Matrix a -> Int -> Vec a
-unsafeRow Matrix{..} i =
+unsafeRow (Matrix M.MView{..}) i =
   Vec ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer)
 
 unsafeCol :: (Storable a) => Matrix a -> Int -> Vec a
-unsafeCol Matrix{..} i =
+unsafeCol (Matrix M.MView{..}) i =
   Vec nrows leadingDim (updPtr (`advancePtr` i) buffer)
 
 fromRowsFF :: (Storable a, Foldable f, Foldable g)
