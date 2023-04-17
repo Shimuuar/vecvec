@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns    #-}
+{-# LANGUAGE MultiWayIf      #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
 -- |
@@ -6,6 +8,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , unsafeRead
   , unsafeWrite
     -- * Matrix creation
+  , clone
   , fromRowsFF
   ) where
 
@@ -28,6 +31,30 @@ data MMatrix s a = MMatrix
                                    --   so it's row size.
   , bufferM     :: !(ForeignPtr a) -- ^ Underlying buffer
   }
+
+
+-- | Create copy of mutable matrix
+clone :: (Storable a, PrimMonad m, s ~ PrimState m)
+      => MMatrix s a -> m (MMatrix s a)
+clone MMatrix{..} = unsafePrimToPrim $ do
+  buf <- mallocForeignPtrArray n_elt
+  unsafeWithForeignPtr bufferM $ \src ->
+    unsafeWithForeignPtr buf $ \dst ->
+    if-- Source buffer is dense. We can copy in one go
+      | ncolsM == leadingDimM -> copyArray dst src n_elt
+      -- We have to copy row by row
+      | otherwise -> let loop !d !s i
+                           | i >= nrowsM = return ()
+                           | otherwise   = do
+                               copyArray d s ncolsM
+                               loop (advancePtr d nrowsM) (advancePtr s leadingDimM) (i+1)
+                     in loop dst src 0
+  pure MMatrix { bufferM = buf
+               , ..
+               }
+  where
+    n_elt = ncolsM * nrowsM
+
 
 unsafeRead :: (Storable a, PrimMonad m, s ~ PrimState m)
            => MMatrix s a -> (Int, Int) -> m a
