@@ -15,6 +15,7 @@ module Vecvec.LAPACK
     Vec
   , MVec
   , fromMVector
+  , LAPACKy
   ) where
 
 -- import Control.Monad
@@ -32,5 +33,6 @@ module Vecvec.LAPACK
 -- import Data.Vector.Generic.Mutable  qualified as MVG
 -- import Data.Vector.Fusion.Util      (liftBox)
 
+import Vecvec.LAPACK.FFI              (LAPACKy)
 import Vecvec.LAPACK.Internal.Vector
-
+import Vecvec.LAPACK.Vector.Mutable   ()
