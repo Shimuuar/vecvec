@@ -141,7 +141,10 @@ instance LAPACKy a => VectorSpace (Vec a) where
 
 instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
   v <.> u = runST $ dot v u
-  magnitudeSq v = runST $ nrm2 v
+  -- nrm2 return _norm_ of vector not a norm squared. For now we
+  -- revert to in-haskell implementation
+  {-# INLINE magnitudeSq #-}
+  magnitudeSq = coerce (magnitudeSq @(AsVector Vec a))
 
 
 ----------------------------------------------------------------
