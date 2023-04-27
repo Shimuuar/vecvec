@@ -3,6 +3,7 @@
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- |
 -- Internal module with definition of strided storable vector.  It
@@ -16,7 +17,18 @@ module Vecvec.LAPACK.Internal.Vector.Mutable
   , AsInput(..)
     -- * Mutable vector
   , MVec(..)
+  , LAPACKy
   , fromMVector
+    -- * Mutable BLAS wrappers
+    -- ** Checked varians
+  , clone
+  , blasAxpy
+  , blasScal
+  , blasDot
+  , blasNrm2
+    -- ** Unchecked variants
+  , unsafeBlasAxpy
+  , unsafeBlasDot
   ) where
 
 import Control.DeepSeq         (NFData(..), NFData1(..))
@@ -25,6 +37,7 @@ import Control.Monad.ST
 import Control.Monad.Primitive
 import Data.Primitive.Ptr      hiding (advancePtr)
 import Data.Word
+import Data.Coerce
 import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.Ptr
@@ -37,6 +50,10 @@ import Data.Vector.Generic          qualified as VG
 import Data.Vector.Generic.Mutable  qualified as MVG
 import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
+
+import Vecvec.Classes
+import Vecvec.LAPACK.FFI             (LAPACKy)
+import Vecvec.LAPACK.FFI             qualified as C
 
 import Vecvec.LAPACK.Internal.Compat
 
@@ -148,3 +165,103 @@ instance VS.Storable a => MVG.MVector MVec a where
                  | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
                                   loop (i + 1)
       in loop 0
+
+
+----------------------------------------------------------------
+-- BLAS overloads
+----------------------------------------------------------------
+
+-- | Create copy of a vector
+clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+      => inp a
+      -> m (MVec s a)
+clone vec
+  = unsafePrimToPrim
+  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vec
+       unsafeWithForeignPtr fp $ \p -> do
+         vec@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
+         unsafeWithForeignPtr fp' $ \p' -> do
+           C.copy (fromIntegral len) p (fromIntegral inc) p' (fromIntegral inc')
+         return $ coerce vec
+
+
+-- | Compute vector-scalar product in place
+--
+-- > y := a*x + y
+blasAxpy
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  => a        -- ^ Scalar @a@
+  -> inp a    -- ^ Vector @x@
+  -> MVec s a -- ^ Vector @y@
+  -> m ()
+blasAxpy a vecX vecY = primToPrim $ do
+  VecRepr lenX _ _ <- asInput @s vecX
+  when (lenX /= MVG.length vecY) $ error "Length mismatch"
+  unsafeBlasAxpy a vecX vecY
+
+-- | Compute vector-scalar product in place
+--
+-- > y := a*x + y
+unsafeBlasAxpy
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  => a        -- ^ Scalar @a@
+  -> inp a    -- ^ Vector @x@
+  -> MVec s a -- ^ Vector @y@
+  -> m ()
+{-# INLINE unsafeBlasAxpy #-}
+unsafeBlasAxpy a vecX (MVec (VecRepr lenY incY fpY)) = unsafePrimToPrim $ do
+  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  id $ unsafeWithForeignPtr fpX $ \pX ->
+       unsafeWithForeignPtr fpY $ \pY ->
+       C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
+                                    pY (fromIntegral incY)
+
+-- | Multiply vector by scalar in place
+--
+-- > x := a*x
+blasScal
+  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  => a        -- ^ Scalar @a@
+  -> MVec s a -- ^ Vector @x@
+  -> m ()
+blasScal a (MVec (VecRepr lenX incX fpX))
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr fpX $ \pX ->
+    C.scal (fromIntegral lenX) a pX (fromIntegral incX)
+
+
+-- | Compute scalar product of two vectors
+blasDot
+  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
+  => inpX a -- ^ Vector @x@
+  -> inpY a -- ^ Vector @y@
+  -> m a
+blasDot vecX vecY = primToPrim $ do
+  VecRepr lenX _ _ <- asInput vecX
+  VecRepr lenY _ _ <- asInput vecY
+  when (lenX /= lenY) $ error "Length mismatch"
+  unsafeBlasDot vecX vecY
+
+-- | Compute scalar product of two vectors
+unsafeBlasDot
+  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
+  => inpX a -- ^ Vector @x@
+  -> inpY a -- ^ Vector @y@
+  -> m a
+unsafeBlasDot vecX vecY = unsafePrimToPrim $ do
+  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
+  id $ unsafeWithForeignPtr fpX $ \pX ->
+       unsafeWithForeignPtr fpY $ \pY ->
+       C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+
+-- | Compute euclidean norm or two vectors
+blasNrm2
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  => inp a -- ^ Vector @x@
+  -> m (R a)
+blasNrm2 vec
+  = unsafePrimToPrim
+  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vec
+       unsafeWithForeignPtr fpX $ \pX ->
+         C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)

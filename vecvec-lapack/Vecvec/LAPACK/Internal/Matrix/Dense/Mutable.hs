@@ -20,9 +20,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , unsafeCol
   , unsafeRow
     -- * Matrix creation
-  , clone
+  , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
   , fromRowsFF
-
   , Mut
   , Immut
   , AsMInput(..)
@@ -39,7 +38,6 @@ import Foreign.Storable
 import Foreign.Marshal.Array
 
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI             qualified as C
 
@@ -162,7 +160,7 @@ unsafeBlasGemv
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasGemv #-}
-unsafeBlasGemv α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr lenY incY fpY))
+unsafeBlasGemv α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fpY))
   = unsafePrimToPrim
   $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
        id $ unsafeWithForeignPtr buffer $ \p_A ->

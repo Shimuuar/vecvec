@@ -18,22 +18,6 @@ module Vecvec.LAPACK
   , LAPACKy
   ) where
 
--- import Control.Monad
--- import Control.Monad.Primitive
--- import Data.Primitive.Ptr      hiding (advancePtr)
--- import Data.Word
--- import Foreign.Storable
--- import Foreign.ForeignPtr
--- import Foreign.Ptr
--- import Foreign.Marshal.Array
-
--- import Data.Vector.Storable         qualified as VS
--- import Data.Vector.Storable.Mutable qualified as MVS
--- import Data.Vector.Generic          qualified as VG
--- import Data.Vector.Generic.Mutable  qualified as MVG
--- import Data.Vector.Fusion.Util      (liftBox)
-
-import Vecvec.LAPACK.FFI              (LAPACKy)
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.Vector.Mutable   ()

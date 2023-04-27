@@ -41,7 +41,6 @@ import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
-import Vecvec.LAPACK.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
 
 -- | Immutable matrix

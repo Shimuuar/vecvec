@@ -3,7 +3,9 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NegativeLiterals      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- |
 -- Definition of strided storable vectors
@@ -12,14 +14,10 @@ module Vecvec.LAPACK.Internal.Vector
   ) where
 
 import Control.DeepSeq         (NFData(..), NFData1(..))
-import Control.Monad
+import Control.Monad.ST
 import Control.Monad.Primitive
 import Data.Coerce
-import Data.Primitive.Ptr      hiding (advancePtr)
-import Data.Word
 import Foreign.Storable
-import Foreign.ForeignPtr
-import Foreign.Ptr
 import Foreign.Marshal.Array
 import Text.Read
 
@@ -30,15 +28,9 @@ import Data.Vector.Generic.Mutable  qualified as MVG
 import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
 
+import Vecvec.Classes
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable
-
-----------------------------------------------------------------
--- Mutable
-----------------------------------------------------------------
-
-
-
 
 
 ----------------------------------------------------------------
@@ -112,17 +104,38 @@ instance VS.Storable a => VG.Vector Vec a where
                               MVG.basicUnsafeWrite dst i x
                               loop (i+1)
 
+
 ----------------------------------------------------------------
--- Classes
+-- BLAS wrappers
 ----------------------------------------------------------------
 
--- -- | Type class for
--- class AsInput s v where
---   asInput :: v a -> Vec a
+instance LAPACKy a => AdditiveSemigroup (Vec a) where
+  v .+. u = runST $ do
+    mr <- clone v
+    blasAxpy 1 u mr
+    VG.unsafeFreeze mr
 
--- instance AsInput s Vec where
---   {-# INLINE asInput #-}
---   asInput = id
--- instance s ~ s => AsInput s (MVec s') where
---   {-# INLINE asInput #-}
---   asInput (MVec len inc fp) = Vec len inc fp
+instance LAPACKy a => AdditiveQuasigroup (Vec a) where
+  v .-. u = runST $ do
+    mr <- clone v
+    blasAxpy -1 u mr
+    VG.unsafeFreeze mr
+  negateV v = runST $ do
+    mr <- clone v
+    blasScal -1 mr
+    VG.unsafeFreeze mr
+
+instance LAPACKy a => VectorSpace (Vec a) where
+  type Scalar (Vec a) = a
+  a *. v = runST $ do
+    mr <- clone v
+    blasScal a mr
+    VG.unsafeFreeze mr
+  (.*) = flip (*.)
+
+instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
+  v <.> u = runST $ blasDot v u
+  -- nrm2 return _norm_ of vector not a norm squared. For now we
+  -- revert to in-haskell implementation
+  {-# INLINE magnitudeSq #-}
+  magnitudeSq = coerce (magnitudeSq @(AsVector Vec a))
