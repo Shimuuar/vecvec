@@ -40,6 +40,7 @@ import Vecvec.Classes
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
+import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
 
@@ -53,7 +54,7 @@ tryVec :: Matrix a -> Maybe (Vec a)
 {-# INLINE tryVec #-}
 tryVec (Matrix M.MView{..})
   | ncols /= leadingDim = Nothing
-  | otherwise           = Just (Vec (ncols * nrows) 1 buffer)
+  | otherwise           = Just (Vec (VecRepr (ncols * nrows) 1 buffer))
 
 
 nRows :: Matrix a -> Int
@@ -97,7 +98,7 @@ instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
 instance C.LAPACKy a => VectorSpace (Matrix a) where
   type Scalar (Matrix a) = a
   a *. m = runST $ do
-    resV@(MVec _ _ buf) <- MVG.new (nRows m * nCols m)
+    resV@(MVec (VecRepr _ _ buf)) <- MVG.new (nRows m * nCols m)
     let resM = M.MMatrix M.MView
           { ncols      = nCols m
           , nrows      = nRows m
@@ -144,11 +145,11 @@ unsafeRead (Matrix M.MView{..}) (i,j)
 
 unsafeRow :: (Storable a) => Matrix a -> Int -> Vec a
 unsafeRow (Matrix M.MView{..}) i =
-  Vec ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer)
+  Vec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
 
 unsafeCol :: (Storable a) => Matrix a -> Int -> Vec a
 unsafeCol (Matrix M.MView{..}) i =
-  Vec nrows leadingDim (updPtr (`advancePtr` i) buffer)
+  Vec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
 
 fromRowsFF :: (Storable a, Foldable f, Foldable g)
            => f (g a) -> Matrix a

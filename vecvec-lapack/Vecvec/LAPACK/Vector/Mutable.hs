@@ -7,7 +7,8 @@
 -- |
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Vecvec.LAPACK.Vector.Mutable
-  ( clone
+  ( MVec
+  , clone
   , scal
   , axpy
   , unsafeBlasAxpy
@@ -17,11 +18,13 @@ module Vecvec.LAPACK.Vector.Mutable
 
 import Control.Monad.Primitive
 import Control.Monad.ST
+import Control.Monad
 import Data.Coerce
 import Data.Vector.Generic.Mutable qualified as MVG
 import Data.Vector.Generic         qualified as VG
 
 import Vecvec.LAPACK.Internal.Vector
+import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.Internal.Compat (unsafeWithForeignPtr)
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
@@ -37,13 +40,14 @@ import Vecvec.Classes
 clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
       => inp a
       -> m (MVec s a)
-clone (asInput @s -> Vec len inc fp)
+clone vec
   = unsafePrimToPrim
-  $ unsafeWithForeignPtr fp $ \p -> do
-      vec@(MVec _ inc' fp') <- MVG.unsafeNew len
-      unsafeWithForeignPtr fp' $ \p' -> do
-        C.copy (fromIntegral len) p (fromIntegral inc) p' (fromIntegral inc')
-      return $ unsafeCastMVec vec
+  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vec
+       unsafeWithForeignPtr fp $ \p -> do
+         vec@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
+         unsafeWithForeignPtr fp' $ \p' -> do
+           C.copy (fromIntegral len) p (fromIntegral inc) p' (fromIntegral inc')
+         return $ unsafeCastMVec vec
 
 -- | Compute vector-scalar product in place
 --
@@ -54,9 +58,10 @@ axpy
   -> inp a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
-axpy a vecX@(asInput @s -> Vec lenX _ _) vecY
-  | lenX /= MVG.length vecY = error "Length mismatch"
-  | otherwise               = unsafeBlasAxpy a vecX vecY
+axpy a vecX vecY = primToPrim $ do
+  VecRepr lenX _ _ <- asInput @s vecX
+  when (lenX /= MVG.length vecY) $ error "Length mismatch"
+  unsafeBlasAxpy a vecX vecY
 
 -- | Compute vector-scalar product in place
 --
@@ -68,12 +73,12 @@ unsafeBlasAxpy
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasAxpy #-}
-unsafeBlasAxpy a (asInput @s -> Vec lenX incX fpX) (MVec lenY incY fpY)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr fpX $ \pX ->
-    unsafeWithForeignPtr fpY $ \pY ->
-      C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
-                                   pY (fromIntegral incY)
+unsafeBlasAxpy a vecX (MVec (VecRepr lenY incY fpY)) = unsafePrimToPrim $ do
+  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  id $ unsafeWithForeignPtr fpX $ \pX ->
+       unsafeWithForeignPtr fpY $ \pY ->
+       C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
+                                    pY (fromIntegral incY)
 
 -- | Multiply vector by scalar in place
 --
@@ -83,7 +88,7 @@ scal
   => a        -- ^ Scalar @a@
   -> MVec s a -- ^ Vector @x@
   -> m ()
-scal a (MVec lenX incX fpX)
+scal a (MVec (VecRepr lenX incX fpX))
   = unsafePrimToPrim
   $ unsafeWithForeignPtr fpX $ \pX ->
     C.scal (fromIntegral lenX) a pX (fromIntegral incX)
@@ -94,22 +99,24 @@ dot
   => inpX a -- ^ Vector @x@
   -> inpY a -- ^ Vector @y@
   -> m a
-dot (asInput @s -> Vec lenX incX fpX) (asInput @s -> Vec lenY incY fpY)
-  | lenX /= lenY = error "Length mismatch"
-  | otherwise    = unsafePrimToPrim
-    $ unsafeWithForeignPtr fpX $ \pX ->
-      unsafeWithForeignPtr fpY $ \pY ->
-      C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+dot vecX vecY = unsafePrimToPrim $ do
+  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  VecRepr lenY incY fpY <- unsafePrimToPrim $ asInput @s vecY
+  when (lenX /= lenY) $ error "Length mismatch"
+  id $ unsafeWithForeignPtr fpX $ \pX ->
+       unsafeWithForeignPtr fpY $ \pY ->
+       C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
 
 -- | Compute euclidean norm or two vectors
 nrm2
   :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
   => inp a -- ^ Vector @x@
   -> m (R a)
-nrm2 (asInput @s -> Vec lenX incX fpX)
+nrm2 vec
   = unsafePrimToPrim
-  $ unsafeWithForeignPtr fpX $ \pX ->
-    C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)
+  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vec
+       unsafeWithForeignPtr fpX $ \pX ->
+         C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)
 
 ----------------------------------------------------------------
 -- Instances

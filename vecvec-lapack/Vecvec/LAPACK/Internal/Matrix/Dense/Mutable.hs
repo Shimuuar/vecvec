@@ -40,7 +40,9 @@ import Foreign.Marshal.Array
 
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
+import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI             qualified as C
+
 
 data Mut s
 data Immut
@@ -72,7 +74,7 @@ tryMVec :: MMatrix s a -> Maybe (MVec s a)
 {-# INLINE tryMVec #-}
 tryMVec (MMatrix MView{..})
   | ncols /= leadingDim = Nothing
-  | otherwise           = Just (MVec (ncols * nrows) 1 buffer)
+  | otherwise           = Just (MVec (VecRepr (ncols * nrows) 1 buffer))
 
 
 
@@ -100,11 +102,11 @@ clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
 
 unsafeRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
 unsafeRow (MMatrix MView{..}) i =
-   MVec ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer)
+   MVec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
 
 unsafeCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
 unsafeCol (MMatrix MView{..}) i =
-  MVec nrows leadingDim (updPtr (`advancePtr` i) buffer)
+  MVec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
 
 unsafeRead :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
            => mat a -> (Int, Int) -> m a
@@ -160,12 +162,13 @@ unsafeBlasGemv
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasGemv #-}
-unsafeBlasGemv α (asMInput @s -> MView{..}) (asInput @s -> Vec lenX incX fpX) β (MVec lenY incY fpY)
+unsafeBlasGemv α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr lenY incY fpY))
   = unsafePrimToPrim
-  $ unsafeWithForeignPtr buffer $ \p_A ->
-    unsafeWithForeignPtr fpX    $ \p_x ->
-    unsafeWithForeignPtr fpY    $ \p_y ->
-      C.gemv (C.toCEnum C.RowMajor) (C.toCEnum C.NoTrans)
-        (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
-        p_x (fromIntegral incX)
-        β p_y (fromIntegral incY)
+  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+       id $ unsafeWithForeignPtr buffer $ \p_A ->
+            unsafeWithForeignPtr fpX    $ \p_x ->
+            unsafeWithForeignPtr fpY    $ \p_y ->
+              C.gemv (C.toCEnum C.RowMajor) (C.toCEnum C.NoTrans)
+                (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
+                p_x (fromIntegral incX)
+                β p_y (fromIntegral incY)

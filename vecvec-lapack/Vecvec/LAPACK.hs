@@ -35,4 +35,5 @@ module Vecvec.LAPACK
 
 import Vecvec.LAPACK.FFI              (LAPACKy)
 import Vecvec.LAPACK.Internal.Vector
+import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.Vector.Mutable   ()

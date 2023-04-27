@@ -34,6 +34,7 @@ Library
     Vecvec.LAPACK.Vector.Mutable
     --
     Vecvec.LAPACK.Internal.Vector
+    Vecvec.LAPACK.Internal.Vector.Mutable
     Vecvec.LAPACK.Internal.Matrix.Dense
     Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   Other-modules:
