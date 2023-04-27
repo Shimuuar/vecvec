@@ -31,7 +31,6 @@ module Vecvec.LAPACK.Internal.Vector.Mutable
   , unsafeBlasDot
   ) where
 
-import Control.DeepSeq         (NFData(..), NFData1(..))
 import Control.Monad
 import Control.Monad.ST
 import Control.Monad.Primitive
@@ -42,14 +41,10 @@ import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Marshal.Array
-import Text.Read
 
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
-import Data.Vector.Generic          qualified as VG
 import Data.Vector.Generic.Mutable  qualified as MVG
-import Data.Vector.Fusion.Bundle    qualified as Bundle
-import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.LAPACK.FFI             (LAPACKy)
@@ -82,6 +77,14 @@ instance s ~ s => AsInput s (MVec s') where
   {-# INLINE asInput #-}
   asInput (MVec v) = pure v
 
+instance s ~ s => AsInput s (MVS.MVector s') where
+  {-# INLINE asInput #-}
+  asInput (MVS.MVector n buf) = pure (VecRepr n 1 buf)
+
+-- -- FIXME: We cannot define instance since we need Storable a for that
+-- instance AsInput s VS.Vector where
+--   {-# INLINE asInput #-}
+--   asInput = asInput <=< VS.unsafeThaw
 
 
 
@@ -175,14 +178,14 @@ instance VS.Storable a => MVG.MVector MVec a where
 clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
       => inp a
       -> m (MVec s a)
-clone vec
+clone vecIn
   = unsafePrimToPrim
-  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vec
+  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vecIn
        unsafeWithForeignPtr fp $ \p -> do
-         vec@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
+         vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
          unsafeWithForeignPtr fp' $ \p' -> do
            C.copy (fromIntegral len) p (fromIntegral inc) p' (fromIntegral inc')
-         return $ coerce vec
+         return $ coerce vecOut
 
 
 -- | Compute vector-scalar product in place
@@ -209,7 +212,7 @@ unsafeBlasAxpy
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasAxpy #-}
-unsafeBlasAxpy a vecX (MVec (VecRepr lenY incY fpY)) = unsafePrimToPrim $ do
+unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = unsafePrimToPrim $ do
   VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
