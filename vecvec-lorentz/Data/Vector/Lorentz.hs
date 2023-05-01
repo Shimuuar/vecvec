@@ -57,6 +57,8 @@ import Data.Vector.Fixed.Unboxed   (Vec)
 import GHC.TypeLits
 
 import Vecvec.Classes
+import Vecvec.Classes.Convert
+
 
 ----------------------------------------------------------------
 -- Data type
@@ -158,11 +160,6 @@ instance Num a => Semigroup (Rapidity a) where
   (<>) = coerce ((+) @a)
 instance Num a => Monoid (Rapidity a) where
   mempty = Rapidity 0
-
-
--- | Class for total conversion functions
-class Convert a b where
-  convert :: a -> b
 
 instance (Floating a, a ~ a') => Convert (Speed a) (Gamma a') where
   convert (Speed v)    = Gamma $ signum v / sqrt (1 - v*v)
