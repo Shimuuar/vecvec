@@ -29,8 +29,11 @@ import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
+import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..)
+                                             ,blasDot, blasScal, blasAxpy, clone
+                                             )
 
 
 ----------------------------------------------------------------
@@ -76,6 +79,17 @@ instance (Storable a, Ord a) => Ord (Vec a) where
 instance AsInput s Vec where
   {-# INLINE asInput #-}
   asInput = pure . coerce
+
+instance (i ~ Int, Storable a) => Slice (i, Length) (Vec a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceVector
+instance (i ~ Int, Storable a) => Slice (i, End) (Vec a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceVector
+instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceVector
+
 
 instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeFreeze #-}

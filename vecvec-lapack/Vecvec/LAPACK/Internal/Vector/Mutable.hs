@@ -47,6 +47,7 @@ import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic.Mutable  qualified as MVG
 
 import Vecvec.Classes
+import Vecvec.Classes.Slice
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
 
@@ -99,6 +100,18 @@ newtype MVec s a = MVec (VecRepr a)
 --   will use same buffer.
 fromMVector :: MVS.MVector s a -> MVec s a
 fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
+
+
+instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceMVector
+instance (i ~ Int, Storable a) => Slice (i, End) (MVec s a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceMVector
+instance (i ~ Int, Storable a) => Slice (Range i) (MVec s a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceMVector
+
 
 
 instance VS.Storable a => MVG.MVector MVec a where
