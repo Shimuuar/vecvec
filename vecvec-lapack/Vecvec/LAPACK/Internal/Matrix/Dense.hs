@@ -69,6 +69,17 @@ instance M.AsMInput s Matrix where
 instance (Show a, Storable a) => Show (Matrix a) where
   show m = "[ " ++ intercalate "\n, " [ show (unsafeRow m i) | i <- [0 .. nRows m - 1]] ++ "]"
 
+instance (Eq a, Storable a) => Eq (Matrix a) where
+  a == b
+    | nRows a /= nRows b = False
+    | nCols a /= nCols b = False
+    | otherwise          = and
+        [ unsafeRead a (i,j) == unsafeRead b (i,j)
+        | i <- [0 .. nRows a - 1]
+        , j <- [0 .. nCols a - 1]
+        ]
+
+
 instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
   m1 .+. m2
     | nRows m1 /= nRows m2 || nCols m1 /= nCols m2 = error "Size mismatch"
