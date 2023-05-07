@@ -77,7 +77,7 @@ instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
         res@(M.AsMVec vres) <- M.clone m1
         case m2 of
           AsVec v2 -> unsafeBlasAxpy 1 v2 vres
-          _        -> forM_ [0 .. nRows m1] $ \i -> do
+          _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
             unsafeBlasAxpy 1 (unsafeRow m2 i) (M.unsafeRow res i)
         unsafeFreeze res
 
@@ -89,7 +89,7 @@ instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
         res@(M.AsMVec vres) <- M.clone m1
         case m2 of
           AsVec v2 -> unsafeBlasAxpy -1 v2 vres
-          _        -> forM_ [0 .. nRows m1] $ \i -> do
+          _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
             unsafeBlasAxpy -1 (unsafeRow m2 i) (M.unsafeRow res i)
         unsafeFreeze res
   negateV m = -1 *. m
@@ -106,7 +106,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
           }
     case m of
       AsVec v -> unsafeBlasAxpy a v resV
-      _       -> forM_ [0 .. nRows m] $ \i -> do
+      _       -> forM_ [0 .. nRows m - 1] $ \i -> do
         unsafeBlasAxpy -1 (unsafeRow m i) (M.unsafeRow resM i)
     unsafeFreeze resM
   (.*) = flip (*.)
