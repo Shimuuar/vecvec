@@ -22,6 +22,7 @@ module TST.Model (tests) where
 import Data.Complex          (Complex(..))
 import Data.Coerce
 import Data.Kind             (Type)
+import Data.Function         (on)
 import Data.Typeable
 import Foreign.Storable      (Storable)
 import Test.Tasty
@@ -29,6 +30,8 @@ import Test.Tasty.QuickCheck
 
 
 import Vecvec.Classes
+import Vecvec.Classes.Slice
+import Vecvec.LAPACK         (Strided(..))
 import Vecvec.LAPACK         qualified as VV
 import Data.Vector.Generic   qualified as VG
 import Data.Vector           qualified as V
@@ -37,7 +40,7 @@ import Data.Vector.Storable  qualified as VS
 
 
 tests :: TestTree
-tests = testGroup "model"
+tests = testGroup "classes"
   [ testGroup "Vector spaces"
     [ props_vector_space @VV.Vec @Float
     , props_vector_space @VV.Vec @Double
@@ -202,7 +205,8 @@ class ( GenSameSize (ModelRepr v a)
 
 instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VV.Vec a where
   type ModelRepr VV.Vec = ModelVec
-  fromModel = VG.fromList . unModelVec . unModel
+  fromModel (Model (ModelVec stride xs))
+    = slice ((0,End) `Strided` stride) $ VG.fromList $ replicate stride =<< xs
 
 instance (Typeable a, Show a, Eq a, ScalarModel a) => IsModel V.Vector a where
   type ModelRepr V.Vector = ModelVec
@@ -218,33 +222,35 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VS.Vec
 
 
 -- | We use lists as model for vectors.
-newtype ModelVec a = ModelVec { unModelVec :: [a] }
-  deriving newtype (Show)
+data ModelVec a = ModelVec { modelVecStride :: !Int
+                           , unModelVec     :: [a]
+                           }
+  deriving stock (Show)
 
 instance ScalarModel a => Arbitrary (ModelVec a) where
-  arbitrary = ModelVec <$> listOf genScalar
-  shrink    = coerce (shrinkList @a (const []))
+  arbitrary = ModelVec <$> choose (1,4) <*> listOf genScalar
+  -- shrink    = coerce (shrinkList @a (const []))
 
 instance ScalarModel a => GenSameSize (ModelVec a) where
-  sameSize (ModelVec xs) = ModelVec <$> sequence (genScalar <$ xs)
+  sameSize (ModelVec _ xs) = ModelVec <$> choose (1,4) <*> sequence (genScalar <$ xs)
 
 -- FIXME: We need implement checks than values have same size
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
-  (.+.) = coerce (zipWith ((+) @a))
+  a .+. b = ModelVec 1 $ (coerce (zipWith ((+) @a)) `on` unModelVec) a b
 
 instance Num a => AdditiveQuasigroup (ModelVec a) where
-  (.-.)   = coerce (zipWith ((-) @a))
-  negateV = coerce (map (negate @a))
+  a .-. b = ModelVec 1 $ (coerce (zipWith ((-) @a)) `on` unModelVec) a b
+  negateV = ModelVec 1 . coerce (map (negate @a)) . unModelVec
 
 instance Num a => VectorSpace (ModelVec a) where
   type Scalar (ModelVec a) = a
-  a *. ModelVec xs = ModelVec $ fmap (a*) xs
-  ModelVec xs .* a = ModelVec $ fmap (*a) xs
+  a *. ModelVec _ xs = ModelVec 1 $ fmap (a*) xs
+  ModelVec _ xs .* a = ModelVec 1 $ fmap (*a) xs
 
 instance NormedScalar a => InnerSpace (ModelVec a) where
-  ModelVec xs <.> ModelVec ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
-  magnitudeSq (ModelVec xs) = sum $ scalarNormSq <$> xs
+  ModelVec _ xs <.> ModelVec _ ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
+  magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
 
 
 ----------------------------------------------------------------

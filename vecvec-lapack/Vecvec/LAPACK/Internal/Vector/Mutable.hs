@@ -73,6 +73,7 @@ data VecRepr a = VecRepr
   , vecBuffer :: {-# UNPACK #-} !(ForeignPtr a)
     -- ^ Underlying buffer
   }
+  deriving stock Show
 
 instance (Slice1D i, Storable a) => Slice (Strided i) (VecRepr a) where
   {-# INLINE sliceMaybe #-}

@@ -14,6 +14,7 @@ module Vecvec.LAPACK
   ( -- * Vector data types
     Vec
   , MVec
+  , Strided(..)
   , fromMVector
   , LAPACKy
   ) where

@@ -14,6 +14,7 @@
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Internal.Vector
   ( Vec(..)
+  , Strided(..)
   ) where
 
 import Control.DeepSeq         (NFData(..), NFData1(..))
