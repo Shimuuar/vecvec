@@ -1,13 +1,17 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE MultiWayIf            #-}
-{-# LANGUAGE NegativeLiterals      #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE NegativeLiterals           #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE ViewPatterns               #-}
 -- |
 module Vecvec.LAPACK.Internal.Matrix.Dense
   ( -- * Immutable matrix
@@ -37,6 +41,7 @@ import Foreign.Marshal.Array
 import System.IO.Unsafe
 
 import Vecvec.Classes
+import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
@@ -79,6 +84,7 @@ instance (Eq a, Storable a) => Eq (Matrix a) where
         , j <- [0 .. nCols a - 1]
         ]
 
+deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (Matrix a)
 
 instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
   m1 .+. m2

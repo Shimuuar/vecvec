@@ -1,15 +1,18 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE MultiWayIf            #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE ViewPatterns               #-}
 -- |
 module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   ( MMatrix(..)
@@ -35,6 +38,7 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
+import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI             qualified as C
@@ -48,6 +52,18 @@ data MView a = MView
                                   --   so it's row size.
   , buffer     :: !(ForeignPtr a) -- ^ Underlying buffer
   }
+  deriving Show
+
+instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe (idxI,idxJ) MView{..} = do
+    (i,lenI) <- computeSlice1D nrows idxI
+    (j,lenJ) <- computeSlice1D ncols idxJ
+    return MView { nrows      = lenI
+                 , ncols      = lenJ
+                 , leadingDim = leadingDim
+                 , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
+                 }
 
 -- | Mutable matrix.
 newtype MMatrix s a = MMatrix (MView a)
@@ -58,6 +74,9 @@ class AsMInput s m where
 instance s ~ s' => AsMInput s' (MMatrix s) where
   {-# INLINE asMInput #-}
   asMInput = coerce
+
+deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
+
 
 pattern AsMVec :: MVec s a -> MMatrix s a
 pattern AsMVec v <- (tryMVec -> Just v)
