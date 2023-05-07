@@ -44,7 +44,7 @@ import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
 
 -- | Immutable matrix
-newtype Matrix a = Matrix (M.MView M.Immut a)
+newtype Matrix a = Matrix (M.MView a)
 
 pattern AsVec :: Vec a -> Matrix a
 pattern AsVec v <- (tryVec -> Just v)

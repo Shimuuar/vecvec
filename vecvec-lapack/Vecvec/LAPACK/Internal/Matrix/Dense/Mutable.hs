@@ -22,8 +22,6 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- * Matrix creation
   , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
   , fromRowsFF
-  , Mut
-  , Immut
   , AsMInput(..)
     -- * BLAS wrappers
   , unsafeBlasGemv
@@ -41,12 +39,8 @@ import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI             qualified as C
 
-
-data Mut s
-data Immut
-
 -- | Matrix
-data MView mut a = MView
+data MView a = MView
   { nrows      :: !Int            -- ^ Number of rows
   , ncols      :: !Int            -- ^ Number of columns
   , leadingDim :: !Int            -- ^ Leading dimension size. Matrix
@@ -56,10 +50,10 @@ data MView mut a = MView
   }
 
 -- | Mutable matrix.
-newtype MMatrix s a = MMatrix (MView (Mut s) a)
+newtype MMatrix s a = MMatrix (MView a)
 
 class AsMInput s m where
-  asMInput :: m a -> MView Immut a
+  asMInput :: m a -> MView a
 
 instance s ~ s' => AsMInput s' (MMatrix s) where
   {-# INLINE asMInput #-}
