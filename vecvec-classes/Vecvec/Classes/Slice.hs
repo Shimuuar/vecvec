@@ -63,33 +63,31 @@ instance (i ~ Int) => Slice1D (i, Length) where
   {-# INLINE computeSlice1D #-}
   computeSlice1D len (i, Length sz)
     -- FIXME: overflows and stuff
-    | i  < 0        = Nothing
-    | sz < 0        = Nothing
-    | len <= i + sz = Nothing
-    | otherwise     = Just (i,sz)
+    | i  < 0       = Nothing
+    | sz < 0       = Nothing
+    | len < i + sz = Nothing
+    | otherwise    = Just (i,sz)
 
 instance (i ~ Int) => Slice1D (i, End) where
   {-# INLINE computeSlice1D #-}
   computeSlice1D len (i, _)
     | i < 0     = Nothing
-    | i >= len  = Nothing
+    | i > len   = Nothing
     | otherwise = Just (i, len - i)
 
 instance (i ~ Int) => Slice1D (Range i) where
   {-# INLINE computeSlice1D #-}
   computeSlice1D len (i0 :.. j0)
-    | i <  0    = Nothing
-    | j <  0    = Nothing
-    | i >= len  = Nothing
-    | j >= len  = Nothing
-    | j < i     = Just (i, 0)
-    | otherwise = Just (i, j-i)
+    | i   < 0      = Nothing
+    | sz  < 0      = Just (i, 0)
+    | len < i + sz = Nothing
+    | otherwise    = Just (i, sz)
     where
-      mirror k | k > 0     = k
+      mirror k | k >= 0    = k
                | otherwise = len + k
-      i = mirror i0
-      j = mirror j0
-
+      i  = mirror i0
+      j  = mirror j0
+      sz = j - i
       
 
 
