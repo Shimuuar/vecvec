@@ -8,6 +8,7 @@
 module Vecvec.Classes.Slice
   ( -- * Type classes
     Slice(..)
+  , slice
   , Slice1D(..)
     -- ** Slice parameters
   , Range(..)
@@ -41,6 +42,13 @@ class Slice i v where
   -- | Expected /O(1)/. Return slice of vector @v@ or @Nothing@ if
   --   required slice is not valid.
   sliceMaybe :: i -> v -> Maybe v
+
+slice :: Slice i v => i -> v -> v
+{-# INLINE slice #-}
+slice idx v = case sliceMaybe idx v of
+  Just v' -> v'
+  Nothing -> error "Invalid slice"
+
 
 -- | Type class for data types describing slice of dense one dimension
 --   vector with 0-based indices
