@@ -1,12 +1,15 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NegativeLiterals      #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NegativeLiterals           #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 -- |
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Internal.Vector
@@ -31,7 +34,7 @@ import Data.Vector.Fusion.Util      (liftBox)
 import Vecvec.Classes
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..)
+import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
                                              ,blasDot, blasScal, blasAxpy, clone
                                              )
 
@@ -90,6 +93,7 @@ instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceVector
 
+deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
 
 instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeFreeze #-}

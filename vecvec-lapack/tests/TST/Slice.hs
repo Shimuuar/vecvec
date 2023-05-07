@@ -15,10 +15,10 @@ import Data.Vector           qualified as V
 import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 import Data.Vector.Primitive qualified as VP
-import Data.Vector.Generic   qualified as VG
 
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK         qualified as VV
+import Vecvec.LAPACK.Internal.Vector.Mutable (Strided(..))
 
 tests :: TestTree
 tests = testGroup "slice"
@@ -27,6 +27,7 @@ tests = testGroup "slice"
   , sliceProperties @VS.Vector
   , sliceProperties @VP.Vector
   , sliceProperties @VV.Vec
+  , testProperty "strided slice" prop_slice_stride
   ]
 
 sliceProperties
@@ -82,6 +83,22 @@ prop_slice_idxpos = do
   let vec   = VG.generate @v len id
       vec'  = VG.toList $ slice (i :.. j) vec
       model = [i .. j-1]
+  pure $ property
+       $ counterexample ("len = " ++ show len)
+       $ counterexample ("i   = " ++ show i)
+       $ counterexample ("j   = " ++ show j)
+       $ vec' == model
+
+prop_slice_stride :: Gen Property
+prop_slice_stride = do
+  len <- choose (0, 100)
+  i   <- case len of 0 -> pure 0
+                     _ -> choose (0, len-1)
+  j   <- choose (0, len)
+  s   <- choose (1,5)
+  let vec   = VG.generate @VV.Vec len id
+      vec'  = VG.toList $ slice ((i :.. j) `Strided` s) vec
+      model = [i, i+s .. j-1]
   pure $ property
        $ counterexample ("len = " ++ show len)
        $ counterexample ("i   = " ++ show i)

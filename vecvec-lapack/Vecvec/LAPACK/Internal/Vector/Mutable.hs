@@ -1,10 +1,14 @@
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 -- |
 -- Internal module with definition of strided storable vector.  It
 -- exposes constuctors for mutable vector. They are unsafe. Use at you
@@ -17,6 +21,7 @@ module Vecvec.LAPACK.Internal.Vector.Mutable
   , AsInput(..)
     -- * Mutable vector
   , MVec(..)
+  , Strided(..)
   , LAPACKy
   , fromMVector
     -- * Mutable BLAS wrappers
@@ -58,7 +63,7 @@ import Vecvec.LAPACK.Internal.Compat
 --
 ----------------------------------------------------------------
 
--- | Representation of mutable or immutable vector. Actual mutable 
+-- | Representation of mutable or immutable vector. Actual mutable
 --   immutable vectors are newtype wrappers over this data type.
 data VecRepr a = VecRepr
   { vecSize :: !Int
@@ -68,6 +73,22 @@ data VecRepr a = VecRepr
   , vecBuffer :: {-# UNPACK #-} !(ForeignPtr a)
     -- ^ Underlying buffer
   }
+
+instance (Slice1D i, Storable a) => Slice (Strided i) (VecRepr a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe (Strided idx stride) VecRepr{..} = do
+    guard (stride > 0)
+    (i,len) <- computeSlice1D vecSize idx
+    Just $ VecRepr { vecSize   = adjustLen len
+                   , vecStride = vecStride * stride
+                   , vecBuffer = updPtr (`advancePtr` (vecStride*i)) vecBuffer
+                   }
+    where
+      adjustLen n = case n `quotRem` stride of
+        (k,0) -> k
+        (k,_) -> k + 1
+
+
 
 -- | It's convenient to be able to use both mutable and immutable
 --   vector as inputs when them in read-only way.
@@ -102,6 +123,10 @@ fromMVector :: MVS.MVector s a -> MVec s a
 fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
 
 
+-- | Data type which is used for slicing which changes stride of a
+--   vector.
+data Strided a = Strided a !Int
+
 instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
@@ -112,6 +137,7 @@ instance (i ~ Int, Storable a) => Slice (Range i) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
 
+deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (MVec s a)
 
 
 instance VS.Storable a => MVG.MVector MVec a where
