@@ -103,9 +103,10 @@ clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
                            | i >= nrows = return ()
                            | otherwise  = do
                                copyArray d s ncols
-                               loop (advancePtr d nrows) (advancePtr s leadingDim) (i+1)
+                               loop (advancePtr d ncols) (advancePtr s leadingDim) (i+1)
                      in loop dst src 0
-  pure $ MMatrix MView { buffer = buf
+  pure $ MMatrix MView { buffer     = buf
+                       , leadingDim = ncols
                        , ..
                        }
   where

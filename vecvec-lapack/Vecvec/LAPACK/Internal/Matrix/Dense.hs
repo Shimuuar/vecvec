@@ -124,7 +124,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
     case m of
       AsVec v -> unsafeBlasAxpy a v resV
       _       -> forM_ [0 .. nRows m - 1] $ \i -> do
-        unsafeBlasAxpy -1 (unsafeRow m i) (M.unsafeRow resM i)
+        unsafeBlasAxpy a (unsafeRow m i) (M.unsafeRow resM i)
     unsafeFreeze resM
   (.*) = flip (*.)
 

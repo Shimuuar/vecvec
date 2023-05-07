@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
@@ -20,7 +21,6 @@
 module TST.Model (tests) where
 
 import Data.Complex          (Complex(..))
-import Data.Coerce
 import Data.Kind             (Type)
 import Data.Function         (on)
 import Data.Typeable
@@ -104,11 +104,14 @@ prop_addition_correct
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v a
-                         v2 = fromModel m2 :: v a
-                         m  = m1 .+. m2
-                         v  = v1 .+. v2
-                     in v == fromModel m
+  $ \(Pair m1 m2) ->
+      let v1 = fromModel m1 :: v a
+          v2 = fromModel m2 :: v a
+          m  = m1 .+. m2
+          v  = v1 .+. v2
+      in id $ counterexample ("MODEL = " ++ show m)
+            $ counterexample ("IMPL  = " ++ show v)
+            $ v == fromModel m
 
 -- Model evaluate subtraction in the same way as implementation
 prop_subtraction_correct
@@ -139,10 +142,13 @@ prop_lmul_scalar
   => TestTree
 prop_lmul_scalar
   = testProperty "Left scalar multiplication"
-  $ \(X a) m1 -> let v1 = fromModel m1 :: v a
-                     m  = a *. m1
-                     v  = a *. v1
-           in v == fromModel m
+  $ \(X a) m1 ->
+      let v1 = fromModel m1 :: v a
+          m  = a *. m1
+          v  = a *. v1
+      in id $ counterexample ("MODEL = " ++ show m)
+            $ counterexample ("IMPL  = " ++ show v)
+            $ v == fromModel m
 
 -- Model evaluates multiplication by scalar on the right
 prop_rmul_scalar
@@ -150,10 +156,14 @@ prop_rmul_scalar
   => TestTree
 prop_rmul_scalar
   = testProperty "Right scalar multiplication"
-  $ \(X a) m1 -> let v1 = fromModel m1 :: v a
-                     m  = m1 .* a
-                     v  = v1 .* a
-                 in v == fromModel m
+  $ \(X a) m1 ->
+      let v1 = fromModel m1 :: v a
+          m  = m1 .* a
+          v  = v1 .* a
+      in id $ counterexample ("MODEL = " ++ show m)
+            $ counterexample ("IMPL  = " ++ show v)
+            $ v == fromModel m
+
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
@@ -218,6 +228,7 @@ class ( GenSameSize (ModelRepr v a)
       , Show        (ModelRepr v a)
       , Eq   (v a)
       , Eq   a
+      , Show (v a)
       , Show a
       , ScalarModel a
       , Typeable a
@@ -243,9 +254,17 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VS.Vec
   type ModelRepr VS.Vector = ModelVec
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel Matrix a where
+instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel Matrix a where
   type ModelRepr Matrix = ModelMat
-  fromModel = fromRowsFF . unModelMat . unModel
+  fromModel (Model ModelMat{unModelMat=mat, ..})
+    = slice ((padRows,End), (padCols,End))
+    $ fromRowsFF
+    $ replicate padRows (replicate (nC + padCols) 0)
+   ++ map (replicate padCols 0 ++) mat
+    where
+      nC = case mat of []    -> 0
+                       (r:_) -> length r
+
 
 ----------------------------------------------------------------
 -- Model for vectors
@@ -271,11 +290,11 @@ instance ScalarModel a => GenSameSize (ModelVec a) where
 -- FIXME: We need implement checks than values have same size
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
-  a .+. b = ModelVec 1 $ (coerce (zipWith ((+) @a)) `on` unModelVec) a b
+  a .+. b = ModelVec 1 $ (zipWith (+) `on` unModelVec) a b
 
 instance Num a => AdditiveQuasigroup (ModelVec a) where
-  a .-. b = ModelVec 1 $ (coerce (zipWith ((-) @a)) `on` unModelVec) a b
-  negateV = ModelVec 1 . coerce (map (negate @a)) . unModelVec
+  a .-. b = ModelVec 1 $ (zipWith (-) `on` unModelVec) a b
+  negateV = ModelVec 1 . map negate . unModelVec
 
 instance Num a => VectorSpace (ModelVec a) where
   type Scalar (ModelVec a) = a
@@ -292,7 +311,11 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
 -- Model for dense matrices
 ----------------------------------------------------------------
 
-newtype ModelMat a = ModelMat { unModelMat :: [[a]] }
+data ModelMat a = ModelMat
+  { padRows    :: !Int
+  , padCols    :: !Int
+  , unModelMat :: [[a]]
+  }
   deriving stock (Show,Eq)
 
 instance ScalarModel a => Arbitrary (ModelMat a) where
@@ -300,23 +323,29 @@ instance ScalarModel a => Arbitrary (ModelMat a) where
     cols <- arbitrary
     row  <- mapM (const genScalar) (() : cols)
     rows <- listOf $ unModelVec <$> sameSize (ModelVec 1 row)
-    pure $ ModelMat (row:rows)
+    r    <- choose (0, 3)
+    c    <- choose (0, 3)
+    pure $ ModelMat r c (row:rows)
+  shrink ModelMat{..} = do
+    p_r <- case padRows of 0 -> [0]; _ -> [0,padRows]
+    p_c <- case padCols of 0 -> [0]; _ -> [0,padCols]
+    [ModelMat{ padRows = p_r, padCols = p_c, .. }]
 
 instance ScalarModel a => GenSameSize (ModelMat a) where
-  sameSize (ModelMat xs) = ModelMat <$> (traverse . traverse) (const genScalar) xs
+  sameSize (ModelMat r c xs) = ModelMat r c <$> (traverse . traverse) (const genScalar) xs
 
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
-  (.+.) = coerce ((zipWith . zipWith) ((+) @a))
+  a .+. b = ModelMat 0 0 $ ((zipWith . zipWith) (+) `on` unModelMat) a b
 
 instance Num a => AdditiveQuasigroup (ModelMat a) where
-  (.-.)   = coerce ((zipWith . zipWith) ((-) @a))
-  negateV = coerce ((map . map) (negate @a))
+  a .-. b = ModelMat 0 0 $ ((zipWith . zipWith) (-) `on` unModelMat) a b
+  negateV = ModelMat 0 0 . ((map . map) negate) . unModelMat
 
 instance Num a => VectorSpace (ModelMat a) where
   type Scalar (ModelMat a) = a
-  a *. ModelMat xs = ModelMat $ (fmap . fmap) (a*) xs
-  ModelMat xs .* a = ModelMat $ (fmap . fmap) (*a) xs
+  a *. ModelMat _ _ xs = ModelMat 0 0 $ (fmap . fmap) (a*) xs
+  ModelMat _ _ xs .* a = ModelMat 0 0 $ (fmap . fmap) (*a) xs
 
 
 ----------------------------------------------------------------
