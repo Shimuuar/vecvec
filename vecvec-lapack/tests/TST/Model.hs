@@ -28,39 +28,43 @@ import Foreign.Storable      (Storable)
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-
-import Vecvec.Classes
-import Vecvec.Classes.Slice
-import Vecvec.LAPACK         (Strided(..))
-import Vecvec.LAPACK         qualified as VV
 import Data.Vector.Generic   qualified as VG
 import Data.Vector           qualified as V
 import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 
+import Vecvec.Classes
+import Vecvec.Classes.Slice
+import Vecvec.LAPACK         (Strided(..))
+import Vecvec.LAPACK         qualified as VV
+import Vecvec.LAPACK.Internal.Matrix.Dense
+
+
 
 tests :: TestTree
 tests = testGroup "classes"
   [ testGroup "Vector spaces"
-    [ props_vector_space @VV.Vec @Float
-    , props_vector_space @VV.Vec @Double
-    , props_vector_space @VV.Vec @(Complex Float)
-    , props_vector_space @VV.Vec @(Complex Double)
+    [ props_inner_space @VV.Vec @Float
+    , props_inner_space @VV.Vec @Double
+    , props_inner_space @VV.Vec @(Complex Float)
+    , props_inner_space @VV.Vec @(Complex Double)
+      -- Matrix
+    , props_vector_space @Matrix @Double
       -- Vector instances
-    , props_vector_space @V.Vector  @Double
-    , props_vector_space @VU.Vector @Double
-    , props_vector_space @VS.Vector @Double
+    , props_inner_space @V.Vector  @Double
+    , props_inner_space @VU.Vector @Double
+    , props_inner_space @VS.Vector @Double
     ]
   ]
 
 -- Tests for vector space implementation
-props_vector_space
+props_inner_space
   :: forall v a. ( IsModel v a, InnerSpace (v a), InnerSpace (Model v a)
                  , Scalar (v a) ~ a, Scalar (Model v a) ~ a
                  , Eq (R a), Show (R a)
                  )
   => TestTree
-props_vector_space = testGroup title
+props_inner_space = testGroup (prop_name @v @a)
   [ prop_addition_correct    @v @a
   , prop_subtraction_correct @v @a
   , prop_negation_correct    @v @a
@@ -69,11 +73,30 @@ props_vector_space = testGroup title
   , prop_scalar_product      @v @a
   , prop_magnitude           @v @a
   ]
+
+-- Tests for vector space implementation
+props_vector_space
+  :: forall v a. ( IsModel v a, VectorSpace (v a), VectorSpace (Model v a)
+                 , Scalar (v a) ~ a, Scalar (Model v a) ~ a
+                 , Eq (R a), Show (R a)
+                 )
+  => TestTree
+props_vector_space = testGroup (prop_name @v @a)
+  [ prop_addition_correct    @v @a
+  , prop_subtraction_correct @v @a
+  , prop_negation_correct    @v @a
+  , prop_lmul_scalar         @v @a
+  , prop_rmul_scalar         @v @a
+  ]
+
+
+prop_name :: forall (v :: Type -> Type) a. (Typeable v, Typeable a) => String
+prop_name = tyConModule con <> "." <> tyConName con <> " " <> show tyA
   where
     tyA = typeRep (Proxy @a)
     tyV = typeRep (Proxy @v)
     (con,_) = splitTyConApp tyV
-    title = tyConModule con <> "." <> tyConName con <> " " <> show tyA
+
 
 -- Model evaluate addition in the same way as implementation
 prop_addition_correct
@@ -130,7 +153,7 @@ prop_rmul_scalar
   $ \(X a) m1 -> let v1 = fromModel m1 :: v a
                      m  = m1 .* a
                      v  = v1 .* a
-           in v == fromModel m
+                 in v == fromModel m
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
@@ -220,6 +243,13 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VS.Vec
   type ModelRepr VS.Vector = ModelVec
   fromModel = VG.fromList . unModelVec . unModel
 
+instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel Matrix a where
+  type ModelRepr Matrix = ModelMat
+  fromModel = fromRowsFF . unModelMat . unModel
+
+----------------------------------------------------------------
+-- Model for vectors
+----------------------------------------------------------------
 
 -- | We use lists as model for vectors.
 data ModelVec a = ModelVec { modelVecStride :: !Int
@@ -229,7 +259,11 @@ data ModelVec a = ModelVec { modelVecStride :: !Int
 
 instance ScalarModel a => Arbitrary (ModelVec a) where
   arbitrary = ModelVec <$> choose (1,4) <*> listOf genScalar
-  -- shrink    = coerce (shrinkList @a (const []))
+  shrink (ModelVec n xs) = do
+    n' <- case n of 1 -> [1]
+                    _ -> [1,n]
+    x  <- shrinkList (const []) xs
+    return $ ModelVec n' x
 
 instance ScalarModel a => GenSameSize (ModelVec a) where
   sameSize (ModelVec _ xs) = ModelVec <$> choose (1,4) <*> sequence (genScalar <$ xs)
@@ -251,6 +285,38 @@ instance Num a => VectorSpace (ModelVec a) where
 instance NormedScalar a => InnerSpace (ModelVec a) where
   ModelVec _ xs <.> ModelVec _ ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
   magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
+
+
+
+----------------------------------------------------------------
+-- Model for dense matrices
+----------------------------------------------------------------
+
+newtype ModelMat a = ModelMat { unModelMat :: [[a]] }
+  deriving stock (Show,Eq)
+
+instance ScalarModel a => Arbitrary (ModelMat a) where
+  arbitrary = do
+    cols <- arbitrary
+    row  <- mapM (const genScalar) (() : cols)
+    rows <- listOf $ unModelVec <$> sameSize (ModelVec 1 row)
+    pure $ ModelMat (row:rows)
+
+instance ScalarModel a => GenSameSize (ModelMat a) where
+  sameSize (ModelMat xs) = ModelMat <$> (traverse . traverse) (const genScalar) xs
+
+
+instance Num a => AdditiveSemigroup (ModelMat a) where
+  (.+.) = coerce ((zipWith . zipWith) ((+) @a))
+
+instance Num a => AdditiveQuasigroup (ModelMat a) where
+  (.-.)   = coerce ((zipWith . zipWith) ((-) @a))
+  negateV = coerce ((map . map) (negate @a))
+
+instance Num a => VectorSpace (ModelMat a) where
+  type Scalar (ModelMat a) = a
+  a *. ModelMat xs = ModelMat $ (fmap . fmap) (a*) xs
+  ModelMat xs .* a = ModelMat $ (fmap . fmap) (*a) xs
 
 
 ----------------------------------------------------------------
