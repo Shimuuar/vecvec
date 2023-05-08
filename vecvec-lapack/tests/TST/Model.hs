@@ -70,10 +70,14 @@ tests = testGroup "classes"
     , prop_matmul_scal @(Conj (VS.Vector Z)) @(VS.Vector Z)
     , prop_matmul_scal @(Conj (VU.Vector Z)) @(VU.Vector Z)
       -- BLAS vectors
-    -- , prop_matmul_scal @(Tr (VV.Vec Float ))           @(VV.Vec Float )
-    -- , prop_matmul_scal @(Tr (VV.Vec Double))           @(VV.Vec Double)
-    -- , prop_matmul_scal @(Tr (VV.Vec (Complex Float) )) @(VV.Vec (Complex Float))
-    -- , prop_matmul_scal @(Tr (VV.Vec (Complex Double))) @(VV.Vec (Complex Double))
+    , prop_matmul_scal @(Tr   (VV.Vec S)) @(VV.Vec S)
+    , prop_matmul_scal @(Tr   (VV.Vec D)) @(VV.Vec D)
+    , prop_matmul_scal @(Tr   (VV.Vec C)) @(VV.Vec C)
+    , prop_matmul_scal @(Tr   (VV.Vec Z)) @(VV.Vec Z)
+    , prop_matmul_scal @(Conj (VV.Vec S)) @(VV.Vec S)
+    , prop_matmul_scal @(Conj (VV.Vec D)) @(VV.Vec D)
+    , prop_matmul_scal @(Conj (VV.Vec C)) @(VV.Vec C)
+    , prop_matmul_scal @(Conj (VV.Vec Z)) @(VV.Vec Z)
       -- Matrix-vector
     , prop_matmul @(Matrix S)        @(VV.Vec S)
     , prop_matmul @(Matrix D)        @(VV.Vec D)

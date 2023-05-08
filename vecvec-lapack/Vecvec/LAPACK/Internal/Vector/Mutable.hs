@@ -30,10 +30,12 @@ module Vecvec.LAPACK.Internal.Vector.Mutable
   , blasAxpy
   , blasScal
   , blasDot
+  , blasDotc
   , blasNrm2
     -- ** Unchecked variants
   , unsafeBlasAxpy
   , unsafeBlasDot
+  , unsafeBlasDotc
   ) where
 
 import Control.Monad
@@ -273,6 +275,7 @@ blasScal a (MVec (VecRepr lenX incX fpX))
     C.scal (fromIntegral lenX) a pX (fromIntegral incX)
 
 
+
 -- | Compute scalar product of two vectors
 blasDot
   :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
@@ -297,6 +300,31 @@ unsafeBlasDot vecX vecY = unsafePrimToPrim $ do
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
        C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+
+-- | Compute scalar product of two vectors
+blasDotc
+  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
+  => inpX a -- ^ Vector @x@
+  -> inpY a -- ^ Vector @y@
+  -> m a
+blasDotc vecX vecY = primToPrim $ do
+  VecRepr lenX _ _ <- asInput vecX
+  VecRepr lenY _ _ <- asInput vecY
+  when (lenX /= lenY) $ error "Length mismatch"
+  unsafeBlasDotc vecX vecY
+
+-- | Compute scalar product of two vectors
+unsafeBlasDotc
+  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
+  => inpX a -- ^ Vector @x@
+  -> inpY a -- ^ Vector @y@
+  -> m a
+unsafeBlasDotc vecX vecY = unsafePrimToPrim $ do
+  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
+  id $ unsafeWithForeignPtr fpX $ \pX ->
+       unsafeWithForeignPtr fpY $ \pY ->
+       C.dotc (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
 
 -- | Compute euclidean norm or two vectors
 blasNrm2

@@ -36,7 +36,7 @@ import Vecvec.Classes
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
-                                             ,blasDot, blasScal, blasAxpy, clone
+                                             ,blasDot, blasDotc, blasScal, blasAxpy, clone
                                              )
 
 
@@ -153,8 +153,14 @@ instance LAPACKy a => VectorSpace (Vec a) where
   (.*) = flip (*.)
 
 instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
-  v <.> u = runST $ blasDot v u
+  v <.> u = runST $ blasDotc v u
   -- nrm2 return _norm_ of vector not a norm squared. For now we
   -- revert to in-haskell implementation
   {-# INLINE magnitudeSq #-}
   magnitudeSq = coerce (magnitudeSq @(AsVector Vec a))
+
+instance (LAPACKy a, VectorSpace a, Scalar a ~ a) => MatMul (Tr (Vec a)) (Vec a) a where
+  Tr v @@ u = runST $ blasDot v u
+                         
+instance (LAPACKy a, VectorSpace a, Scalar a ~ a) => MatMul (Conj (Vec a)) (Vec a) a where
+  Conj v @@ u = runST $ blasDotc v u

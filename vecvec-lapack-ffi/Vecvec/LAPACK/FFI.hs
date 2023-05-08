@@ -132,6 +132,11 @@ class (Num a, Storable a) => LAPACKy a where
        -> Ptr a -> CInt
        -> IO a
 
+  dotc :: CInt
+       -> Ptr a -> CInt
+       -> Ptr a -> CInt
+       -> IO a
+
   nrm2 :: CInt
        -> Ptr a -> CInt
        -> IO (R a)
@@ -162,6 +167,7 @@ instance LAPACKy Float where
   copy = s_copy
   scal = s_scal
   dot  = s_dot
+  dotc = s_dot
   nrm2 = s_nrm2
   gemv = s_gemv
 
@@ -170,6 +176,7 @@ instance LAPACKy Double where
   copy = d_copy
   scal = d_scal
   dot  = d_dot
+  dotc = d_dot
   nrm2 = d_nrm2
   gemv = d_gemv
 
@@ -190,6 +197,9 @@ instance LAPACKy (Complex Float) where
   {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
     c_dot n x incX y incY p_a >> peek p_a
+  {-# INLINE dotc #-}
+  dotc n x incX y incY = alloca $ \p_a -> do
+    c_dotc n x incX y incY p_a >> peek p_a
   --
   -- FIXME: we should coalesce two alloca
   {-# INLINE gemv #-}
@@ -220,6 +230,9 @@ instance LAPACKy (Complex Double) where
   {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
     z_dot n x incX y incY p_a >> peek p_a
+  {-# INLINE dotc #-}
+  dotc n x incX y incY = alloca $ \p_a -> do
+    z_dotc n x incX y incY p_a >> peek p_a
   --
   -- FIXME: we should coalesce two alloca
   {-# INLINE gemv #-}
@@ -253,10 +266,12 @@ foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: CInt -> D     -> ARR
 foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: CInt -> Ptr C -> ARR C (IO ())
 foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR Z (IO ())
 
-foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot :: CInt -> ARR S (ARR S (IO S))
-foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot :: CInt -> ARR D (ARR D (IO D))
-foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dot :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dot :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot  :: CInt -> ARR S (ARR S (IO S))
+foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot  :: CInt -> ARR D (ARR D (IO D))
+foreign import CCALL unsafe "cblas.h cblas_cdotu_sub" c_dot  :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotu_sub" z_dot  :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dotc :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dotc :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
 
 foreign import CCALL unsafe "cblas.h cblas_snrm2"  s_nrm2 :: CInt -> ARR S (IO S)
 foreign import CCALL unsafe "cblas.h cblas_dnrm2"  d_nrm2 :: CInt -> ARR D (IO D)
