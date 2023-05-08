@@ -24,6 +24,7 @@ import Data.Complex          (Complex(..))
 import Data.Kind             (Type)
 import Data.Function         (on)
 import Data.Typeable
+import Data.List             (intercalate)
 import Foreign.Storable      (Storable)
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -38,75 +39,77 @@ import Vecvec.Classes.Slice
 import Vecvec.LAPACK         (Strided(..))
 import Vecvec.LAPACK         qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense
-
+import TST.Orphanage ()
 
 
 tests :: TestTree
 tests = testGroup "classes"
-  [ testGroup "Vector spaces"
-    [ props_inner_space @VV.Vec @Float
-    , props_inner_space @VV.Vec @Double
-    , props_inner_space @VV.Vec @(Complex Float)
-    , props_inner_space @VV.Vec @(Complex Double)
+  [ testGroup "Vector space instances"
+    [ props_inner_space @(VV.Vec Float)
+    , props_inner_space @(VV.Vec Double)
+    , props_inner_space @(VV.Vec (Complex Float))
+    , props_inner_space @(VV.Vec (Complex Double))
       -- Matrix
-    , props_vector_space @Matrix @Double
+    , props_vector_space @(Matrix Double)
       -- Vector instances
-    , props_inner_space @V.Vector  @Double
-    , props_inner_space @VU.Vector @Double
-    , props_inner_space @VS.Vector @Double
+    , props_inner_space @(V.Vector  Double)
+    , props_inner_space @(VU.Vector Double)
+    , props_inner_space @(VS.Vector Double)
+    ]
     ]
   ]
 
 -- Tests for vector space implementation
 props_inner_space
-  :: forall v a. ( IsModel v a, InnerSpace (v a), InnerSpace (Model v a)
-                 , Scalar (v a) ~ a, Scalar (Model v a) ~ a
-                 , Eq (R a), Show (R a)
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+                 , Scalar v ~ a, Scalar (Model v) ~ a
+                 , Eq (R a), Show (R a), ScalarModel a, Show a, Eq a
                  )
   => TestTree
-props_inner_space = testGroup (prop_name @v @a)
-  [ prop_addition_correct    @v @a
-  , prop_subtraction_correct @v @a
-  , prop_negation_correct    @v @a
-  , prop_lmul_scalar         @v @a
-  , prop_rmul_scalar         @v @a
-  , prop_scalar_product      @v @a
-  , prop_magnitude           @v @a
+props_inner_space = testGroup (prop_name @v)
+  [ prop_addition_correct    @v
+  , prop_subtraction_correct @v
+  , prop_negation_correct    @v
+  , prop_lmul_scalar         @v
+  , prop_rmul_scalar         @v
+  , prop_scalar_product      @v
+  , prop_magnitude           @v
   ]
 
 -- Tests for vector space implementation
 props_vector_space
-  :: forall v a. ( IsModel v a, VectorSpace (v a), VectorSpace (Model v a)
-                 , Scalar (v a) ~ a, Scalar (Model v a) ~ a
-                 , Eq (R a), Show (R a)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+                 , Scalar v ~ a, Scalar (Model v) ~ a
+                 , ScalarModel a, Show a
                  )
   => TestTree
-props_vector_space = testGroup (prop_name @v @a)
-  [ prop_addition_correct    @v @a
-  , prop_subtraction_correct @v @a
-  , prop_negation_correct    @v @a
-  , prop_lmul_scalar         @v @a
-  , prop_rmul_scalar         @v @a
+props_vector_space = testGroup (prop_name @v)
+  [ prop_addition_correct    @v
+  , prop_subtraction_correct @v
+  , prop_negation_correct    @v
+  , prop_lmul_scalar         @v
+  , prop_rmul_scalar         @v
   ]
 
 
-prop_name :: forall (v :: Type -> Type) a. (Typeable v, Typeable a) => String
-prop_name = tyConModule con <> "." <> tyConName con <> " " <> show tyA
+prop_name :: forall v. (Typeable v) => String
+prop_name = intercalate " "
+          $ tyConModule con <> "." <> tyConName con
+          : map show par
   where
-    tyA = typeRep (Proxy @a)
     tyV = typeRep (Proxy @v)
-    (con,_) = splitTyConApp tyV
+    (con,par) = splitTyConApp tyV
 
 
 -- Model evaluate addition in the same way as implementation
 prop_addition_correct
-  :: forall v a. ( IsModel v a, AdditiveSemigroup (v a), AdditiveSemigroup (Model v a))
+  :: forall v. ( IsModel v, AdditiveSemigroup v, AdditiveSemigroup (Model v))
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
   $ \(Pair m1 m2) ->
-      let v1 = fromModel m1 :: v a
-          v2 = fromModel m2 :: v a
+      let v1 = fromModel m1 :: v
+          v2 = fromModel m2 :: v
           m  = m1 .+. m2
           v  = v1 .+. v2
       in id $ counterexample ("MODEL = " ++ show m)
@@ -115,35 +118,38 @@ prop_addition_correct
 
 -- Model evaluate subtraction in the same way as implementation
 prop_subtraction_correct
-  :: forall v a. ( IsModel v a, AdditiveQuasigroup (v a), AdditiveQuasigroup (Model v a))
+  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v a
-                         v2 = fromModel m2 :: v a
+  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
+                         v2 = fromModel m2 :: v
                          m  = m1 .-. m2
                          v  = v1 .-. v2
                      in v == fromModel m
 
 -- Model evaluate negation in the same way as implementation
 prop_negation_correct
-  :: forall v a. ( IsModel v a, AdditiveQuasigroup (v a), AdditiveQuasigroup (Model v a))
+  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
   => TestTree
 prop_negation_correct
   = testProperty "Negation"
-  $ \m1 -> let v1 = fromModel m1 :: v a
+  $ \m1 -> let v1 = fromModel m1 :: v
                m  = negateV m1
                v  = negateV v1
            in v == fromModel m
 
 -- Model evaluates multiplication by scalar on the left
 prop_lmul_scalar
-  :: forall v a. ( IsModel v a, VectorSpace (v a), VectorSpace (Model v a), Scalar (v a) ~ a, Scalar (Model v a) ~ a)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+                 , Scalar v ~ a, Scalar (Model v) ~ a
+                 , ScalarModel a, Show a
+                 )
   => TestTree
 prop_lmul_scalar
   = testProperty "Left scalar multiplication"
   $ \(X a) m1 ->
-      let v1 = fromModel m1 :: v a
+      let v1 = fromModel m1 :: v
           m  = a *. m1
           v  = a *. v1
       in id $ counterexample ("MODEL = " ++ show m)
@@ -152,12 +158,15 @@ prop_lmul_scalar
 
 -- Model evaluates multiplication by scalar on the right
 prop_rmul_scalar
-  :: forall v a. ( IsModel v a, VectorSpace (v a), VectorSpace (Model v a), Scalar (v a) ~ a, Scalar (Model v a) ~ a)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+                 , Scalar v ~ a, Scalar (Model v) ~ a
+                 , ScalarModel a, Show a
+                 )
   => TestTree
 prop_rmul_scalar
   = testProperty "Right scalar multiplication"
   $ \(X a) m1 ->
-      let v1 = fromModel m1 :: v a
+      let v1 = fromModel m1 :: v
           m  = m1 .* a
           v  = v1 .* a
       in id $ counterexample ("MODEL = " ++ show m)
@@ -167,24 +176,29 @@ prop_rmul_scalar
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
-  :: forall v a. ( IsModel v a, InnerSpace (v a), InnerSpace (Model v a), Scalar (v a) ~ a, Scalar (Model v a) ~ a)
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+                 , a ~ Scalar v
+                 , a ~ Scalar (Model v)
+                 , Eq a)
   => TestTree
 prop_scalar_product
   = testProperty "Scalar product"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v a
-                         v2 = fromModel m2 :: v a
+  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
+                         v2 = fromModel m2 :: v
                          rV = v1 <.> v2
                          rM = (m1 <.> m2)
                      in rV == rM
 
 -- Model evaluates magnitude in the same way
 prop_magnitude
-  :: forall v a. ( IsModel v a, InnerSpace (v a), InnerSpace (Model v a), Scalar (v a) ~ a, Scalar (Model v a) ~ a
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+                 , a ~ Scalar v
+                 , a ~ Scalar (Model v)
                  , Eq (R a), Show (R a))
   => TestTree
 prop_magnitude
   = testProperty "Magnitude"
-  $ \m -> let v = fromModel m :: v a
+  $ \m -> let v = fromModel m :: v
               rV = magnitudeSq v
               rM = magnitudeSq m
           in id $ counterexample ("Model: " ++ show rM)
@@ -212,50 +226,51 @@ instance ScalarModel a => ScalarModel (Complex a) where
   genScalar = (:+) <$> genScalar <*> genScalar
 
 -- | New type for model.
-newtype Model v a = Model { unModel :: ModelRepr v a }
+newtype Model v = Model { unModel :: ModelRepr v }
 
-deriving newtype instance Show        (ModelRepr v a) => Show        (Model v a)
-deriving newtype instance Arbitrary   (ModelRepr v a) => Arbitrary   (Model v a)
-deriving newtype instance GenSameSize (ModelRepr v a) => GenSameSize (Model v a)
-deriving newtype instance AdditiveSemigroup  (ModelRepr v a) => AdditiveSemigroup  (Model v a)
-deriving newtype instance AdditiveQuasigroup (ModelRepr v a) => AdditiveQuasigroup (Model v a)
-deriving newtype instance VectorSpace        (ModelRepr v a) => VectorSpace        (Model v a)
-deriving newtype instance InnerSpace         (ModelRepr v a) => InnerSpace         (Model v a)
+deriving newtype instance Show               (ModelRepr v) => Show               (Model v)
+deriving newtype instance Arbitrary          (ModelRepr v) => Arbitrary          (Model v)
+deriving newtype instance GenSameSize        (ModelRepr v) => GenSameSize        (Model v)
+deriving newtype instance AdditiveSemigroup  (ModelRepr v) => AdditiveSemigroup  (Model v)
+deriving newtype instance AdditiveQuasigroup (ModelRepr v) => AdditiveQuasigroup (Model v)
+deriving newtype instance VectorSpace        (ModelRepr v) => VectorSpace        (Model v)
+deriving newtype instance InnerSpace         (ModelRepr v) => InnerSpace         (Model v)
+
 
 
 -- | Type class which
-class ( GenSameSize (ModelRepr v a)
-      , Show        (ModelRepr v a)
-      , Eq   (v a)
-      , Eq   a
-      , Show (v a)
-      , Show a
-      , ScalarModel a
-      , Typeable a
+class ( GenSameSize (ModelRepr v)
       , Typeable v
-      ) => IsModel v a where
-  type ModelRepr v :: Type -> Type
-  fromModel :: Model v a -> v a
+      , Eq v
+      , Show v
+      , Show (ModelRepr v)
+      ) => IsModel v where
+  type ModelRepr v :: Type
+  fromModel :: Model v -> v
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VV.Vec a where
-  type ModelRepr VV.Vec = ModelVec
+instance IsModel Double where
+  type ModelRepr Double = Double
+  fromModel = coerce
+
+instance (Storable a, Show a, Eq a, Typeable a, ScalarModel a) => IsModel (VV.Vec a) where
+  type ModelRepr (VV.Vec a) = (ModelVec a)
   fromModel (Model (ModelVec stride xs))
     = slice ((0,End) `Strided` stride) $ VG.fromList $ replicate stride =<< xs
 
-instance (Typeable a, Show a, Eq a, ScalarModel a) => IsModel V.Vector a where
-  type ModelRepr V.Vector = ModelVec
+instance (Typeable a, Show a, Eq a, ScalarModel a) => IsModel (V.Vector a) where
+  type ModelRepr (V.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, VU.Unbox a, ScalarModel a) => IsModel VU.Vector a where
-  type ModelRepr VU.Vector = ModelVec
+instance (Typeable a, Show a, Eq a, VU.Unbox a, ScalarModel a) => IsModel (VU.Vector a) where
+  type ModelRepr (VU.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel VS.Vector a where
-  type ModelRepr VS.Vector = ModelVec
+instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel (VS.Vector a) where
+  type ModelRepr (VS.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel Matrix a where
-  type ModelRepr Matrix = ModelMat
+instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel (Matrix a) where
+  type ModelRepr (Matrix a) = ModelMat a
   fromModel (Model ModelMat{unModelMat=mat, ..})
     = slice ((padRows,End), (padCols,End))
     $ fromRowsFF
@@ -353,11 +368,11 @@ instance Num a => VectorSpace (ModelMat a) where
 ----------------------------------------------------------------
 
 -- | Pair of models with same size
-data Pair v a = Pair (Model v a) (Model v a)
+data Pair v = Pair (Model v) (Model v)
 
-deriving stock instance Show (Model v a) => Show (Pair v a)
+deriving stock instance Show (Model v) => Show (Pair v)
 
-instance IsModel v a => Arbitrary (Pair v a) where
+instance IsModel v => Arbitrary (Pair v) where
   arbitrary = do m1 <- arbitrary
                  m2 <- sameSize m1
                  pure $ Pair m1 m2
