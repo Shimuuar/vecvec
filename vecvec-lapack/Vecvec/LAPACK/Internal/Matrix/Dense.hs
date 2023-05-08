@@ -133,8 +133,25 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Vec a') (Vec a) where
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
     vecY <- MVG.new (nRows mat)
-    M.unsafeBlasGemv 1 mat vecX 0 vecY
+    M.unsafeBlasGemv C.NoTrans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Vec a') (Vec a) where
+  Tr m @@ v
+    | nRows m /= VG.length v = error "matrix size mismatch"
+  Tr mat @@ vecX = unsafePerformIO $ do
+    vecY <- MVG.new (nCols mat)
+    M.unsafeBlasGemv C.Trans 1 mat vecX 0 vecY
+    VG.unsafeFreeze vecY
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Vec a') (Vec a) where
+  Conj m @@ v
+    | nRows m /= VG.length v = error "matrix size mismatch"
+  Conj mat @@ vecX = unsafePerformIO $ do
+    vecY <- MVG.new (nCols mat)
+    M.unsafeBlasGemv C.ConjTrans 1 mat vecX 0 vecY
+    VG.unsafeFreeze vecY
+
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
              => M.MMatrix s a -> m (Matrix a)

@@ -27,6 +27,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , fromRowsFF
   , AsMInput(..)
     -- * BLAS wrappers
+  , MatrixTranspose(..)
   , unsafeBlasGemv
   ) where
 
@@ -41,7 +42,8 @@ import Foreign.Marshal.Array
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable
-import Vecvec.LAPACK.FFI             qualified as C
+import Vecvec.LAPACK.FFI                     qualified as C
+import Vecvec.LAPACK.FFI                     (MatrixTranspose(..))
 
 -- | Matrix
 data MView a = MView
@@ -167,20 +169,21 @@ fromRowsFF dat
 -- > y := αAx + βy
 unsafeBlasGemv
   :: forall a m mat vec s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsMInput s mat, AsInput s vec)
-  => a        -- ^ Scalar @α@
+  => MatrixTranspose -- ^ Matrix transformation
+  -> a        -- ^ Scalar @α@
   -> mat a    -- ^ Matrix @A@
   -> vec a    -- ^ Vector @x@
   -> a        -- ^ Scalar @β@
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasGemv #-}
-unsafeBlasGemv α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fpY))
+unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fpY))
   = unsafePrimToPrim
   $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
        id $ unsafeWithForeignPtr buffer $ \p_A ->
             unsafeWithForeignPtr fpX    $ \p_x ->
             unsafeWithForeignPtr fpY    $ \p_y ->
-              C.gemv (C.toCEnum C.RowMajor) (C.toCEnum C.NoTrans)
+              C.gemv (C.toCEnum C.RowMajor) (C.toCEnum tr)
                 (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
                 p_x (fromIntegral incX)
                 β p_y (fromIntegral incY)
