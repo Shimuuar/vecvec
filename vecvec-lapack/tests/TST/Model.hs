@@ -217,6 +217,13 @@ prop_magnitude
 class Arbitrary a => GenSameSize a where
   sameSize :: a -> Gen a
 
+instance GenSameSize Float  where sameSize _ = genScalar
+instance GenSameSize Double where sameSize _ = genScalar
+instance ScalarModel a => GenSameSize (Complex a) where
+  sameSize _ = genScalar
+
+deriving newtype instance GenSameSize a => GenSameSize (Tr   a)
+deriving newtype instance GenSameSize a => GenSameSize (Conj a)
 
 -- | Generate small exactly representable numbers
 class Arbitrary a => ScalarModel a where
