@@ -282,14 +282,13 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel (VS.Ve
 
 instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel (Matrix a) where
   type ModelRepr (Matrix a) = ModelMat a
-  fromModel (Model ModelMat{unModelMat=mat, ..})
+  fromModel (Model m@ModelMat{unModelMat=mat, ..})
     = slice ((padRows,End), (padCols,End))
     $ fromRowsFF
     $ replicate padRows (replicate (nC + padCols) 0)
    ++ map (replicate padCols 0 ++) mat
     where
-      nC = case mat of []    -> 0
-                       (r:_) -> length r
+      nC = modelMatCols m
 
 
 ----------------------------------------------------------------
@@ -343,6 +342,11 @@ data ModelMat a = ModelMat
   , unModelMat :: [[a]]
   }
   deriving stock (Show,Eq)
+
+modelMatCols :: ModelMat a -> Int
+modelMatCols m = case unModelMat m of
+  []  -> 0
+  x:_ -> length x
 
 instance ScalarModel a => Arbitrary (ModelMat a) where
   arbitrary = do
