@@ -20,12 +20,14 @@
 -- rounding!
 module TST.Model (tests) where
 
+import Data.Coerce
 import Data.Complex          (Complex(..))
 import Data.Kind             (Type)
 import Data.Function         (on)
 import Data.Typeable
 import Data.List             (intercalate)
 import Foreign.Storable      (Storable)
+import Linear.Matrix         ((!*))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
@@ -60,6 +62,22 @@ tests = testGroup "classes"
     , props_inner_space @(VU.Vector Double)
     , props_inner_space @(VS.Vector Double)
     ]
+  , testGroup "MatMul"
+    [ prop_matmul_scal @(Tr (V.Vector  Double)) @(V.Vector  Double)
+    , prop_matmul_scal @(Tr (VS.Vector Double)) @(VS.Vector Double)
+    , prop_matmul_scal @(Tr (VU.Vector Double)) @(VU.Vector Double)
+    , prop_matmul_scal @(Conj (V.Vector  Z)) @(V.Vector  Z)
+    , prop_matmul_scal @(Conj (VS.Vector Z)) @(VS.Vector Z)
+    , prop_matmul_scal @(Conj (VU.Vector Z)) @(VU.Vector Z)
+      -- BLAS vectors
+    -- , prop_matmul_scal @(Tr (VV.Vec Float ))           @(VV.Vec Float )
+    -- , prop_matmul_scal @(Tr (VV.Vec Double))           @(VV.Vec Double)
+    -- , prop_matmul_scal @(Tr (VV.Vec (Complex Float) )) @(VV.Vec (Complex Float))
+    -- , prop_matmul_scal @(Tr (VV.Vec (Complex Double))) @(VV.Vec (Complex Double))
+    , prop_matmul @(Matrix S) @(VV.Vec S)
+    , prop_matmul @(Matrix D) @(VV.Vec D)
+    , prop_matmul @(Matrix C) @(VV.Vec C)
+    , prop_matmul @(Matrix Z) @(VV.Vec Z)
     ]
   ]
 
@@ -209,6 +227,52 @@ prop_magnitude
                 $ counterexample ("Impl:  " ++ show rV)
                 $ rV == rM
 
+
+-- Test for generalized matrix-vector multiplication.
+prop_matmul
+  :: forall v1 v2 vR.
+     ( IsModel v1
+     , IsModel v2
+     , IsModel vR
+     , MatMul (ModelRepr v1) (ModelRepr v2) (ModelRepr vR)
+     , MatMul v1 v2 vR
+     , Arbitrary (MM (ModelRepr v1) (ModelRepr v2))
+     )
+  => TestTree
+prop_matmul
+  = testProperty (prop_name @v1 ++ " " ++ prop_name @v2)
+  $ \(MM mr1 mr2) ->
+      let m1 = Model mr1    :: Model v1
+          m2 = Model mr2    :: Model v2
+          v1 = fromModel m1 :: v1
+          v2 = fromModel m2 :: v2
+          m  = mr1 @@ mr2
+          v  = v1  @@ v2
+      in v == fromModel (Model m)
+
+-- Test for generalized matrix-vector multiplication when result is scalar
+prop_matmul_scal
+  :: forall v1 v2 r.
+     ( IsModel v1
+     , IsModel v2
+     , MatMul (ModelRepr v1) (ModelRepr v2) r
+     , MatMul v1 v2 r
+     , Arbitrary (MM (ModelRepr v1) (ModelRepr v2))
+     , Eq r
+     )
+  => TestTree
+prop_matmul_scal
+  = testProperty (prop_name @v1 ++ " " ++ prop_name @v2)
+  $ \(MM mr1 mr2) ->
+      let m1 = Model mr1    :: Model v1
+          m2 = Model mr2    :: Model v2
+          v1 = fromModel m1 :: v1
+          v2 = fromModel m2 :: v2
+          m  = mr1 @@ mr2
+          v  = v1  @@ v2
+      in v == m
+
+
 ----------------------------------------------------------------
 -- Models
 ----------------------------------------------------------------
@@ -291,6 +355,15 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel
       nC = modelMatCols m
 
 
+instance IsModel a => IsModel (Tr a) where
+  type ModelRepr (Tr a) = Tr (ModelRepr a)
+  fromModel (Model (Tr a)) = Tr $ fromModel (Model a)
+
+instance IsModel a => IsModel (Conj a) where
+  type ModelRepr (Conj a) = Conj (ModelRepr a)
+  fromModel (Model (Conj a)) = Conj $ fromModel (Model a)
+
+
 ----------------------------------------------------------------
 -- Model for vectors
 ----------------------------------------------------------------
@@ -330,6 +403,14 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
   ModelVec _ xs <.> ModelVec _ ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
   magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
 
+instance (a ~ Scalar a, VectorSpace a, Num a) => MatMul (Tr (ModelVec a)) (ModelVec a) a where
+  Tr a @@ b = sum $ (zipWith (*) `on` unModelVec) a b
+
+instance (a ~ Scalar a, VectorSpace a, NormedScalar a) => MatMul (Conj (ModelVec a)) (ModelVec a) a where
+  Conj a @@ b = sum $ (zipWith (\x y -> conjugate x * y) `on` unModelVec) a b
+
+instance (Num a) => MatMul (ModelMat a) (ModelVec a) (ModelVec a) where
+  m @@ v = ModelVec 1 $ unModelMat m !* unModelVec v
 
 
 ----------------------------------------------------------------
@@ -398,3 +479,27 @@ newtype X a = X a
 
 instance ScalarModel a => Arbitrary (X a) where
   arbitrary = X <$> genScalar
+
+
+data MM a b = MM a b
+
+instance (Show a, Show b) => Show (MM a b) where
+  show (MM a b) = show a ++ "\n" ++ show b
+
+instance (ScalarModel a) => Arbitrary (MM (Tr (ModelVec a)) (ModelVec a)) where
+  arbitrary = do
+    Tr a <- arbitrary
+    b    <- sameSize a
+    pure $ MM (Tr a) b
+
+instance (ScalarModel a) => Arbitrary (MM (Conj (ModelVec a)) (ModelVec a)) where
+  arbitrary = do
+    Conj a <- arbitrary
+    b      <- sameSize a
+    pure $ MM (Conj a) b
+
+instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelVec a)) where
+  arbitrary = do
+    m <- arbitrary
+    v <- ModelVec <$> choose (1,3) <*> vectorOf (modelMatCols m) genScalar
+    pure $ MM m v
