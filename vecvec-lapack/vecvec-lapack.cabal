@@ -52,8 +52,9 @@ test-suite vecvec-lapack-tests
                   TST.Slice
                   TST.Orphanage
   build-depends:    base             >=4.5 && <5
-                  , vecvec-classes   -any
-                  , vecvec-lapack    -any
+                  , vecvec-classes    -any
+                  , vecvec-lapack     -any
+                  , vecvec-lapack-ffi -any
                     --
                   , tasty            >= 1.2
                   , tasty-quickcheck >= 0.10

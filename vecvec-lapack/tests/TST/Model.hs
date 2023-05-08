@@ -39,18 +39,22 @@ import Vecvec.Classes.Slice
 import Vecvec.LAPACK         (Strided(..))
 import Vecvec.LAPACK         qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense
+import Vecvec.LAPACK.FFI     (S,D,C,Z)
 import TST.Orphanage ()
 
 
 tests :: TestTree
 tests = testGroup "classes"
   [ testGroup "Vector space instances"
-    [ props_inner_space @(VV.Vec Float)
-    , props_inner_space @(VV.Vec Double)
-    , props_inner_space @(VV.Vec (Complex Float))
-    , props_inner_space @(VV.Vec (Complex Double))
+    [ props_inner_space @(VV.Vec S)
+    , props_inner_space @(VV.Vec D)
+    , props_inner_space @(VV.Vec C)
+    , props_inner_space @(VV.Vec Z)
       -- Matrix
-    , props_vector_space @(Matrix Double)
+    , props_vector_space @(Matrix S)
+    , props_vector_space @(Matrix D)
+    , props_vector_space @(Matrix C)
+    , props_vector_space @(Matrix Z)
       -- Vector instances
     , props_inner_space @(V.Vector  Double)
     , props_inner_space @(VU.Vector Double)
