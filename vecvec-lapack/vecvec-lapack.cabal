@@ -33,6 +33,8 @@ Library
     Vecvec.LAPACK
     Vecvec.LAPACK.Vector
     Vecvec.LAPACK.Vector.Mutable
+    Vecvec.LAPACK.Matrix.Dense
+    Vecvec.LAPACK.Matrix.Dense.Mutable
     --
     Vecvec.LAPACK.Internal.Vector
     Vecvec.LAPACK.Internal.Vector.Mutable

@@ -17,16 +17,20 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   ( -- * Immutable matrix
     Matrix(..)
   , pattern AsVec
+    -- * Operations
+    -- ** Conversion to\/from mutable
+  , unsafeFreeze
+  , freeze
+  , thaw
+    -- ** Creation
+  , fromRowsFF
+    -- ** Access
   , nRows, nCols
   , unsafeRead
   , unsafeRow
   , unsafeCol
     -- * Creation of matrices
-  , fromRowsFF
-    -- * Conversion to\/from mutable
-  , unsafeFreeze
-  , freeze
-  , thaw
+
   ) where
 
 import Control.Monad

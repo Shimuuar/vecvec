@@ -15,17 +15,20 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
-  ( MMatrix(..)
+  ( -- * Data types
+    MMatrix(..)
   , MView(..)
+  , AsMInput(..)
   , pattern AsMVec
+    -- * Operations
+    -- ** Creation
+  , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
+  , fromRowsFF
+    -- ** Access
   , unsafeRead
   , unsafeWrite
   , unsafeCol
   , unsafeRow
-    -- * Matrix creation
-  , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
-  , fromRowsFF
-  , AsMInput(..)
     -- * BLAS wrappers
   , MatrixTranspose(..)
   , unsafeBlasGemv
