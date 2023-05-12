@@ -7,7 +7,6 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE TypeFamilies               #-}
-
 -- |
 module Vecvec.LAPACK.FFI
   ( LAPACKy(..)
@@ -196,7 +195,7 @@ instance LAPACKy (Complex Float) where
   --
   {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
-    c_dot n x incX y incY p_a >> peek p_a
+    c_dotu n x incX y incY p_a >> peek p_a
   {-# INLINE dotc #-}
   dotc n x incX y incY = alloca $ \p_a -> do
     c_dotc n x incX y incY p_a >> peek p_a
@@ -229,7 +228,7 @@ instance LAPACKy (Complex Double) where
   --
   {-# INLINE dot #-}
   dot n x incX y incY = alloca $ \p_a -> do
-    z_dot n x incX y incY p_a >> peek p_a
+    z_dotu n x incX y incY p_a >> peek p_a
   {-# INLINE dotc #-}
   dotc n x incX y incY = alloca $ \p_a -> do
     z_dotc n x incX y incY p_a >> peek p_a
@@ -268,8 +267,8 @@ foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR
 
 foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot  :: CInt -> ARR S (ARR S (IO S))
 foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot  :: CInt -> ARR D (ARR D (IO D))
-foreign import CCALL unsafe "cblas.h cblas_cdotu_sub" c_dot  :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zdotu_sub" z_dot  :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_cdotu_sub" c_dotu :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotu_sub" z_dotu :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
 foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dotc :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
 foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dotc :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
 
