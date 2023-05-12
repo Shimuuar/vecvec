@@ -24,17 +24,17 @@ module Vecvec.LAPACK.Internal.Vector.Mutable
   , Strided(..)
   , LAPACKy
   , fromMVector
-    -- * Mutable BLAS wrappers
+    -- * Mutable BLAS wrappersx
     -- ** Checked varians
   , clone
   , blasAxpy
   , blasScal
-  , blasDot
+  , blasDotu
   , blasDotc
   , blasNrm2
     -- ** Unchecked variants
   , unsafeBlasAxpy
-  , unsafeBlasDot
+  , unsafeBlasDotu
   , unsafeBlasDotc
   ) where
 
@@ -93,9 +93,10 @@ instance (Slice1D i, Storable a) => Slice (Strided i) (VecRepr a) where
 
 
 
--- | It's convenient to be able to use both mutable and immutable
---   vector as inputs when them in read-only way.
+-- | Convenience type class which allows to use several data types as
+--   read-only input for in-place operations with mutable vectors.
 class AsInput s v where
+  -- | Expected to be /O(1)/ and very cheap.
   asInput :: v a -> ST s (VecRepr a)
 
 instance s ~ s => AsInput s (MVec s') where
@@ -117,6 +118,9 @@ instance s ~ s => AsInput s (MVS.MVector s') where
 -- | Mutable stided storable vector. This means that elements are not
 --   necessarily consecutive in memory. This is necessary in order to
 --   have zero-copy rows and columns in matrices.
+--
+--   This data type is instance of 'MVG.Vector' and all function from
+--   @vector@ works with it.
 newtype MVec s a = MVec (VecRepr a)
 
 
@@ -133,9 +137,11 @@ data Strided a = Strided a !Int
 instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
+
 instance (i ~ Int, Storable a) => Slice (i, End) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
+
 instance (i ~ Int, Storable a) => Slice (Range i) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
@@ -244,9 +250,7 @@ blasAxpy a vecX vecY = primToPrim $ do
   when (lenX /= MVG.length vecY) $ error "Length mismatch"
   unsafeBlasAxpy a vecX vecY
 
--- | Compute vector-scalar product in place
---
--- > y := a*x + y
+-- | See 'blasAxpy'.
 unsafeBlasAxpy
   :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
   => a        -- ^ Scalar @a@
@@ -276,32 +280,38 @@ blasScal a (MVec (VecRepr lenX incX fpX))
 
 
 
--- | Compute scalar product of two vectors
-blasDot
+-- | Compute scalar product of two vectors without complex
+--   conjugation. See 'blasDotc' for variant with conjugation.
+--
+-- \[ \operatorname{dotu}(\vec x,\vec y) = \sum_i x_i y_i \]
+blasDotu
   :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
   => inpX a -- ^ Vector @x@
   -> inpY a -- ^ Vector @y@
   -> m a
-blasDot vecX vecY = primToPrim $ do
+blasDotu vecX vecY = primToPrim $ do
   VecRepr lenX _ _ <- asInput vecX
   VecRepr lenY _ _ <- asInput vecY
   when (lenX /= lenY) $ error "Length mismatch"
-  unsafeBlasDot vecX vecY
+  unsafeBlasDotu vecX vecY
 
--- | Compute scalar product of two vectors
-unsafeBlasDot
+-- | See 'blasDot'.
+unsafeBlasDotu
   :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
   => inpX a -- ^ Vector @x@
   -> inpY a -- ^ Vector @y@
   -> m a
-unsafeBlasDot vecX vecY = unsafePrimToPrim $ do
+unsafeBlasDotu vecX vecY = unsafePrimToPrim $ do
   VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
   VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
        C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
 
--- | Compute scalar product of two vectors
+-- | Compute scalar product of two vectors. First vector is complex
+--   conjugated. See 'blasDotc' for variant without conjugation.
+--
+-- \[ \operatorname{dotc}(\vec x,\vec y) = \sum_i \bar{x_i} y_i \]
 blasDotc
   :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
   => inpX a -- ^ Vector @x@
@@ -313,7 +323,7 @@ blasDotc vecX vecY = primToPrim $ do
   when (lenX /= lenY) $ error "Length mismatch"
   unsafeBlasDotc vecX vecY
 
--- | Compute scalar product of two vectors
+-- | See 'blasDotc'.
 unsafeBlasDotc
   :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
   => inpX a -- ^ Vector @x@
@@ -326,7 +336,9 @@ unsafeBlasDotc vecX vecY = unsafePrimToPrim $ do
        unsafeWithForeignPtr fpY $ \pY ->
        C.dotc (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
 
--- | Compute euclidean norm or two vectors
+-- | Compute euclidean norm or vector:
+--
+-- \[ \operatorname{nrm2}(\vec{x}) = \sqrt{\sum_i x_i^2} \]
 blasNrm2
   :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
   => inp a -- ^ Vector @x@

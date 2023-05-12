@@ -36,7 +36,7 @@ import Vecvec.Classes
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
-                                             ,blasDot, blasDotc, blasScal, blasAxpy, clone
+                                             ,blasDotu, blasDotc, blasScal, blasAxpy, clone
                                              )
 
 
@@ -160,7 +160,7 @@ instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
   magnitudeSq = coerce (magnitudeSq @(AsVector Vec a))
 
 instance (LAPACKy a, VectorSpace a, Scalar a ~ a) => MatMul (Tr (Vec a)) (Vec a) a where
-  Tr v @@ u = runST $ blasDot v u
+  Tr v @@ u = runST $ blasDotu v u
                          
 instance (LAPACKy a, VectorSpace a, Scalar a ~ a) => MatMul (Conj (Vec a)) (Vec a) a where
   Conj v @@ u = runST $ blasDotc v u
