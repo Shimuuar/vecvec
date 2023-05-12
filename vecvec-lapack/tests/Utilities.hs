@@ -1,7 +1,8 @@
 -- TODO this is a copy from `vector` package
 --
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs             #-}
 module Utilities where
 
 import Test.QuickCheck

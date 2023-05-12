@@ -56,12 +56,10 @@ test-suite vecvec-lapack-tests
                   TST.Slice
                   TST.Orphanage
                   TST.Property
-  extensions:     CPP
-                  FlexibleContexts
+  extensions:     FlexibleContexts
                   ImportQualifiedPost
                   RankNTypes
                   ScopedTypeVariables
-                  TemplateHaskell
                   TypeFamilies
   build-depends:    base             >=4.5 && <5
                   , vecvec-classes   -any

@@ -1,6 +1,7 @@
 -- TODO this is a copy from `vector` package
 --
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
 module TST.Property (tests) where
 
 
