@@ -160,6 +160,27 @@ class (Num a, Storable a) => LAPACKy a where
     -> CInt                   -- ^ Stride for vector @y@
     -> IO ()
 
+  -- | Matrix-matrix multiplication.
+  --
+  -- > C := α·op(A)·op(B) + β·C
+  gemm
+    :: CRepr MatrixLayout    -- ^ Matrix layout
+    -> CRepr MatrixTranspose -- ^ Operation applied to matrix @A@
+    -> CRepr MatrixTranspose -- ^ Operation applied to matrix @B@
+    -> CInt                  -- ^ @m@
+    -> CInt                  -- ^ @n@
+    -> CInt                  -- ^ @k@
+    -> a                     -- ^ Scalar @α@
+    -> Ptr a                 -- ^ Buffer for matrix @A@
+    -> CInt                  -- ^ Leading dimension for @A@
+    -> Ptr a                 -- ^ Buffer for matrix @B@
+    -> CInt                  -- ^ Leading dimension for @B@
+    -> a                     -- ^ Scalar @β@
+    -> Ptr a                 -- ^ Buffer for matrix @C@
+    -> CInt                  -- ^ Leading dimension for @C@
+    -> IO ()
+
+
 
 instance LAPACKy Float where
   axpy = s_axpy
@@ -169,6 +190,7 @@ instance LAPACKy Float where
   dotc = s_dot
   nrm2 = s_nrm2
   gemv = s_gemv
+  gemm = s_gemm
 
 instance LAPACKy Double where
   axpy = d_axpy
@@ -178,6 +200,7 @@ instance LAPACKy Double where
   dotc = d_dot
   nrm2 = d_nrm2
   gemv = d_gemv
+  gemm = d_gemm
 
 instance LAPACKy (Complex Float) where
   copy = c_copy
@@ -211,6 +234,13 @@ instance LAPACKy (Complex Float) where
         c_gemv layout tr
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
+  {-# INLINE gemm #-}
+  gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        c_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
+
 
 instance LAPACKy (Complex Double) where
   copy = z_copy
@@ -244,6 +274,12 @@ instance LAPACKy (Complex Double) where
         z_gemv layout tr
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
+  {-# INLINE gemm #-}
+  gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        z_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
 
 
 ----------------------------------------------------------------
@@ -298,3 +334,58 @@ foreign import CCALL unsafe "cblas.h cblas_zgemv" z_gemv
   -> CRepr MatrixTranspose
   -> CInt -> CInt -> Ptr Z -> Ptr Z -> CInt
   -> ARR Z (Ptr Z -> ARR Z (IO ()))
+
+
+
+foreign import CCALL unsafe "cblas.h cblas_sgemm" s_gemm
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CRepr MatrixTranspose
+  -> CInt
+  -> CInt
+  -> CInt
+  -> S
+  -> Ptr S -> CInt
+  -> Ptr S -> CInt
+  -> S
+  -> Ptr S -> CInt
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_dgemm" d_gemm
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CRepr MatrixTranspose
+  -> CInt
+  -> CInt
+  -> CInt
+  -> D
+  -> Ptr D -> CInt
+  -> Ptr D -> CInt
+  -> D
+  -> Ptr D -> CInt
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_cgemm" c_gemm
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CRepr MatrixTranspose
+  -> CInt
+  -> CInt
+  -> CInt
+  -> Ptr C
+  -> Ptr C -> CInt
+  -> Ptr C -> CInt
+  -> Ptr C
+  -> Ptr C -> CInt
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_zgemm" z_gemm
+  :: CRepr MatrixLayout
+  -> CRepr MatrixTranspose
+  -> CRepr MatrixTranspose
+  -> CInt
+  -> CInt
+  -> CInt
+  -> Ptr Z
+  -> Ptr Z -> CInt
+  -> Ptr Z -> CInt
+  -> Ptr Z
+  -> Ptr Z -> CInt
+  -> IO ()
