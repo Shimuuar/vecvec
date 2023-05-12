@@ -10,6 +10,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
 -- |
@@ -155,6 +156,27 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Vec a') (Vec a) wher
     vecY <- MVG.new (nCols mat)
     M.unsafeBlasGemv C.ConjTrans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
+
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
+  matA @@ matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        -- FIXME: factor out new for mutable matrices (and unsafeNew too)
+        MVec buffer <- MVG.new @_ @_ @a (m * k)
+        let matC = M.MMatrix M.MView
+              { nrows      = m
+              , ncols      = n
+              , leadingDim = n
+              , buffer     = vecBuffer buffer
+              }
+        M.unsafeBlasGemm 1 C.NoTrans matA C.NoTrans matB 0 matC
+        pure $ coerce matC
+    where
+      m  = nRows matA
+      n  = nCols matA
+      n' = nRows matB
+      k  = nCols matB
 
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)

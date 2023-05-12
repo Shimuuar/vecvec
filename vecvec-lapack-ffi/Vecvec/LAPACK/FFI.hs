@@ -163,6 +163,10 @@ class (Num a, Storable a) => LAPACKy a where
   -- | Matrix-matrix multiplication.
   --
   -- > C := α·op(A)·op(B) + β·C
+  --
+  -- * @op(A)@: m×k matrix
+  -- * @op(B)@: k×n matrix
+  -- * @C    @: m×n matrix
   gemm
     :: CRepr MatrixLayout    -- ^ Matrix layout
     -> CRepr MatrixTranspose -- ^ Operation applied to matrix @A@

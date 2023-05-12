@@ -32,6 +32,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- * BLAS wrappers
   , MatrixTranspose(..)
   , unsafeBlasGemv
+  , unsafeBlasGemm
   ) where
 
 import Control.Monad
@@ -182,7 +183,7 @@ unsafeBlasGemv
 {-# INLINE unsafeBlasGemv #-}
 unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fpY))
   = unsafePrimToPrim
-  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+  $ do VecRepr _lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
        id $ unsafeWithForeignPtr buffer $ \p_A ->
             unsafeWithForeignPtr fpX    $ \p_x ->
             unsafeWithForeignPtr fpY    $ \p_y ->
@@ -190,3 +191,28 @@ unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fp
                 (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
                 p_x (fromIntegral incX)
                 β p_y (fromIntegral incY)
+
+-- | General matrix-matrix multiplication
+--
+-- > C := α·op(A)·op(B) + β·C
+unsafeBlasGemm
+  :: forall a m matA matB s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsMInput s matA, AsMInput s matB)
+  => a               -- ^ Scalar @α@
+  -> MatrixTranspose -- ^ Transformation for @A@
+  -> matA a          -- ^ Matrix @A@
+  -> MatrixTranspose -- ^ Transformation for @B@
+  -> matB a          -- ^ Matrix @B@
+  -> a               -- ^ Scalar @β@
+  -> MMatrix s a     -- ^ Matrix @C@
+  -> m ()
+unsafeBlasGemm α trA (asMInput @s -> matA) trB (asMInput @s -> matB) β (MMatrix matC)
+  = unsafePrimToPrim
+  $ do id $ unsafeWithForeignPtr (buffer matA) $ \p_A ->
+            unsafeWithForeignPtr (buffer matB) $ \p_B ->
+            unsafeWithForeignPtr (buffer matC) $ \p_C ->
+              C.gemm (C.toCEnum C.RowMajor)
+                (C.toCEnum trA) (C.toCEnum trB)
+                (fromIntegral $ nrows matA) (fromIntegral $ ncols matA) (fromIntegral $ ncols matB)
+                α p_A (fromIntegral $ leadingDim matA)
+                  p_B (fromIntegral $ leadingDim matB)
+                β p_C (fromIntegral $ leadingDim matC)
