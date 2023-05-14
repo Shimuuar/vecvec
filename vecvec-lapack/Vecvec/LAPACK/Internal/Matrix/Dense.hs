@@ -30,8 +30,6 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , unsafeRead
   , unsafeRow
   , unsafeCol
-    -- * Creation of matrices
-
   ) where
 
 import Control.Monad
@@ -162,16 +160,9 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
   matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
-        -- FIXME: factor out new for mutable matrices (and unsafeNew too)
-        MVec buffer <- MVG.new @_ @_ @a (m * k)
-        let matC = M.MMatrix M.MView
-              { nrows      = m
-              , ncols      = n
-              , leadingDim = n
-              , buffer     = vecBuffer buffer
-              }
+        matC <- M.new (m,k)
         M.unsafeBlasGemm 1 C.NoTrans matA C.NoTrans matB 0 matC
-        pure $ coerce matC
+        unsafeFreeze matC
     where
       m  = nRows matA
       n  = nCols matA

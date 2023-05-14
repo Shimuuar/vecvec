@@ -24,6 +24,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- ** Creation
   , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
   , fromRowsFF
+  , new
+  , unsafeNew
     -- ** Access
   , unsafeRead
   , unsafeWrite
@@ -39,6 +41,7 @@ import Control.Monad
 import Control.Monad.Primitive
 import Data.Coerce
 import Data.Foldable
+import Data.Vector.Generic.Mutable           qualified as MVG
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
@@ -161,6 +164,31 @@ fromRowsFF dat
   where
     nrows = length dat
     ncols = length $ head $ toList dat
+
+
+-- | Allocate new matrix. Content of buffer if not touched and may
+--   contain remnants of some earlier data
+unsafeNew :: (Storable a, PrimMonad m, s ~ PrimState m)
+          => (Int,Int) -> m (MMatrix s a)
+unsafeNew (n,k) = do
+  MVec buffer <- MVG.unsafeNew (n * k)
+  pure $ MMatrix MView { nrows      = n
+                       , ncols      = k
+                       , leadingDim = k
+                       , buffer     = vecBuffer buffer
+                       }
+
+
+-- | Allocate new matrix. Content of buffer zeroed out.
+new :: (Storable a, PrimMonad m, s ~ PrimState m)
+    => (Int,Int) -> m (MMatrix s a)
+new (n,k) = do
+  MVec buffer <- MVG.new (n * k)
+  pure $ MMatrix MView { nrows      = n
+                       , ncols      = k
+                       , leadingDim = k
+                       , buffer     = vecBuffer buffer
+                       }
 
 
 ----------------------------------------------------------------

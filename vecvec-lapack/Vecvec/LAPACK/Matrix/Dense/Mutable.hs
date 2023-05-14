@@ -9,6 +9,8 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
     -- * Operations
     -- ** Construction
   , fromRowsFF
+  , new
+  , unsafeNew
     -- ** Access
   , unsafeRead
   , unsafeWrite
