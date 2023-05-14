@@ -20,6 +20,7 @@
 -- rounding!
 module TST.Model (tests) where
 
+import Control.Monad
 import Data.Coerce
 import Data.Complex          (Complex(..))
 import Data.Kind             (Type)
@@ -292,14 +293,37 @@ prop_matmul_scal
 -- Models
 ----------------------------------------------------------------
 
+-- | Generate stride for vectors
+genStride :: Gen Int
+genStride = choose (1,3)
+
+-- | Generate offset for matrices
+genOffset :: Gen Int
+genOffset = choose (0,3)
+
 -- | Generate value with same size
 class Arbitrary a => GenSameSize a where
-  sameSize :: a -> Gen a
+  type Shape a
+  shape :: a -> Shape a
+  withSize :: Shape a -> Gen a
 
-instance GenSameSize Float  where sameSize _ = genScalar
-instance GenSameSize Double where sameSize _ = genScalar
+sameSize :: GenSameSize a => a -> Gen a
+sameSize = withSize . shape
+
+
+instance GenSameSize Float  where
+  type Shape Float = ()
+  shape    _ = ()
+  withSize _ = genScalar
+instance GenSameSize Double where
+  type Shape Double = ()
+  shape    _ = ()
+  withSize _ = genScalar
 instance ScalarModel a => GenSameSize (Complex a) where
-  sameSize _ = genScalar
+  type Shape (Complex a) = ()
+  shape    _ = ()
+  withSize _ = genScalar
+
 
 deriving newtype instance GenSameSize a => GenSameSize (Tr   a)
 deriving newtype instance GenSameSize a => GenSameSize (Conj a)
@@ -390,7 +414,7 @@ data ModelVec a = ModelVec { modelVecStride :: !Int
   deriving stock (Show)
 
 instance ScalarModel a => Arbitrary (ModelVec a) where
-  arbitrary = ModelVec <$> choose (1,4) <*> listOf genScalar
+  arbitrary = ModelVec <$> genStride <*> listOf genScalar
   shrink (ModelVec n xs) = do
     n' <- case n of 1 -> [1]
                     _ -> [1,n]
@@ -398,10 +422,11 @@ instance ScalarModel a => Arbitrary (ModelVec a) where
     return $ ModelVec n' x
 
 instance ScalarModel a => GenSameSize (ModelVec a) where
-  sameSize (ModelVec _ xs) = ModelVec <$> choose (1,4) <*> sequence (genScalar <$ xs)
+  type Shape (ModelVec a) = Int
+  shape = length . unModelVec
+  withSize n = ModelVec <$> genStride <*> replicateM n genScalar
 
--- FIXME: We need implement checks than values have same size
-
+-- FIXME: We need to implement checks than values have same size
 instance Num a => AdditiveSemigroup (ModelVec a) where
   a .+. b = ModelVec 1 $ (zipWith (+) `on` unModelVec) a b
 
@@ -463,8 +488,8 @@ instance ScalarModel a => Arbitrary (ModelMat a) where
     cols <- arbitrary
     row  <- mapM (const genScalar) (() : cols)
     rows <- listOf $ unModelVec <$> sameSize (ModelVec 1 row)
-    r    <- choose (0, 3)
-    c    <- choose (0, 3)
+    r    <- genOffset
+    c    <- genOffset
     pure $ ModelMat r c (row:rows)
   shrink ModelMat{..} = do
     p_r <- case padRows of 0 -> [0]; _ -> [0,padRows]
@@ -472,8 +497,11 @@ instance ScalarModel a => Arbitrary (ModelMat a) where
     [ModelMat{ padRows = p_r, padCols = p_c, .. }]
 
 instance ScalarModel a => GenSameSize (ModelMat a) where
-  sameSize (ModelMat r c xs) = ModelMat r c <$> (traverse . traverse) (const genScalar) xs
-
+  type Shape (ModelMat a) = (Int,Int)
+  shape m = (modelMatRows m, modelMatCols m)
+  withSize (m,n) = ModelMat
+    <$> genOffset <*> genOffset
+    <*> replicateM m (replicateM n genScalar)
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
   a .+. b = ModelMat 0 0 $ ((zipWith . zipWith) (+) `on` unModelMat) a b
@@ -530,17 +558,17 @@ instance (ScalarModel a) => Arbitrary (MM (Conj (ModelVec a)) (ModelVec a)) wher
 instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelVec a)) where
   arbitrary = do
     m <- arbitrary
-    v <- ModelVec <$> choose (1,3) <*> vectorOf (modelMatCols m) genScalar
+    v <- withSize (modelMatCols m)
     pure $ MM m v
 
 instance (ScalarModel a) => Arbitrary (MM (Tr (ModelMat a)) (ModelVec a)) where
   arbitrary = do
     Tr m <- arbitrary
-    v    <- ModelVec <$> choose (1,3) <*> vectorOf (modelMatRows m) genScalar
+    v    <- withSize (modelMatRows m)
     pure $ MM (Tr m) v
 
 instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelVec a)) where
   arbitrary = do
     Conj m <- arbitrary
-    v      <- ModelVec <$> choose (1,3) <*> vectorOf (modelMatRows m) genScalar
+    v      <- withSize (modelMatRows m)
     pure $ MM (Conj m) v
