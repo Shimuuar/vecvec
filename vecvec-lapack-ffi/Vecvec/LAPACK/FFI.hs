@@ -171,9 +171,9 @@ class (Num a, Storable a) => LAPACKy a where
     :: CRepr MatrixLayout    -- ^ Matrix layout
     -> CRepr MatrixTranspose -- ^ Operation applied to matrix @A@
     -> CRepr MatrixTranspose -- ^ Operation applied to matrix @B@
-    -> CInt                  -- ^ @m@
-    -> CInt                  -- ^ @n@
-    -> CInt                  -- ^ @k@
+    -> CInt                  -- ^ @m@ — number of rows in A and C
+    -> CInt                  -- ^ @n@ — number of columns in B and C
+    -> CInt                  -- ^ @k@ — number of columns in A and rows in B
     -> a                     -- ^ Scalar @α@
     -> Ptr a                 -- ^ Buffer for matrix @A@
     -> CInt                  -- ^ Leading dimension for @A@

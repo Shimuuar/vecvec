@@ -28,7 +28,7 @@ import Data.Function         (on)
 import Data.Typeable
 import Data.List             (intercalate,transpose)
 import Foreign.Storable      (Storable)
-import Linear.Matrix         ((!*))
+import Linear.Matrix         ((!*), (!*!))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
@@ -92,6 +92,11 @@ tests = testGroup "classes"
     , prop_matmul @(Conj (Matrix D)) @(VV.Vec D)
     , prop_matmul @(Conj (Matrix C)) @(VV.Vec C)
     , prop_matmul @(Conj (Matrix Z)) @(VV.Vec Z)
+      -- Matrix-matrix
+    , prop_matmul @(Matrix S) @(Matrix S)
+    , prop_matmul @(Matrix D) @(Matrix D)
+    , prop_matmul @(Matrix C) @(Matrix C)
+    , prop_matmul @(Matrix Z) @(Matrix Z)
     ]
   ]
 
@@ -464,6 +469,10 @@ instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a
     where m' = (fmap . fmap) conjugate $ transpose $ unModelMat m
 
 
+instance (Num a) => MatMul (ModelMat a) (ModelMat a) (ModelMat a) where
+  m @@ v = ModelMat 0 0 $ unModelMat m !*! unModelMat v
+
+
 ----------------------------------------------------------------
 -- Model for dense matrices
 ----------------------------------------------------------------
@@ -572,3 +581,10 @@ instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelVec a)) wher
     Conj m <- arbitrary
     v      <- withSize (modelMatRows m)
     pure $ MM (Conj m) v
+
+instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelMat a)) where
+  arbitrary = do
+    mA <- arbitrary
+    k  <- sized $ \n -> chooseInt (1, 1+n)
+    mB <- withSize (modelMatCols mA, k)
+    pure $ MM mA mB

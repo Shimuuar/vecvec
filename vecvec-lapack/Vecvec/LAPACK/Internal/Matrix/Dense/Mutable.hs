@@ -212,7 +212,9 @@ unsafeBlasGemm α trA (asMInput @s -> matA) trB (asMInput @s -> matB) β (MMatri
             unsafeWithForeignPtr (buffer matC) $ \p_C ->
               C.gemm (C.toCEnum C.RowMajor)
                 (C.toCEnum trA) (C.toCEnum trB)
-                (fromIntegral $ nrows matA) (fromIntegral $ ncols matA) (fromIntegral $ ncols matB)
+                (fromIntegral $ nrows matA)
+                (fromIntegral $ ncols matB)
+                (fromIntegral $ nrows matB)
                 α p_A (fromIntegral $ leadingDim matA)
                   p_B (fromIntegral $ leadingDim matB)
                 β p_C (fromIntegral $ leadingDim matC)

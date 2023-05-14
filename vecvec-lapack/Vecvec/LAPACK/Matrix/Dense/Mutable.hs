@@ -19,6 +19,4 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , unsafeBlasGemv
   ) where
 
-
-import Vecvec.LAPACK.FFI (MatrixTranspose(..))
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
