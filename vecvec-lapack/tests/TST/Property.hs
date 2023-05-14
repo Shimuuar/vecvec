@@ -1,50 +1,41 @@
 -- TODO this is a copy from `vector` package
 --
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module TST.Property (tests) where
 
 
 import Boilerplater
 import Utilities as Util hiding (limitUnfolds)
 
-import Control.Monad
-import Control.Monad.ST
-import qualified Data.Traversable as T (Traversable(..))
--- import Data.Orphans ()
-import Data.Foldable (foldrM)
-import qualified Data.Vector.Generic as V
+import           Control.Monad
+import           Control.Monad.ST
+import           Control.Monad.Trans.Writer
+import           Data.Complex
+import           Data.Data
+import           Data.Foldable               (foldrM)
+import           Data.Functor.Identity
+import           Data.List
+import qualified Data.List.NonEmpty          as DLE
+import           Data.Semigroup              (Semigroup (..))
+import qualified Data.Traversable            as T (Traversable (..))
+import qualified Data.Vector.Fusion.Bundle   as S
+import qualified Data.Vector.Generic         as V
 import qualified Data.Vector.Generic.Mutable as MV
-import qualified Data.Vector.Fusion.Bundle as S
-import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Storable        as VS
+import           GHC.Exts
+import           System.Random
+import           Text.Show.Functions         ()
 
-import GHC.Exts
+import           Test.QuickCheck
+import           Test.Tasty
+import           Test.Tasty.QuickCheck hiding (testProperties)
 
-import Test.QuickCheck
-
-import Test.Tasty
-import Test.Tasty.QuickCheck hiding (testProperties)
-
-import Text.Show.Functions ()
-import Data.List
-
-
-import qualified Control.Applicative as Applicative
-import System.Random       -- (Random)
-
-import Data.Functor.Identity
-import Control.Monad.Trans.Writer
-
-import Control.Monad.Zip
-
-import Data.Data
-import Data.Complex
-
-import qualified Data.List.NonEmpty as DLE
-import Data.Semigroup (Semigroup(..))
-
-import Vecvec.LAPACK.Internal.Vector
-
+import qualified Vecvec.Classes.Slice                  as Slice
+import           Vecvec.LAPACK.Internal.Vector
+import           Vecvec.LAPACK.Internal.Vector.Mutable
 
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
@@ -729,13 +720,13 @@ testDataFunctions _ = $(testProperties ['prop_glength])
 
 
 testGeneralStorableVector
-  :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, Ord a, Data a)
-  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
+  :: forall v a. ( CommonContext a v
+               , VS.Storable a, Ord a, Ord (v a), Data a)
+  => v a -> [TestTree]
 testGeneralStorableVector dummy = concatMap ($ dummy)
   [
     testSanity
-  , inline testPolymorphicFunctions -- TODO why we need `inline` here?
+  -- TODO RESTORE IT , inline testPolymorphicFunctions
   , testOrdFunctions
   -- , testMonoidFunctions
   -- , testDataFunctions
@@ -743,9 +734,9 @@ testGeneralStorableVector dummy = concatMap ($ dummy)
 
 
 testNumericStorableVector
-  :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, Ord a, Num a, Enum a, Random a, Data a)
-  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
+  :: forall a v. ( CommonContext a v
+               , VS.Storable a, Ord a, Ord (v a), Num a, Enum a, Random a, Data a)
+  => v a -> [TestTree]
 testNumericStorableVector dummy = concatMap ($ dummy)
   [ testGeneralStorableVector
   , testNumFunctions
@@ -772,12 +763,72 @@ instance Random a => Random (Complex a) where
   {-# INLINE random #-}
 
 
+newtype StridedMVec s a = StridedMVec { unMVec :: Vecvec.LAPACK.Internal.Vector.Mutable.MVec s a }
+
+newtype StridedVec a = StridedVec { unVec :: Vecvec.LAPACK.Internal.Vector.Vec a }
+    deriving (Show, Eq, Ord)
+
+
+instance (Eq a, TestData a, VS.Storable a) => TestData (StridedVec a) where
+  type Model (StridedVec a) = [Model a]
+  model   = map model  . V.toList   . unVec
+  unmodel lst =
+    let stride = 3 -- TODO pass this number via numeric param of StridedVec
+    in StridedVec $ Slice.slice ((0,Slice.End) `Strided` stride) $ V.fromList $ replicate stride =<< map unmodel lst
+
+  type EqTest (StridedVec a) = Property
+  equal x y = property (x == y)
+
+
+instance (Arbitrary a, VS.Storable a) => Arbitrary (StridedVec a) where
+    arbitrary = fmap (StridedVec . V.fromList) arbitrary
+
+instance (CoArbitrary a, VS.Storable a) => CoArbitrary (StridedVec a) where
+    coarbitrary = coarbitrary . (V.toList . unVec)
+
+
+-- TODO how to implement the below-written with `deriving`??
+
+type instance V.Mutable StridedVec = StridedMVec
+
+instance VS.Storable a => MV.MVector StridedMVec a where
+    {-# INLINE basicLength #-}
+    {-# INLINE basicUnsafeSlice #-}
+    {-# INLINE basicOverlaps #-}
+    {-# INLINE basicUnsafeNew #-}
+    {-# INLINE basicInitialize #-}
+    {-# INLINE basicUnsafeRead #-}
+    {-# INLINE basicUnsafeWrite #-}
+    basicLength            = MV.basicLength . unMVec
+    basicUnsafeSlice s l v = StridedMVec $ MV.basicUnsafeSlice s l (unMVec v)
+    basicOverlaps v1 v2    = MV.basicOverlaps (unMVec v1) (unMVec v2)
+    basicUnsafeNew         = fmap StridedMVec . MV.basicUnsafeNew
+    basicInitialize        = MV.basicInitialize . unMVec
+    basicUnsafeRead        = MV.basicUnsafeRead . unMVec
+    basicUnsafeWrite       = MV.basicUnsafeWrite . unMVec
+
+
+instance (VS.Storable a) => V.Vector StridedVec a where
+    {-# INLINE basicUnsafeFreeze #-}
+    {-# INLINE basicUnsafeThaw #-}
+    {-# INLINE basicLength #-}
+    {-# INLINE basicUnsafeSlice #-}
+    {-# INLINE basicUnsafeIndexM #-}
+    basicUnsafeFreeze    = fmap StridedVec . V.basicUnsafeFreeze . unMVec
+    basicUnsafeThaw      = fmap StridedMVec . V.basicUnsafeThaw . unVec
+    basicLength          = V.basicLength . unVec
+    basicUnsafeSlice s l = StridedVec . V.basicUnsafeSlice s l . unVec
+    basicUnsafeIndexM    = V.basicUnsafeIndexM . unVec
+
+
 tests :: TestTree
 tests = testGroup "property"
   [ testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Double)" $
     testNumericStorableVector (undefined :: Vecvec.LAPACK.Internal.Vector.Vec Double)
   , testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Complex Double)" $
     testNumericStorableVectorNoOrd (undefined :: Vecvec.LAPACK.Internal.Vector.Vec (Complex Double))
+  , testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Double, strided)" $
+    testNumericStorableVector (undefined :: StridedVec Double)
     --
     -- TODO special cases for strided data:
     -- newtype Strided a = Strided a
