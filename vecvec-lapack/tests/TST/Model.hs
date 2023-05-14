@@ -93,10 +93,18 @@ tests = testGroup "classes"
     , prop_matmul @(Conj (Matrix C)) @(VV.Vec C)
     , prop_matmul @(Conj (Matrix Z)) @(VV.Vec Z)
       -- Matrix-matrix
-    , prop_matmul @(Matrix S) @(Matrix S)
-    , prop_matmul @(Matrix D) @(Matrix D)
-    , prop_matmul @(Matrix C) @(Matrix C)
-    , prop_matmul @(Matrix Z) @(Matrix Z)
+    , prop_matmul @(Matrix S)        @(Matrix S)
+    , prop_matmul @(Matrix D)        @(Matrix D)
+    , prop_matmul @(Matrix C)        @(Matrix C)
+    , prop_matmul @(Matrix Z)        @(Matrix Z)
+    , prop_matmul @(Tr (Matrix S))   @(Matrix S)
+    , prop_matmul @(Tr (Matrix D))   @(Matrix D)
+    , prop_matmul @(Tr (Matrix C))   @(Matrix C)
+    , prop_matmul @(Tr (Matrix Z))   @(Matrix Z)
+    , prop_matmul @(Conj (Matrix S)) @(Matrix S)
+    , prop_matmul @(Conj (Matrix D)) @(Matrix D)
+    , prop_matmul @(Conj (Matrix C)) @(Matrix C)
+    , prop_matmul @(Conj (Matrix Z)) @(Matrix Z)
     ]
   ]
 
@@ -472,6 +480,15 @@ instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a
 instance (Num a) => MatMul (ModelMat a) (ModelMat a) (ModelMat a) where
   m @@ v = ModelMat 0 0 $ unModelMat m !*! unModelMat v
 
+instance (Num a) => MatMul (Tr (ModelMat a)) (ModelMat a) (ModelMat a) where
+  Tr m @@ v = ModelMat 0 0 $ m' !*! unModelMat v
+    where m' = transpose $ unModelMat m
+
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelMat a) (ModelMat a) where
+  Conj m @@ v = ModelMat 0 0 $ m' !*! unModelMat v
+    where
+      m' = (fmap . fmap) conjugate $ transpose $ unModelMat m
+
 
 ----------------------------------------------------------------
 -- Model for dense matrices
@@ -588,3 +605,17 @@ instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelMat a)) where
     k  <- sized $ \n -> chooseInt (1, 1+n)
     mB <- withSize (modelMatCols mA, k)
     pure $ MM mA mB
+
+instance (ScalarModel a) => Arbitrary (MM (Tr (ModelMat a)) (ModelMat a)) where
+  arbitrary = do
+    mA <- arbitrary
+    k  <- sized $ \n -> chooseInt (1, 1+n)
+    mB <- withSize (modelMatRows mA, k)
+    pure $ MM (Tr mA) mB
+
+instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelMat a)) where
+  arbitrary = do
+    mA <- arbitrary
+    k  <- sized $ \n -> chooseInt (1, 1+n)
+    mB <- withSize (modelMatRows mA, k)
+    pure $ MM (Conj mA) mB

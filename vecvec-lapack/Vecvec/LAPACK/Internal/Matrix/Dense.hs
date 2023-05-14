@@ -155,7 +155,6 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Vec a') (Vec a) wher
     M.unsafeBlasGemv C.ConjTrans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-
 instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
   matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
@@ -168,6 +167,33 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
       n  = nCols matA
       n' = nRows matB
       k  = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Matrix a) (Matrix a) where
+  Tr matA @@ matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.Trans matA C.NoTrans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      n' = nRows matB
+      k  = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Matrix a) (Matrix a) where
+  Conj matA @@ matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.ConjTrans matA C.NoTrans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      n' = nRows matB
+      k  = nCols matB
+
 
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
