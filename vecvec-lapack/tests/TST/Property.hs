@@ -1,9 +1,13 @@
--- TODO this is a copy from `vector` package
+-- NOTE This is a copy from `vector` package
 --
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
+-- NOTE Since this file is almost entirely copied from `vector`,
+-- we almost don't edit it, but just silence the warnings.
+-- In the hope that the tests from `vector` will be separated into a separate package.
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 module TST.Property (tests) where
 
 
@@ -14,7 +18,6 @@ import           Control.Monad
 import           Control.Monad.ST
 import           Control.Monad.Trans.Writer
 import           Data.Complex
-import           Data.Data
 import           Data.Foldable               (foldrM)
 import           Data.Functor.Identity
 import           Data.List
@@ -34,6 +37,7 @@ import           Test.Tasty
 import           Test.Tasty.QuickCheck hiding (testProperties)
 
 import           Vecvec.LAPACK.Internal.Vector
+import           TST.Orphanage ()
 
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
@@ -573,15 +577,15 @@ partitionWith f (x:xs) = case f x of
                          Right c -> (bs, c:cs)
     where (bs,cs) = partitionWith f xs
 
-testTuplyFunctions
+_testTuplyFunctions
   :: forall a v. ( CommonContext a v
                  , VectorContext (a, a)    v
                  , VectorContext (a, a, a) v
                  , VectorContext (Int, a)  v
                  )
   => v a -> [TestTree]
-{-# INLINE testTuplyFunctions #-}
-testTuplyFunctions _ = $(testProperties [ 'prop_zip, 'prop_zip3
+{-# INLINE _testTuplyFunctions #-}
+_testTuplyFunctions _ = $(testProperties [ 'prop_zip, 'prop_zip3
                                         , 'prop_unzip, 'prop_unzip3
                                         , 'prop_indexed
                                         , 'prop_update
@@ -719,13 +723,14 @@ testDataFunctions _ = $(testProperties ['prop_glength])
 
 testGeneralStorableVector
   :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, Ord a, Data a)
+               , VS.Storable a, Ord a {-, Data a -})
   => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testGeneralStorableVector dummy = concatMap ($ dummy)
   [
     testSanity
   , inline testPolymorphicFunctions
   , testOrdFunctions
+  -- TODO add support for this functions too
   -- , testTuplyFunctions
   -- , testMonoidFunctions
   -- , testDataFunctions
@@ -734,7 +739,7 @@ testGeneralStorableVector dummy = concatMap ($ dummy)
 
 testNumericStorableVector
   :: forall a . ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, Ord a, Num a, Enum a, Random a, Data a)
+               , VS.Storable a, Ord a, Num a, Enum a, Random a {-, Data a-})
   => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testNumericStorableVector dummy = concatMap ($ dummy)
   [ testGeneralStorableVector
@@ -745,21 +750,13 @@ testNumericStorableVector dummy = concatMap ($ dummy)
 
 testNumericStorableVectorNoOrd
   :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, Num a, Random a, Data a)
+               , Num a)
   => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testNumericStorableVectorNoOrd dummy = concatMap ($ dummy)
   [ testSanity
   , inline testPolymorphicFunctions
   , testNumFunctions
   ]
-
-
-instance Random a => Random (Complex a) where
-  randomR (al :+ bl, ah :+ bh) g =
-    (\((a,b), g') -> (a :+ b, g')) $ randomR ((al,bl), (ah,bh)) g
-  random g =
-    (\((a,b),g') -> (a :+ b, g')) $ random g
-  {-# INLINE random #-}
 
 
 tests :: TestTree

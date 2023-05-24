@@ -1,8 +1,14 @@
--- TODO this is a copy from `vector` package
+-- NOTE This is a copy from `vector` package
 --
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
+-- NOTE Since this file is almost entirely copied from `vector`,
+-- we almost don't edit it, but just silence the warnings.
+-- In the hope that the tests from `vector` will be separated into a separate package.
+{-# OPTIONS_GHC -Wno-missing-signatures    #-}
+{-# OPTIONS_GHC -fno-warn-orphans          #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 module Utilities where
 
 import Test.QuickCheck
@@ -23,7 +29,6 @@ import Data.Function (on)
 import Data.Functor.Identity
 import Data.List ( sortBy )
 import Data.Maybe (catMaybes)
-import Test.QuickCheck.Modifiers
 
 import qualified Vecvec.Classes.Slice                  as Slice
 
