@@ -33,9 +33,7 @@ import           Test.QuickCheck
 import           Test.Tasty
 import           Test.Tasty.QuickCheck hiding (testProperties)
 
-import qualified Vecvec.Classes.Slice                  as Slice
 import           Vecvec.LAPACK.Internal.Vector
-import           Vecvec.LAPACK.Internal.Vector.Mutable
 
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
@@ -720,23 +718,24 @@ testDataFunctions _ = $(testProperties ['prop_glength])
 
 
 testGeneralStorableVector
-  :: forall v a. ( CommonContext a v
-               , VS.Storable a, Ord a, Ord (v a), Data a)
-  => v a -> [TestTree]
+  :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
+               , VS.Storable a, Ord a, Data a)
+  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testGeneralStorableVector dummy = concatMap ($ dummy)
   [
     testSanity
-  -- TODO RESTORE IT , inline testPolymorphicFunctions
+  , inline testPolymorphicFunctions
   , testOrdFunctions
+  -- , testTuplyFunctions
   -- , testMonoidFunctions
   -- , testDataFunctions
   ]
 
 
 testNumericStorableVector
-  :: forall a v. ( CommonContext a v
-               , VS.Storable a, Ord a, Ord (v a), Num a, Enum a, Random a, Data a)
-  => v a -> [TestTree]
+  :: forall a . ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
+               , VS.Storable a, Ord a, Num a, Enum a, Random a, Data a)
+  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testNumericStorableVector dummy = concatMap ($ dummy)
   [ testGeneralStorableVector
   , testNumFunctions
@@ -746,7 +745,7 @@ testNumericStorableVector dummy = concatMap ($ dummy)
 
 testNumericStorableVectorNoOrd
   :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
-               , VS.Storable a, {-Ord a,-} Num a, {-Enum a,-} Random a, Data a)
+               , VS.Storable a, Num a, Random a, Data a)
   => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
 testNumericStorableVectorNoOrd dummy = concatMap ($ dummy)
   [ testSanity
@@ -763,76 +762,10 @@ instance Random a => Random (Complex a) where
   {-# INLINE random #-}
 
 
-newtype StridedMVec s a = StridedMVec { unMVec :: Vecvec.LAPACK.Internal.Vector.Mutable.MVec s a }
-
-newtype StridedVec a = StridedVec { unVec :: Vecvec.LAPACK.Internal.Vector.Vec a }
-    deriving (Show, Eq, Ord)
-
-
-instance (Eq a, TestData a, VS.Storable a) => TestData (StridedVec a) where
-  type Model (StridedVec a) = [Model a]
-  model   = map model  . V.toList   . unVec
-  unmodel lst =
-    let stride = 3 -- TODO pass this number via numeric param of StridedVec
-    in StridedVec $ Slice.slice ((0,Slice.End) `Strided` stride) $ V.fromList $ replicate stride =<< map unmodel lst
-
-  type EqTest (StridedVec a) = Property
-  equal x y = property (x == y)
-
-
-instance (Arbitrary a, VS.Storable a) => Arbitrary (StridedVec a) where
-    arbitrary = fmap (StridedVec . V.fromList) arbitrary
-
-instance (CoArbitrary a, VS.Storable a) => CoArbitrary (StridedVec a) where
-    coarbitrary = coarbitrary . (V.toList . unVec)
-
-
--- TODO how to implement the below-written with `deriving`??
-
-type instance V.Mutable StridedVec = StridedMVec
-
-instance VS.Storable a => MV.MVector StridedMVec a where
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicOverlaps #-}
-    {-# INLINE basicUnsafeNew #-}
-    {-# INLINE basicInitialize #-}
-    {-# INLINE basicUnsafeRead #-}
-    {-# INLINE basicUnsafeWrite #-}
-    basicLength            = MV.basicLength . unMVec
-    basicUnsafeSlice s l v = StridedMVec $ MV.basicUnsafeSlice s l (unMVec v)
-    basicOverlaps v1 v2    = MV.basicOverlaps (unMVec v1) (unMVec v2)
-    basicUnsafeNew         = fmap StridedMVec . MV.basicUnsafeNew
-    basicInitialize        = MV.basicInitialize . unMVec
-    basicUnsafeRead        = MV.basicUnsafeRead . unMVec
-    basicUnsafeWrite       = MV.basicUnsafeWrite . unMVec
-
-
-instance (VS.Storable a) => V.Vector StridedVec a where
-    {-# INLINE basicUnsafeFreeze #-}
-    {-# INLINE basicUnsafeThaw #-}
-    {-# INLINE basicLength #-}
-    {-# INLINE basicUnsafeSlice #-}
-    {-# INLINE basicUnsafeIndexM #-}
-    basicUnsafeFreeze    = fmap StridedVec . V.basicUnsafeFreeze . unMVec
-    basicUnsafeThaw      = fmap StridedMVec . V.basicUnsafeThaw . unVec
-    basicLength          = V.basicLength . unVec
-    basicUnsafeSlice s l = StridedVec . V.basicUnsafeSlice s l . unVec
-    basicUnsafeIndexM    = V.basicUnsafeIndexM . unVec
-
-
 tests :: TestTree
 tests = testGroup "property"
   [ testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Double)" $
     testNumericStorableVector (undefined :: Vecvec.LAPACK.Internal.Vector.Vec Double)
   , testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Complex Double)" $
     testNumericStorableVectorNoOrd (undefined :: Vecvec.LAPACK.Internal.Vector.Vec (Complex Double))
-  , testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Double, strided)" $
-    testNumericStorableVector (undefined :: StridedVec Double)
-    --
-    -- TODO special cases for strided data:
-    -- newtype Strided a = Strided a
-    -- instance Arbitrary (Strided a) where
-    --    -- generate here strided data
-    --
   ]

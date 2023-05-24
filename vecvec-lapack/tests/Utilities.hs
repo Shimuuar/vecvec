@@ -23,6 +23,9 @@ import Data.Function (on)
 import Data.Functor.Identity
 import Data.List ( sortBy )
 import Data.Maybe (catMaybes)
+import Test.QuickCheck.Modifiers
+
+import qualified Vecvec.Classes.Slice                  as Slice
 
 instance Show a => Show (S.Bundle v a) where
     show s = "Data.Vector.Fusion.Bundle.fromList " ++ show (S.toList s)
@@ -111,14 +114,21 @@ instance (Eq a, DVS.Storable a, TestData a) => TestData (DVS.Vector a) where
 instance (Eq a, DVS.Storable a, TestData a) => TestData (VV.Vec a) where
   type Model (VV.Vec a) = [Model a]
   model   = map model    . DVG.toList
-  unmodel = DVG.fromList . map unmodel
+  unmodel lst =
+    -- make strided vec for test
+    let stride = 777
+    in Slice.slice ((0,Slice.End) `Strided` stride) $ DVG.fromList $ replicate stride =<< map unmodel lst
 
   type EqTest (VV.Vec a) = Property
   equal x y = property (x == y)
 
 
 instance (Arbitrary a, DVS.Storable a) => Arbitrary (VV.Vec a) where
-    arbitrary = fmap DVG.fromList arbitrary
+    arbitrary = do
+        Positive stride <- arbitrary
+        lst <- arbitrary
+        let vec = Slice.slice ((0,Slice.End) `Strided` stride) $ DVG.fromList $ replicate stride =<< lst
+        pure vec
 
 instance (CoArbitrary a, DVS.Storable a) => CoArbitrary (VV.Vec a) where
     coarbitrary = coarbitrary . DVG.toList
