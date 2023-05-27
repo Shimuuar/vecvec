@@ -118,19 +118,22 @@ instance (Eq a, DVS.Storable a, TestData a) => TestData (DVS.Vector a) where
 
 instance (Eq a, DVS.Storable a, TestData a) => TestData (VV.Vec a) where
   type Model (VV.Vec a) = [Model a]
-  model   = map model    . DVG.toList
-  unmodel lst =
-    -- make strided vec for test
-    let stride = 777
-    in Slice.slice ((0,Slice.End) `Strided` stride) $ DVG.fromList $ replicate stride =<< map unmodel lst
-
+  model = map model . DVG.toList
+  -- We want to exercise both stride=1 and >1 but list doesn't have
+  -- extra bit for this case. So we cheat and use list length for that
+  unmodel lst
+    | odd (length lst) = DVG.fromList $ unmodel <$> lst
+    | otherwise        = Slice.slice ((0,Slice.End) `Strided` stride)
+                       $ DVG.fromList
+                       $ replicate stride =<< map unmodel lst
+    where stride = 2
   type EqTest (VV.Vec a) = Property
   equal x y = property (x == y)
 
 
 instance (Arbitrary a, DVS.Storable a) => Arbitrary (VV.Vec a) where
     arbitrary = do
-        Positive stride <- arbitrary
+        stride <- choose (1,3)
         lst <- arbitrary
         let vec = Slice.slice ((0,Slice.End) `Strided` stride) $ DVG.fromList $ replicate stride =<< lst
         pure vec
