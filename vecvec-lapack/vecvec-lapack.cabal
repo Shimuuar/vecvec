@@ -47,20 +47,31 @@ Library
 test-suite vecvec-lapack-tests
   default-language: Haskell2010
   type:             exitcode-stdio-1.0
-  ghc-options:      -Wall -Wredundant-constraints -threaded
-
-  hs-source-dirs: tests
-  main-is:        main.hs
-  other-modules:  TST.Model
-                  TST.Slice
-                  TST.Orphanage
-  build-depends:    base             >=4.5 && <5
-                  , vecvec-classes    -any
-                  , vecvec-lapack     -any
-                  , vecvec-lapack-ffi -any
+  ghc-options:      -O2 -Wall -Wredundant-constraints -threaded
+  hs-source-dirs:   tests
+  main-is:          main.hs
+  other-modules:    Boilerplater
+                    Utilities
+                    TST.Model
+                    TST.Slice
+                    TST.Orphanage
+                    TST.Property
+  extensions:       FlexibleContexts
+                    ImportQualifiedPost
+                    RankNTypes
+                    ScopedTypeVariables
+                    TypeFamilies
+  build-depends:      base             >=4.5 && <5
+                    , vecvec-classes   -any
+                    , vecvec-lapack    -any
+                    , vecvec-lapack-ffi -any
                     --
-                  , tasty            >= 1.2
-                  , tasty-quickcheck >= 0.10
+                    , linear           >=1.20
+                    , vector           -any
                     --
-                  , linear           >=1.20
-                  , vector           -any
+                    , QuickCheck
+                    , random
+                    , tasty            >= 1.2
+                    , tasty-quickcheck >= 0.10
+                    , template-haskell
+                    , transformers
