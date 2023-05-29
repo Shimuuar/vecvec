@@ -2,7 +2,8 @@ Name:           vecvec-lapack
 Version:        0.0.1
 Synopsis:       Yet another set of high level BALS & LAPACK wrappers
 Description:
-  Linear algebra for haskell
+  Linear algebra for haskell. This library provides high level
+  wrappers for BLAS and LAPACK libraries.
 
 Cabal-Version:  >= 1.10
 License:        BSD3
@@ -56,11 +57,11 @@ test-suite vecvec-lapack-tests
                     TST.Slice
                     TST.Orphanage
                     TST.Property
-  extensions:       FlexibleContexts
-                    ImportQualifiedPost
-                    RankNTypes
-                    ScopedTypeVariables
-                    TypeFamilies
+  default-extensions: FlexibleContexts
+                      ImportQualifiedPost
+                      RankNTypes
+                      ScopedTypeVariables
+                      TypeFamilies
   build-depends:      base             >=4.5 && <5
                     , vecvec-classes   -any
                     , vecvec-lapack    -any
