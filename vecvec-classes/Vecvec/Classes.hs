@@ -32,6 +32,8 @@ module Vecvec.Classes
   , NormedScalar(..)
   , InnerSpace(..)
   , magnitude
+  , normalize
+  , normalizeMag
     -- * Matrix operations
   , MatMul(..)
   , Tr(..)
@@ -146,6 +148,18 @@ infix 7 <.>
 -- | Compute magnitude of vector
 magnitude :: (Floating (R (Scalar v)), InnerSpace v) => v -> R (Scalar v)
 magnitude = sqrt . magnitudeSq
+{-# INLINE magnitude #-}
+
+-- | Normalize vector to unit length.
+normalize :: (InnerSpace v, a ~ Scalar v, Fractional a, Floating (R a)) => v -> v
+normalize v = v ./ fromR n where n = magnitude v
+{-# INLINE normalize #-}
+
+-- | Normalize vector and return its magnitude at the same time.
+normalizeMag :: (InnerSpace v, a ~ Scalar v, Fractional a, Floating (R a)) => v -> (v, R a)
+normalizeMag v = (v ./ fromR n, n) where n = magnitude v
+{-# INLINE normalizeMag #-}
+
 
 -- | Scalar for which we could compute norm. In fact we need this type
 --   class in order to be able to compute norm of vector over complex
@@ -153,8 +167,13 @@ magnitude = sqrt . magnitudeSq
 class (Num v, Num (R v)) => NormedScalar v where
   -- | Type representing norm of scalar
   type R v
+  -- | Complex conjugation for complex values and identity for real
   conjugate    :: v -> v
+  -- | Square of norm of a value
   scalarNormSq :: v -> R v
+  -- | Convert norm to a scalar
+  fromR        :: R v -> v
+
 
 
 ----------------------------------------------------------------
@@ -490,17 +509,19 @@ instance NormedScalar Float where
   type R Float = Float
   conjugate = id
   scalarNormSq x = x * x
+  fromR = id
 
 instance NormedScalar Double where
   type R Double = Double
   conjugate = id
   scalarNormSq x = x * x
+  fromR = id
 
 instance RealFloat a => NormedScalar (Complex a) where
   type R (Complex a) = a
   conjugate = Complex.conjugate
   scalarNormSq (r1 :+ i1) = r1*r1 + i1*i1
-
+  fromR x = x :+ 0
 
 ----------------------------------------------------------------
 -- zipWith which errors when vector have different length
