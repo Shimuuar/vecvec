@@ -40,6 +40,7 @@ module Vecvec.Classes
   , AsNum(..)
   , AsVector(..)
   , AsFixedVec(..)
+  , ToMonoid(..)
   ) where
 
 import Data.Coerce
@@ -204,6 +205,7 @@ instance (NormedScalar a) => InnerSpace (AsNum a) where
   AsNum a <.> AsNum b = conjugate a * b
   magnitudeSq = coerce (scalarNormSq @a)
 
+
 -- | Derive instances for a vector
 newtype AsVector v a = AsVector (v a)
 
@@ -226,8 +228,6 @@ instance (NormedScalar a, VG.Vector v a) => InnerSpace (AsVector v a) where
   magnitudeSq = coerce (mapWithSum @v @a scalarNormSq)
   {-# INLINE (<.>)       #-}
   {-# INLINE magnitudeSq #-}
-
-
 
 
 -- | Derive vector-space instances for instance of 'F.Vector'. Scalar
@@ -258,6 +258,18 @@ instance (NormedScalar a, F.Vector v a) => InnerSpace (AsFixedVec v a) where
     = FC.sum $ FC.zipWith (\a b -> conjugate a * b) (FC.cvec v) (FC.cvec u)
   {-# INLINE magnitudeSq #-}
   {-# INLINE (<.>)       #-}
+
+
+-- | Derive 'Semigroup' and 'Monoid' in terms of 'AdditiveSemigroup'
+--   and 'AdditiveMonoid'
+newtype ToMonoid a = ToMonoid { getToMonoid :: a }
+  deriving stock (Show,Eq,Ord)
+
+instance AdditiveSemigroup a => Semigroup (ToMonoid a) where
+  (<>) = coerce ((.+.) @a)
+
+instance AdditiveMonoid a => Monoid (ToMonoid a) where
+  mempty = coerce (zeroV @a)
 
 
 ----------------------------------------------------------------
