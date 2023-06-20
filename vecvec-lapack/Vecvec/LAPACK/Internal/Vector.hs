@@ -10,6 +10,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 -- |
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Internal.Vector

@@ -9,6 +9,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 -- |
 -- Internal module with definition of strided storable vector.  It
 -- exposes constuctors for mutable vector. They are unsafe. Use at you

@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NegativeLiterals           #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 module Vecvec.LAPACK.Internal.Matrix.Dense
@@ -92,26 +94,28 @@ deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (Mat
 instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
   m1 .+. m2
     | nRows m1 /= nRows m2 || nCols m1 /= nCols m2 = error "Size mismatch"
-    | otherwise = runST $ do
+    | otherwise = runST $ M.clone m1 >>= \case
+        res@(M.AsMVec vres) -> do
+          case m2 of
+            AsVec v2 -> unsafeBlasAxpy 1 v2 vres
+            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+              unsafeBlasAxpy 1 (unsafeRow m2 i) (M.unsafeRow res i)
+          unsafeFreeze res
         -- Safe since matrix is newly allocated
-        res@(M.AsMVec vres) <- M.clone m1
-        case m2 of
-          AsVec v2 -> unsafeBlasAxpy 1 v2 vres
-          _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
-            unsafeBlasAxpy 1 (unsafeRow m2 i) (M.unsafeRow res i)
-        unsafeFreeze res
+        _ -> error "IMPOSSIBLE"
 
 instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
   m1 .-. m2
     | nRows m1 /= nRows m2 || nCols m1 /= nCols m2 = error "Size mismatch"
-    | otherwise = runST $ do
+    | otherwise = runST $ M.clone m1 >>= \case
+        res@(M.AsMVec vres) -> do
+          case m2 of
+            AsVec v2 -> unsafeBlasAxpy -1 v2 vres
+            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+              unsafeBlasAxpy -1 (unsafeRow m2 i) (M.unsafeRow res i)
+          unsafeFreeze res
         -- Safe since matrix is newly allocated
-        res@(M.AsMVec vres) <- M.clone m1
-        case m2 of
-          AsVec v2 -> unsafeBlasAxpy -1 v2 vres
-          _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
-            unsafeBlasAxpy -1 (unsafeRow m2 i) (M.unsafeRow res i)
-        unsafeFreeze res
+        _ -> error "IMPOSSIBLE"
   negateV m = -1 *. m
 
 instance C.LAPACKy a => VectorSpace (Matrix a) where
