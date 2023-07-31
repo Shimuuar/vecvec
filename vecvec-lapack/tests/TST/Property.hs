@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeOperators         #-}
 -- NOTE Since this file is almost entirely copied from `vector`,
 -- we almost don't edit it, but just silence the warnings.
 -- In the hope that the tests from `vector` will be separated into a separate package.
