@@ -135,6 +135,12 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
     unsafeFreeze resM
   (.*) = flip (*.)
 
+
+
+----------------------------------------------------------------
+-- Matrix-Vector
+----------------------------------------------------------------
+
 instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Vec a') (Vec a) where
   m @@ v
     | nCols m /= VG.length v = error "matrix size mismatch"
@@ -159,7 +165,13 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Vec a') (Vec a) wher
     M.unsafeBlasGemv C.ConjTrans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
+
+
+----------------------------------------------------------------
+-- Matrix-Matrix (9 instances)
+----------------------------------------------------------------
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a') (Matrix a) where
   matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -172,7 +184,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a) (Matrix a) where
       n' = nRows matB
       k  = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Matrix a) (Matrix a) where
+instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Matrix a') (Matrix a) where
   Tr matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -185,7 +197,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Matrix a) (Matrix a) w
       n' = nRows matB
       k  = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Matrix a) (Matrix a) where
+instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Matrix a') (Matrix a) where
   Conj matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -197,6 +209,89 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Matrix a) (Matrix a)
       m  = nCols matA
       n' = nRows matB
       k  = nCols matB
+
+
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Tr (Matrix a')) (Matrix a) where
+  matA @@ Tr matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.NoTrans matA C.Trans matB 0 matC
+        unsafeFreeze matC
+    where
+      m  = nRows matA
+      n  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Tr (Matrix a')) (Matrix a) where
+  Tr matA @@ Tr matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.Trans matA C.Trans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Tr (Matrix a')) (Matrix a) where
+  Conj matA @@ Tr matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.ConjTrans matA C.Trans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Conj (Matrix a')) (Matrix a) where
+  matA @@ Conj matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.NoTrans matA C.ConjTrans matB 0 matC
+        unsafeFreeze matC
+    where
+      m  = nRows matA
+      n  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Tr (Matrix a)) (Conj (Matrix a')) (Matrix a) where
+  Tr matA @@ Conj matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.Trans matA C.ConjTrans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Conj (Matrix a)) (Conj (Matrix a')) (Matrix a) where
+  Conj matA @@ Conj matB
+    | n /= n'   = error "Matrix size mismatch"
+    | otherwise = unsafePerformIO $ do
+        matC <- M.new (m,k)
+        M.unsafeBlasGemm 1 C.ConjTrans matA C.ConjTrans matB 0 matC
+        unsafeFreeze matC
+    where
+      n  = nRows matA
+      m  = nCols matA
+      k  = nRows matB
+      n' = nCols matB
+
+
 
 
 

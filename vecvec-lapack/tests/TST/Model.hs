@@ -94,6 +94,7 @@ tests = testGroup "classes"
     , prop_matmul @(Conj (Matrix C)) @(VV.Vec C)
     , prop_matmul @(Conj (Matrix Z)) @(VV.Vec Z)
       -- Matrix-matrix
+      -- 1.
     , prop_matmul @(Matrix S)        @(Matrix S)
     , prop_matmul @(Matrix D)        @(Matrix D)
     , prop_matmul @(Matrix C)        @(Matrix C)
@@ -106,6 +107,32 @@ tests = testGroup "classes"
     , prop_matmul @(Conj (Matrix D)) @(Matrix D)
     , prop_matmul @(Conj (Matrix C)) @(Matrix C)
     , prop_matmul @(Conj (Matrix Z)) @(Matrix Z)
+      -- 2.
+    , prop_matmul @(Matrix S)        @(Tr (Matrix S))
+    , prop_matmul @(Matrix D)        @(Tr (Matrix D))
+    , prop_matmul @(Matrix C)        @(Tr (Matrix C))
+    , prop_matmul @(Matrix Z)        @(Tr (Matrix Z))
+    , prop_matmul @(Tr (Matrix S))   @(Tr (Matrix S))
+    , prop_matmul @(Tr (Matrix D))   @(Tr (Matrix D))
+    , prop_matmul @(Tr (Matrix C))   @(Tr (Matrix C))
+    , prop_matmul @(Tr (Matrix Z))   @(Tr (Matrix Z))
+    , prop_matmul @(Conj (Matrix S)) @(Tr (Matrix S))
+    , prop_matmul @(Conj (Matrix D)) @(Tr (Matrix D))
+    , prop_matmul @(Conj (Matrix C)) @(Tr (Matrix C))
+    , prop_matmul @(Conj (Matrix Z)) @(Tr (Matrix Z))
+      -- 3.
+    , prop_matmul @(Matrix S)        @(Conj (Matrix S))
+    , prop_matmul @(Matrix D)        @(Conj (Matrix D))
+    , prop_matmul @(Matrix C)        @(Conj (Matrix C))
+    , prop_matmul @(Matrix Z)        @(Conj (Matrix Z))
+    , prop_matmul @(Tr (Matrix S))   @(Conj (Matrix S))
+    , prop_matmul @(Tr (Matrix D))   @(Conj (Matrix D))
+    , prop_matmul @(Tr (Matrix C))   @(Conj (Matrix C))
+    , prop_matmul @(Tr (Matrix Z))   @(Conj (Matrix Z))
+    , prop_matmul @(Conj (Matrix S)) @(Conj (Matrix S))
+    , prop_matmul @(Conj (Matrix D)) @(Conj (Matrix D))
+    , prop_matmul @(Conj (Matrix C)) @(Conj (Matrix C))
+    , prop_matmul @(Conj (Matrix Z)) @(Conj (Matrix Z))
     ]
   ]
 
@@ -268,7 +295,7 @@ prop_matmul
      )
   => TestTree
 prop_matmul
-  = testProperty (prop_name @v1 ++ " " ++ prop_name @v2)
+  = testProperty (prop_name @v1 ++ " x " ++ prop_name @v2)
   $ \(MM mr1 mr2) ->
       let m1 = Model mr1    :: Model v1
           m2 = Model mr2    :: Model v2
@@ -318,7 +345,7 @@ genOffset = choose (0,3)
 -- | Generate value with same size
 class Arbitrary a => GenSameSize a where
   type Shape a
-  shape :: a -> Shape a
+  shape    :: a -> Shape a
   withSize :: Shape a -> Gen a
 
 sameSize :: GenSameSize a => a -> Gen a
@@ -478,17 +505,34 @@ instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a
     where m' = (fmap . fmap) conjugate $ transpose $ unModelMat m
 
 
-instance (Num a) => MatMul (ModelMat a) (ModelMat a) (ModelMat a) where
-  m @@ v = ModelMat 0 0 $ unModelMat m !*! unModelMat v
 
-instance (Num a) => MatMul (Tr (ModelMat a)) (ModelMat a) (ModelMat a) where
-  Tr m @@ v = ModelMat 0 0 $ m' !*! unModelMat v
-    where m' = transpose $ unModelMat m
 
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelMat a) (ModelMat a) where
-  Conj m @@ v = ModelMat 0 0 $ m' !*! unModelMat v
-    where
-      m' = (fmap . fmap) conjugate $ transpose $ unModelMat m
+
+instance (NormedScalar a) => MatMul       (ModelMat a)        (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul       (ModelMat a)  (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul       (ModelMat a)  (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+
+
+-- | Type class for values that could be represented as matrices
+class IsModelMat m a where
+  toModelMat :: m -> ModelMat a
+
+instance a ~ a' => IsModelMat (ModelMat a) a' where
+  toModelMat = id
+instance a ~ a' => IsModelMat (Tr (ModelMat a)) a' where
+  toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
+instance (NormedScalar a, a ~ a') => IsModelMat (Conj (ModelMat a)) a' where
+  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
+
+-- | Default model implementation of matrix-matrix multiplication
+defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
+defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
 
 
 ----------------------------------------------------------------
@@ -600,23 +644,44 @@ instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelVec a)) wher
     v      <- withSize (modelMatRows m)
     pure $ MM (Conj m) v
 
-instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelMat a)) where
-  arbitrary = do
-    mA <- arbitrary
-    k  <- sized $ \n -> chooseInt (1, 1+n)
-    mB <- withSize (modelMatCols mA, k)
-    pure $ MM mA mB
 
-instance (ScalarModel a) => Arbitrary (MM (Tr (ModelMat a)) (ModelMat a)) where
-  arbitrary = do
-    mA <- arbitrary
-    k  <- sized $ \n -> chooseInt (1, 1+n)
-    mB <- withSize (modelMatRows mA, k)
-    pure $ MM (Tr mA) mB
 
+instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (ModelMat a)) where
+  arbitrary = defaultArbitraryMM modelMatCols SharedRow (id,id)
+instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (ModelMat a)) where
+  arbitrary = defaultArbitraryMM modelMatRows SharedRow (Tr,id)
 instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelMat a)) where
-  arbitrary = do
-    mA <- arbitrary
-    k  <- sized $ \n -> chooseInt (1, 1+n)
-    mB <- withSize (modelMatRows mA, k)
-    pure $ MM (Conj mA) mB
+  arbitrary = defaultArbitraryMM modelMatRows SharedRow (Conj,id)
+
+instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (Tr (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatCols SharedCol (id,Tr)
+instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (Tr (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Tr,Tr)
+instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (Tr (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Conj,Tr)
+
+instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (Conj (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatCols SharedCol (id,Conj)
+instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (Conj (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Tr,Conj)
+instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (Conj (ModelMat a))) where
+  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Conj,Conj)
+
+
+data SharedSize = SharedRow
+                | SharedCol
+
+defaultArbitraryMM
+  :: (ScalarModel a)
+  => (ModelMat a -> Int) -- Shared size for first matrix
+  -> SharedSize
+  -> (ModelMat a -> m1, ModelMat a -> m2)
+  -> Gen (MM m1 m2)
+defaultArbitraryMM getSz shared (mk1,mk2) = do
+  m1 <- arbitrary
+  k  <- sized $ \n -> chooseInt (1, 1+n)
+  m2 <- withSize $ case shared of
+    SharedRow -> (getSz m1, k)
+    SharedCol -> (k, getSz m1)
+  pure $ MM (mk1 m1) (mk2 m2)
+
