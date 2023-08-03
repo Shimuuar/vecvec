@@ -127,6 +127,7 @@ infixr 7 *.
 
 (./) :: (Fractional (Scalar v), VectorSpace v) => v -> Scalar v -> v
 v ./ x = v .* recip x
+{-# INLINE (./) #-}
 
 
 -- | Vector space equipped with inner product. We follow convention of
