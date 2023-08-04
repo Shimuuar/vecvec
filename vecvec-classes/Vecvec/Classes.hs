@@ -464,6 +464,13 @@ deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)   
 deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => VectorSpace        (FP.Vec n a)
 deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, NormedScalar a) => InnerSpace         (FP.Vec n a)
 
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveSemigroup  (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveMonoid     (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveQuasigroup (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => VectorSpace        (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, NormedScalar a) => InnerSpace         (F.ContVec n a)
+
+
 instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
          ) => MatMul (Tr (FB.Vec n a)) (FB.Vec n b) a where
   Tr v @@ u = F.sum $ F.zipWith (*) v u
@@ -481,6 +488,11 @@ instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FS.Storable a
 
 instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FP.Prim a
          ) => MatMul (Tr (FP.Vec n a)) (FP.Vec n b) a where
+  Tr v @@ u = F.sum $ F.zipWith (*) v u
+  {-# INLINE (@@) #-}
+
+instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
+         ) => MatMul (Tr (F.ContVec n a)) (F.ContVec n b) a where
   Tr v @@ u = F.sum $ F.zipWith (*) v u
   {-# INLINE (@@) #-}
 
@@ -504,6 +516,10 @@ instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FP.Prim
   Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
   {-# INLINE (@@) #-}
 
+instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
+         ) => MatMul (Conj (F.ContVec n a)) (F.ContVec n b) a where
+  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
+  {-# INLINE (@@) #-}
 
 
 instance NormedScalar Float where
