@@ -264,17 +264,20 @@ instance BoostParam Speed where
 
 instance BoostParam Gamma where
   boost1D (Gamma γ) (t,x)
-    = ( abs γ*(   t - v*x)
-      , abs γ*(-v*t +   x))
+    | γ >= 0    = (  γ*(   t - v*x)
+                  ,  γ*(-v*t +   x))
+    | otherwise = ( -γ*(   t + v*x)
+                  , -γ*( v*t +   x))
     where
-      Speed v = convert (Gamma γ)
+      γ2 = γ * γ
+      v  = sqrt ((γ2 -1) / γ2)
   {-# INLINE boost1D #-}
   invertBoostP = Gamma . negate . getGamma
 
 instance BoostParam Rapidity where
   boost1D (Rapidity φ) (t,x)
-    = ( c*t - s*x
-      ,-s*t + c*x)
+    = (  c*t - s*x
+      , -s*t + c*x)
     where
       c = cosh φ
       s = sinh φ

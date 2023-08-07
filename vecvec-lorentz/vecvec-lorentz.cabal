@@ -42,6 +42,6 @@ test-suite vecvec-lorentz-tests
                , tasty-quickcheck
                , QuickCheck
                , ad                >=4
-               , linear            >=1.22
+               , numbers           >=3000.2
   other-modules:
     QC

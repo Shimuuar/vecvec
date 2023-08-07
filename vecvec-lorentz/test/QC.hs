@@ -2,27 +2,28 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE NegativeLiterals           #-}
 {-# LANGUAGE QuantifiedConstraints      #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE ViewPatterns               #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 module QC (tests) where
 
+import Data.Typeable
 import Data.Vector.Lorentz
 
 import Numeric.AD
 import Numeric.AD.Mode.Forward (Forward)
-import Linear.V2
+import Data.Number.CReal
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Gen
-
-import Vecvec.Classes
-
 
 
 tests :: TestTree
@@ -59,6 +60,16 @@ tests = testGroup "Lorentz"
         (1e-15, 1e-15)
         . getRapidity
     ]
+  , testGroup "Boost1D" $
+    let prop :: forall b. (Arbitrary (b Double), Typeable b, BoostParam b, Functor b, Show (b Double)) => TestTree
+        prop = testGroup (show (typeRep (Proxy @b)))
+          [ testProperty "Norm conserved" (propBoost1DNorm @b)
+          , testProperty "Inverse"        (propBoost1DInv  @b)
+          ]
+    in [ prop @Gamma
+       , prop @Speed
+       , prop @Rapidity
+       ]
   ]
 
 
@@ -95,99 +106,68 @@ propInverse1D fun inv (errFun, errInv) x
     (y,dy) = diff' fun         x
 
 
+-- | Test that 1D boosts conserves norm.
+--
+--   Numeric analysis for boosts is _hard_ and they don't behave
+--   particularly well (dreaded subtraction of close values!). o we
+--   use computable reals for the test.
+propBoost1DNorm
+  :: (BoostParam b, Functor b)
+  => b Double
+  -> (Double,Double)
+  -> Property
+propBoost1DNorm b (realToFrac -> t, realToFrac -> x)
+  = counterexample ("norm  = " ++ str_n)
+  $ counterexample ("norm' = " ++ str_n')
+  $ approxEqCReal n_digit str_n str_n'
+  where
+    (t',x') = boost1D (realToFrac <$> b) (t,x)
+    n  = t*t   - x*x
+    n' = t'*t' - x'*x'
+    --
+    str_n   = showCReal (n_digit+1) n
+    str_n'  = showCReal (n_digit+1) n'
+    n_digit = 12
+
+-- | Test that 1D boosts computes inverse properly.
+propBoost1DInv
+  :: (BoostParam b, Functor b)
+  => b Double
+  -> (Double,Double)
+  -> Property
+propBoost1DInv (fmap realToFrac -> b) (realToFrac -> t, realToFrac -> x)
+  = counterexample ("t  = " ++ str_t )
+  $ counterexample ("x  = " ++ str_x )
+  $ counterexample ("t' = " ++ str_t')
+  $ counterexample ("x' = " ++ str_x')
+  $ approxEqCReal n_digit str_t str_t'
+ && approxEqCReal n_digit str_x str_x'
+  where
+    (t',x') = boost1D (invertBoostP b)
+            $ boost1D b (t,x)
+    --
+    str_t   = showCReal (n_digit+1) t
+    str_x   = showCReal (n_digit+1) x
+    str_t'  = showCReal (n_digit+1) t'
+    str_x'  = showCReal (n_digit+1) x'
+    --
+    n_digit = 12
+
+
+approxEqCReal :: Int -> String -> String -> Bool
+approxEqCReal 0 _ _ = True
+approxEqCReal n ('.':s1) ('.':s2) = approxEqCReal n s1 s2
+approxEqCReal n (d1 :s1) (d2 :s2)
+  | d1 == d2  = approxEqCReal (n-1) s1 s2
+  | otherwise = False
+approxEqCReal _ [] [] = True
+approxEqCReal _ _  _  = False
+
+
 
 ----------------------------------------------------------------
-{-
-p :: Testable prop => prop -> IO ()
-p = quickCheck
-
-runTests :: [(String, IO ())] -> IO ()
-runTests = mapM_ $ \(name, test) -> putStrLn (" * " ++ name) >> test
-
-
-δ,ε :: Double
-δ = 7.450580596923828e-9
-ε = 2.220446049250313e-16
-
--- I'm not sure that I got it right
-(~=) :: Double -> Double -> Bool
-x ~= y = (x == y) || (abs δx < ε) || (δx/x < δ)
-    where
-      δx = y - x
-
-eqL :: Lorentz Double -> Lorentz Double -> Bool
-eqL (Lorentz t x y z) (Lorentz t' x' y' z') = (t ~= t') && (x ~= x') && (y ~= y') && (z ~= z')
-
-apprEqualTest :: (Double -> Double) -> Double -> Bool
-apprEqualTest f x = x ~= f x
-
-massTest :: Lorentz Double -> Lorentz Double -> Bool
-massTest p1 p2 = magnitudeSq p1 ~= magnitudeSq p2
+-- Orphanage
 ----------------------------------------------------------------
-
--- Gamma factor
-newtype Gamma = Gamma { unGamma :: Double } deriving Show
--- Rapidity
-newtype Rapidity = Rapidity { unRapidity :: Double } deriving Show
-instance Arbitrary Rapidity where
-    arbitrary = Rapidity <$> suchThat arbitrary (\x -> x>=0 && x<500)
--- Small rapidity (< 5)
-newtype SmallRapidity = SmallRapidity { unSmallRapidity :: Double } deriving Show
-instance Arbitrary SmallRapidity where
-    arbitrary = SmallRapidity <$> choose (0,5)
--- Speed
-newtype Speed = Speed { unSpeed :: Double } deriving Show
-instance Arbitrary Speed where
-    arbitrary = Speed <$> suchThat (choose (0,1)) (<1)
--- Get positive number
-unP :: Positive a -> a
-unP (Positive x) = x
-
-instance Arbitrary a => Arbitrary (Vec2D a) where
-    arbitrary = Vec2D <$> arbitrary <*> arbitrary
-
-instance Arbitrary a => Arbitrary (Vec3D a) where
-    arbitrary = Vec3D <$> arbitrary <*> arbitrary <*> arbitrary
-
-newtype NonZeroVec3D a = NonZeroVec3D { nonZero3D :: Vec3D a } deriving Show
-instance (Num a, Arbitrary a) => Arbitrary (NonZeroVec3D a) where
-    arbitrary = NonZeroVec3D <$> suchThat arbitrary ((/=0) . magnitudeSq)
-
-instance Arbitrary a => Arbitrary (Lorentz a) where
-    arbitrary = Lorentz <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-
--- Rapidity is restricted to [-5,5] range to avoid loss of precision
-instance (Arbitrary a, Floating a, Random a) => Arbitrary (Boost1D a) where
-    arbitrary = rapidityBoost1D <$> choose (-5,5)
-
-----------------------------------------------------------------
-
-
-testsBoost :: [(String, IO ())]
-testsBoost =
-    [ ("==== Tests for boosts ====", return ())
-    -- Mass is conserved
-    , ("Mass, X",   p (\(b,p)   -> massTest p (boostX b p)))
-    , ("Mass, Y",   p (\(b,p)   -> massTest p (boostY b p)))
-    , ("Mass, Z",   p (\(b,p)   -> massTest p (boostZ b p)))
-    , ("Mass, n",   p (\(b,NonZeroVec3D n,p) -> massTest p (boost1D b n p)))
-    -- Arbitrary directed boosts
-    , ("1D X",      p (\(b,p) -> eqL (boostX b p) (boost1D  b unitX3D p)))
-    , ("1D Y",      p (\(b,p) -> eqL (boostY b p) (boost1D  b unitY3D p)))
-    , ("1D Y",      p (\(b,p) -> eqL (boostZ b p) (boost1D  b unitZ3D p)))
-    , ("1Dn X",     p (\(b,p) -> eqL (boostX b p) (boost1Dn b unitX3D p)))
-    , ("1Dn Y",     p (\(b,p) -> eqL (boostY b p) (boost1Dn b unitY3D p)))
-    , ("1Dn Y",     p (\(b,p) -> eqL (boostZ b p) (boost1Dn b unitZ3D p)))
-    -- Boosts are invertible
-    , ("Inverse X", p (\(b,p) -> eqL p (boostX (inverseBoost b) . boostX b $ p)))
-    , ("Inverse Y", p (\(b,p) -> eqL p (boostY (inverseBoost b) . boostY b $ p)))
-    , ("Inverse Z", p (\(b,p) -> eqL p (boostZ (inverseBoost b) . boostZ b $ p)))
-    , ("Inverse n", p (\(b,NonZeroVec3D n, p) -> eqL p (boost1D (inverseBoost b) n $ boost1D b n $ p)))
-    , ("Inverse n'",p (\(b,NonZeroVec3D n, p) -> eqL p (boost1D b (negateV n) $ boost1D b n $ p)))
-    ]
-    where
-      inverseBoost = rapidityBoost1D . negate . boost1Drapidity
--}
 
 instance (Arbitrary a, Num a, Ord a) => Arbitrary (Gamma a) where
   arbitrary = Gamma <$> (arbitrary `suchThat` (\g -> g >= 1 || g < -1))
