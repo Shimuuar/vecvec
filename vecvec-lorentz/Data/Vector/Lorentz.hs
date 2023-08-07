@@ -330,12 +330,10 @@ boostZ b = boostAxis b 2
 
 -- | Boost along arbitrary direction
 boostAlong
-  :: ( VectorN v (n+1) a, VectorN v n a
+  :: ( VectorN v (n+1) a, VectorN v n a, 1 <= n+1
      , BoostParam b
-     , InnerSpace (v n a), Scalar (v n a) ~ a, Floating a
-     , 1 <= n+1
+     , NormedScalar a, Floating a, Ord a
      , R a ~ a
-     , Ord a
      )
   => b a                        -- ^ Boost parameter
   -> v n a                      -- ^ Vector along which boost should
@@ -343,17 +341,21 @@ boostAlong
   -> LorentzG v (n+1) a
   -> LorentzG v (n+1) a
 {-# INLINE boostAlong #-}
-boostAlong b k p
-  = F.cons t' (proj'*.n .+. xPerp)
+boostAlong b (F.cvec -> k) (toLorentzCV -> p)
+  = Lorentz
+  $ F.vector
+  $ F.cons t' (proj'*.n .+. x_perp)
   where
-    -- Split vector into spatial
-    (t,x) = splitLorentz p
-    proj  = x <.> n
-    xPerp = x .-. proj*.n
-    -- boost boost
+    -- Split vector into spatial and temporal parts and further
+    -- decompose spatial part into parallel and perpendicular
+    -- components
+    (t,x)  = splitLorentz p
+    proj   = x <.> n
+    x_perp = x .-. proj*.n
+    -- Perform boost
     (t',proj') = boost1D b (t,proj)
-    -- Normalized direction
     n = k ./ magnitude k
+
 
 -- | Factor Lorentz vector into vector with zero spatial part and
 --   Lorentz transformation
