@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -143,18 +144,18 @@ fromEnergy m e = F.mk2 e (sqrt $ e*e - m*m)
 -- Boost variables
 ----------------------------------------------------------------
 
--- | Speed in fractions of c
+-- | Speed of particle as fraction of \(c\).
 newtype Speed a = Speed { getSpeed :: a }
-                 deriving (Show,Eq,Ord)
+                 deriving (Show,Eq,Ord,Functor)
 
 -- | Gamma factor. Negative values of gamma factor are accepted and
 --   means then boost will be performed in opposite direction.
 newtype Gamma a = Gamma { getGamma :: a }
-                deriving (Show,Eq,Ord)
+                deriving (Show,Eq,Ord,Functor)
 
 -- | Rapidity
 newtype Rapidity a = Rapidity { getRapidity :: a }
-                 deriving (Show,Eq,Ord)
+                 deriving (Show,Eq,Ord,Functor)
 
 instance Num a => Semigroup (Rapidity a) where
   (<>) = coerce ((+) @a)
