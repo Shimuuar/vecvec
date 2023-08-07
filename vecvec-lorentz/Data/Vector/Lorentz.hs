@@ -15,26 +15,30 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
 -- |
--- Unboxed Lorentz vectors
+-- Implementation of Lorentz vectors and boosts.
 module Data.Vector.Lorentz (
     -- * Data type
-    LorentzG
+    LorentzG(..)
+  , LorentzCV
   , LorentzU
   , Lorentz2
   , Lorentz3
   , Lorentz4
   , Lorentz
-  , spatialPart
-  , splitLorentz
-    -- * Constructors
+    -- ** Constructors
   , fromMomentum
   , fromEnergy
+  , changeLorentzRep
+  , toLorentzCV
+  , fromLorentzCV
+    -- ** Inspection
+  , spatialPart
+  , splitLorentz
     -- * Boosts
     -- ** Variables
   , Speed(..)
   , Gamma(..)
   , Rapidity(..)
-  , Convert(..)
     -- ** Boosts
   , BoostParam(..)
   , boostAxis
@@ -45,10 +49,11 @@ module Data.Vector.Lorentz (
   , factorLorentz
     -- * Helper functions
   , momentumToE
+    -- * Reexports
+  , Convert(..)
   ) where
 
 import Control.DeepSeq
-import Control.Monad
 import Data.Coerce
 
 import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
@@ -65,8 +70,11 @@ import Vecvec.Classes.Convert
 -- Data type
 ----------------------------------------------------------------
 
--- | Generic Lorentz vector which could be based on any array-based
---   vector. Parameter /n/ is size of vector.
+-- | @n@-dimensional Lorentz vectors. By convention @0@ element of
+--   vector is time-like and rest @n-1@ are space-like. Metric is
+--   @(+1,-1,-1,-1)@.
+--
+--   @v@ is type of vector used for representation.
 newtype LorentzG v (n :: Nat) a = Lorentz (v n a)
   deriving stock   (Show, Eq)
   deriving newtype NFData
@@ -79,19 +87,24 @@ instance (VectorN v n a) => Vector (LorentzG v n) a where
 
 instance (VectorN v n a) => VectorN (LorentzG v) n a
 
--- | Lorentz vector which uses unboxed vector as strorage
+-- | Lorentz vector which uses unboxed vector for storage
 type LorentzU = LorentzG Vec
 
--- | 2-dimensional Lorentz vector.
+-- | Lorentz vector which uses 'F.ContVec' as representation. It's
+--   advisable to perform calculations using this type since underlying
+--   @ByteArray@ is impenetrable array for GHC optimizer.
+type LorentzCV = LorentzG F.ContVec
+
+-- | 2-dimensional (1+1) Lorentz vector.
 type Lorentz2 v = LorentzG v 2
 
--- | 3-dimensional Lorentz vector.
+-- | 3-dimensional (1+2) Lorentz vector.
 type Lorentz3 v = LorentzG v 3
 
--- | 4-dimensional Lorentz vector.
+-- | 4-dimensional (1+3) Lorentz vector.
 type Lorentz4 v = LorentzG v 4
 
--- | Unboxed 4-dimensional Lorentz vector
+-- | Unboxed 4-dimensional Lorentz vector.
 type Lorentz = LorentzU 4
 
 
@@ -101,7 +114,7 @@ spatialPart :: (VectorN v n a, VectorN v (n+1) a)
 spatialPart = F.tail
 {-# INLINE spatialPart #-}
 
--- | Split Lorentz vector.
+-- | Split Lorentz vector into temporal and spatial part.
 splitLorentz :: ( VectorN v n a
                 , VectorN v (n+1) a
                 , 1 <= (n+1)
@@ -110,8 +123,22 @@ splitLorentz :: ( VectorN v n a
 splitLorentz p = (F.head p, F.tail p)
 {-# INLINE splitLorentz #-}
 
--- | Constrcut energy-momentum vector from mass and momentum of
---   particle
+
+-- | Change representation of Lorentz vector
+changeLorentzRep :: (VectorN v n a, VectorN w n a) => LorentzG v n a -> LorentzG w n a
+changeLorentzRep (Lorentz v) = Lorentz (F.convert v)
+
+-- | Switch to 'F.ContVec' as representation.
+toLorentzCV :: (VectorN v n a) => LorentzG v n a -> LorentzCV n a
+toLorentzCV (Lorentz v) = Lorentz (F.cvec v)
+
+-- | Switch from 'F.ContVec' as representation
+fromLorentzCV :: (VectorN v n a) => LorentzCV n a -> LorentzG v n a
+fromLorentzCV (Lorentz v) = Lorentz (F.vector v)
+
+
+-- | Construct energy-momentum vector from mass and momentum of
+--   particle.
 fromMomentum
   :: ( VectorN v n     a
      , VectorN v (n+1) a
@@ -119,8 +146,8 @@ fromMomentum
      , NormedScalar a
      , R a ~ a
      )
-  => a                          -- ^ Mass of particle
-  -> v n a                      -- ^ Momentum
+  => a                          -- ^ Mass of particle \(m\)
+  -> v n a                      -- ^ Spatial momentum \(p\)
   -> LorentzG v (n+1) a
 {-# INLINE fromMomentum #-}
 fromMomentum m p
@@ -199,7 +226,24 @@ instance (Floating a, Ord a, a ~ a') => Convert (Rapidity a) (Gamma a') where
 -- Boost
 ----------------------------------------------------------------
 
--- | Boost for 1+1 space.
+-- | Boost for 1+1 Minkowski space. @b@ is variable which is used for
+-- boost parameterization.
+--
+-- \[\left\{\begin{aligned}
+-- t' &= \gamma(t - vx) \\
+-- x' &= \gamma(-vt + x) \\
+-- \end{aligned}\right.\]
+--
+-- ===__Examples__
+--
+-- >>> boost1D (Gamma 2) (1,0)
+-- (2.0,-1.7320508075688772)
+--
+-- >>> boost1D (Speed 0.25) (1,0)
+-- (1.0327955589886444,-0.2581988897471611)
+--
+-- >>> boost1D (Rapidity 2) (1,0)
+-- (3.7621956910836314,-3.626860407847019)
 class BoostParam b where
   -- | Lorentz transformation for @(t,x)@ pair.
   boost1D :: (Floating a, Ord a)
