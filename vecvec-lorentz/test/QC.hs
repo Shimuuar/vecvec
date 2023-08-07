@@ -1,16 +1,103 @@
-import Control.Applicative
-import Control.Monad
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NegativeLiterals           #-}
+{-# LANGUAGE QuantifiedConstraints      #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+-- |
+module QC (tests) where
 
-import Data.VectorSpace
-import Data.VectorSpace.Spatial
-import Data.VectorSpace.Lorentz
+import Data.Vector.Lorentz
 
-import Test.QuickCheck
-import System.Random
-import Debug.Trace
+import Numeric.AD
+import Numeric.AD.Mode.Forward (Forward)
+import Linear.V2
+
+import Test.Tasty
+import Test.Tasty.QuickCheck
+import Test.QuickCheck.Gen
+
+import Vecvec.Classes
+
+
+
+tests :: TestTree
+tests = testGroup "Lorentz"
+  [ testGroup "Conversions"
+    [ testProperty "Gamma->V->Gamma" $ propInverse1D
+        (getSpeed . convert . Gamma)
+        (getGamma . convert . Speed)
+        (1e-15, 1e-15)
+        . getGamma
+    , testProperty "V->Gamma->V" $ propInverse1D
+        (getGamma . convert . Speed)
+        (getSpeed . convert . Gamma)
+        (1e-15, 1e-15)
+        . getSpeed
+    , testProperty "Gamma->Rap->Gamma" $ propInverse1D
+        (getRapidity . convert . Gamma)
+        (getGamma    . convert . Rapidity)
+        (1e-15, 1e-15)
+        . getGamma
+    , testProperty "Rap->Gamma->Rap" $ propInverse1D
+        (getGamma    . convert . Rapidity)
+        (getRapidity . convert . Gamma)
+        (1e-15, 1e-15)
+        . getRapidity
+    , testProperty "Gamma->Rap->Gamma" $ propInverse1D
+        (getRapidity . convert . Gamma)
+        (getGamma    . convert . Rapidity)
+        (1e-15, 1e-15)
+        . getGamma
+    , testProperty "Rap->Gamma->Rap" $ propInverse1D
+        (getGamma    . convert . Rapidity)
+        (getRapidity . convert . Gamma)
+        (1e-15, 1e-15)
+        . getRapidity
+    ]
+  ]
+
 
 ----------------------------------------------------------------
+-- Inversion tests
+----------------------------------------------------------------
 
+-- | Test for inverse of function. We need to account for rounding
+--   errors properly. For that we need derivatives and obtain them
+--   using ad.
+propInverse1D
+  :: (forall s. AD s (Forward Double) -> AD s (Forward Double))
+     -- ^ Forward function
+  -> (forall s. AD s (Forward Double) -> AD s (Forward Double))
+     -- ^ Inverse function
+  -> (Double,Double)
+     -- ^ Precision for forward and inverse function
+  -> Double
+  -> Property
+propInverse1D fun inv (errFun, errInv) x
+  = counterexample ("X            = " ++ show x)
+  $ counterexample ("Y            = " ++ show y)
+  $ counterexample ("dy/dx        = " ++ show dy)
+  $ counterexample ("X'           = " ++ show x')
+  $ counterexample ("expected err = " ++ show expected)
+  $ counterexample ("obsrved  err = " ++ show observed)
+  $ (abs dy > 0)
+  ==> observed <= expected
+  where
+    observed = abs ((x' - x) / x)
+    expected = (errInv + errFun * (y/(x*dy)))
+    -- Evaluate
+    (x',_) = diff' (inv . fun) x
+    (y,dy) = diff' fun         x
+
+
+
+----------------------------------------------------------------
+{-
 p :: Testable prop => prop -> IO ()
 p = quickCheck
 
@@ -40,18 +127,16 @@ massTest p1 p2 = magnitudeSq p1 ~= magnitudeSq p2
 
 -- Gamma factor
 newtype Gamma = Gamma { unGamma :: Double } deriving Show
-instance Arbitrary Gamma where
-    arbitrary = Gamma <$> suchThat arbitrary (> 1)
 -- Rapidity
-newtype Rapidity = Rapidity { unRapidity :: Double } deriving Show 
+newtype Rapidity = Rapidity { unRapidity :: Double } deriving Show
 instance Arbitrary Rapidity where
     arbitrary = Rapidity <$> suchThat arbitrary (\x -> x>=0 && x<500)
 -- Small rapidity (< 5)
-newtype SmallRapidity = SmallRapidity { unSmallRapidity :: Double } deriving Show 
+newtype SmallRapidity = SmallRapidity { unSmallRapidity :: Double } deriving Show
 instance Arbitrary SmallRapidity where
     arbitrary = SmallRapidity <$> choose (0,5)
 -- Speed
-newtype Speed = Speed { unSpeed :: Double } deriving Show 
+newtype Speed = Speed { unSpeed :: Double } deriving Show
 instance Arbitrary Speed where
     arbitrary = Speed <$> suchThat (choose (0,1)) (<1)
 -- Get positive number
@@ -77,17 +162,6 @@ instance (Arbitrary a, Floating a, Random a) => Arbitrary (Boost1D a) where
 
 ----------------------------------------------------------------
 
--- Tests for conversions between speed,rapidity and γ-factor
-testsConvert :: [(String,IO())]
-testsConvert = 
-    [ ("==== Conversions ====", return ())
-    , ("φ->γ->φ", p (apprEqualTest (gammaToRapidity . rapidityToGamma) . unRapidity))
-    , ("φ->β->φ", p (apprEqualTest (vToRapidity     . rapidityToV    ) . unSmallRapidity))
-    , ("γ->φ->γ", p (apprEqualTest (rapidityToGamma . gammaToRapidity) . unGamma))
-    , ("γ->β->γ", p (apprEqualTest (vToGamma        . gammaToV       ) . unGamma))
-    , ("β->φ->β", p (apprEqualTest (rapidityToV     . vToRapidity    ) . unSpeed))
-    , ("β->γ->β", p (apprEqualTest (gammaToV        . vToGamma       ) . unSpeed))
-    ]
 
 testsBoost :: [(String, IO ())]
 testsBoost =
@@ -97,7 +171,7 @@ testsBoost =
     , ("Mass, Y",   p (\(b,p)   -> massTest p (boostY b p)))
     , ("Mass, Z",   p (\(b,p)   -> massTest p (boostZ b p)))
     , ("Mass, n",   p (\(b,NonZeroVec3D n,p) -> massTest p (boost1D b n p)))
-    -- Arbitrary directed boosts 
+    -- Arbitrary directed boosts
     , ("1D X",      p (\(b,p) -> eqL (boostX b p) (boost1D  b unitX3D p)))
     , ("1D Y",      p (\(b,p) -> eqL (boostY b p) (boost1D  b unitY3D p)))
     , ("1D Y",      p (\(b,p) -> eqL (boostZ b p) (boost1D  b unitZ3D p)))
@@ -113,3 +187,15 @@ testsBoost =
     ]
     where
       inverseBoost = rapidityBoost1D . negate . boost1Drapidity
+-}
+
+instance (Arbitrary a, Num a, Ord a) => Arbitrary (Gamma a) where
+  arbitrary = Gamma <$> (arbitrary `suchThat` (\g -> g >= 1 || g < -1))
+
+instance Arbitrary (Speed Double) where
+  arbitrary = do v <-  genDouble `suchThat` \x -> x >= 0 && x < 1
+                 sign <- arbitrary
+                 pure $ Speed $ if sign then v else -v
+
+
+deriving newtype instance Arbitrary (Rapidity Double)

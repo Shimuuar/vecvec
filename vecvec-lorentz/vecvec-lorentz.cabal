@@ -29,17 +29,19 @@ Library
   Exposed-modules:
     Data.Vector.Lorentz
 
--- test-suite tests
---   type:           exitcode-stdio-1.0
---   hs-source-dirs: tests
---   main-is:        tests.hs
---   build-depends: base
---                , my-lorentz
---                , my-vectorspace
---                , QuickCheck
---                , tasty
---                , tasty-quickcheck
---                , fixed-vector
---                , math-functions >= 0.3
---                , random
---   Other-modules: Helpers
+test-suite vecvec-lorentz-tests
+  Ghc-options:      -Wall
+  Default-Language: Haskell2010
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          main.hs
+  build-depends: base -any
+               , vecvec-classes
+               , vecvec-lorentz
+               , tasty
+               , tasty-quickcheck
+               , QuickCheck
+               , ad                >=4
+               , linear            >=1.22
+  other-modules:
+    QC

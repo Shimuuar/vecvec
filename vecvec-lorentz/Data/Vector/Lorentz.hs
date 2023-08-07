@@ -161,18 +161,36 @@ instance Num a => Semigroup (Rapidity a) where
 instance Num a => Monoid (Rapidity a) where
   mempty = Rapidity 0
 
-instance (Floating a, a ~ a') => Convert (Speed a) (Gamma a') where
-  convert (Speed v)    = Gamma $ signum v / sqrt (1 - v*v)
+instance (Floating a, Ord a, a ~ a') => Convert (Speed a) (Gamma a') where
+  convert (Speed v) | v >= 0    = Gamma gam
+                    | otherwise = Gamma (-gam)
+    where gam = 1 / sqrt (1 - v*v)
+
 instance (Floating a, a ~ a') => Convert (Speed a) (Rapidity a) where
   convert (Speed v)    = Rapidity $ atanh v
-instance (Floating a, a ~ a') => Convert (Gamma a) (Speed a') where
-  convert (Gamma γ)    = Speed $ signum γ * sqrt ((g2 -1) / g2) where g2 = γ*γ
-instance (Floating a, a ~ a') => Convert (Gamma a) (Rapidity a') where
-  convert (Gamma γ)    = Rapidity $ signum γ * acosh (abs γ)
+
+instance (Floating a, Ord a, a ~ a') => Convert (Gamma a) (Speed a') where
+  convert (Gamma γ)
+    | γ > 0     = Speed v
+    | otherwise = Speed (-v)
+    where
+      v  = sqrt ((γ2 -1) / γ2)
+      γ2 = γ*γ
+
+instance (Floating a, Ord a, a ~ a') => Convert (Gamma a) (Rapidity a') where
+  convert (Gamma γ)
+    | γ > 0     = Rapidity φ
+    | otherwise = Rapidity (-φ)
+    where
+      φ = acosh (abs γ)
+
 instance (Floating a, a ~ a')  => Convert (Rapidity a) (Speed a') where
   convert (Rapidity φ) = Speed $ tanh φ
-instance (Floating a, a ~ a') => Convert (Rapidity a) (Gamma a') where
-  convert (Rapidity φ) = Gamma $ signum φ * cosh φ
+
+instance (Floating a, Ord a, a ~ a') => Convert (Rapidity a) (Gamma a') where
+  convert (Rapidity φ)
+    | φ >= 0    = Gamma $ cosh φ
+    | otherwise = Gamma $ negate $ cosh φ
 
 
 
@@ -183,7 +201,7 @@ instance (Floating a, a ~ a') => Convert (Rapidity a) (Gamma a') where
 -- | Boost for 1+1 space.
 class BoostParam b where
   -- | Lorentz transformation for @(t,x)@ pair.
-  boost1D :: (Floating a)
+  boost1D :: (Floating a, Ord a)
           => b a                  -- ^ Boost parameter
           -> (a,a) -> (a,a)
   -- | Invert boost parameter
@@ -219,7 +237,7 @@ instance BoostParam Rapidity where
   invertBoostP = Rapidity . negate . getRapidity
 
 -- | Boost along axis
-boostAxis :: (BoostParam b, VectorN v n a, Floating a)
+boostAxis :: (BoostParam b, VectorN v n a, Floating a, Ord a)
           => b a                -- ^ Boost parameter
           -> Int                -- ^ Axis number. /X/-0, /Y/-1 ...
           -> LorentzG v n a
@@ -238,7 +256,7 @@ boostAxis b n v
 
 
 -- | Boost along X axis.
-boostX :: (BoostParam b, VectorN v n a, Floating a, 2 <= n)
+boostX :: (BoostParam b, VectorN v n a, Floating a, Ord a, 2 <= n)
        => b a                -- ^ Boost parameter
        -> LorentzG v n a
        -> LorentzG v n a
@@ -246,7 +264,7 @@ boostX :: (BoostParam b, VectorN v n a, Floating a, 2 <= n)
 boostX b = boostAxis b 0
 
 -- | Boost along X axis.
-boostY :: (BoostParam b, VectorN v n a, Floating a, 3 <= n)
+boostY :: (BoostParam b, VectorN v n a, Floating a, Ord a, 3 <= n)
        => b a                -- ^ Boost parameter
        -> LorentzG v n a
        -> LorentzG v n a
@@ -254,7 +272,7 @@ boostY :: (BoostParam b, VectorN v n a, Floating a, 3 <= n)
 boostY b = boostAxis b 1
 
 -- | Boost along X axis.
-boostZ :: (BoostParam b, VectorN v n a, Floating a, 4 <= n)
+boostZ :: (BoostParam b, VectorN v n a, Floating a, Ord a, 4 <= n)
        => b a                -- ^ Boost parameter
        -> LorentzG v n a
        -> LorentzG v n a
@@ -269,6 +287,7 @@ boostAlong
      , InnerSpace (v n a), Scalar (v n a) ~ a, Floating a
      , 1 <= n+1
      , R a ~ a
+     , Ord a
      )
   => b a                        -- ^ Boost parameter
   -> v n a                      -- ^ Vector along which boost should
