@@ -126,14 +126,17 @@ splitLorentz p = (F.head p, F.tail p)
 
 -- | Change representation of Lorentz vector
 changeLorentzRep :: (VectorN v n a, VectorN w n a) => LorentzG v n a -> LorentzG w n a
+{-# INLINE changeLorentzRep #-}
 changeLorentzRep (Lorentz v) = Lorentz (F.convert v)
 
 -- | Switch to 'F.ContVec' as representation.
 toLorentzCV :: (VectorN v n a) => LorentzG v n a -> LorentzCV n a
+{-# INLINE toLorentzCV #-}
 toLorentzCV (Lorentz v) = Lorentz (F.cvec v)
 
 -- | Switch from 'F.ContVec' as representation
 fromLorentzCV :: (VectorN v n a) => LorentzCV n a -> LorentzG v n a
+{-# INLINE fromLorentzCV #-}
 fromLorentzCV (Lorentz v) = Lorentz (F.vector v)
 
 
