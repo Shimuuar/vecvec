@@ -53,7 +53,12 @@ import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI                     qualified as C
 import Vecvec.LAPACK.FFI                     (MatrixTranspose(..))
 
--- | Matrix
+
+----------------------------------------------------------------
+-- Data type & instances
+----------------------------------------------------------------
+
+-- | In-memory representation of mutable and immutable matrices.
 data MView a = MView
   { nrows      :: !Int            -- ^ Number of rows
   , ncols      :: !Int            -- ^ Number of columns
@@ -75,9 +80,10 @@ instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
                  , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
                  }
 
--- | Mutable matrix.
+-- | Mutable generic dense matrix.
 newtype MMatrix s a = MMatrix (MView a)
 
+-- | Values that could be used as read-only dense matrix parameter.
 class AsMInput s m where
   asMInput :: m a -> MView a
 
@@ -88,6 +94,8 @@ instance s ~ s' => AsMInput s' (MMatrix s) where
 deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
 
 
+-- | Pattern which is used to check whether matrix is represented by
+--   contiguous vector
 pattern AsMVec :: MVec s a -> MMatrix s a
 pattern AsMVec v <- (tryMVec -> Just v)
 
@@ -98,6 +106,46 @@ tryMVec (MMatrix MView{..})
   | otherwise           = Just (MVec (VecRepr (ncols * nrows) 1 buffer))
 
 
+
+-- | Get nth row of matrix.
+--
+-- __UNSAFE__: this function does not any range checks.
+unsafeRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeRow (MMatrix MView{..}) i =
+   MVec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
+
+-- | Get nth column of matrix.
+--
+-- __UNSAFE__: this function does not any range checks.
+unsafeCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeCol (MMatrix MView{..}) i =
+  MVec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
+
+-- | Read value at given index
+--
+-- __UNSAFE__: this function does not any range checks.
+unsafeRead :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
+           => mat a -> (Int, Int) -> m a
+{-# INLINE unsafeRead #-}
+unsafeRead (asMInput @s -> MView{..}) (i,j)
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr buffer $ \p -> do
+    peekElemOff p (i * leadingDim + j)
+
+-- | Write value at given index.
+--
+-- __UNSAFE__: this function does not any range checks.
+unsafeWrite :: (Storable a, PrimMonad m, s ~ PrimState m)
+            => MMatrix s a -> (Int, Int) -> a -> m ()
+{-# INLINE unsafeWrite #-}
+unsafeWrite (MMatrix MView{..}) (i,j) a
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr buffer $ \p -> do
+    pokeElemOff p (i * leadingDim + j) a
+
+----------------------------------------------------------------
+-- Constructors
+----------------------------------------------------------------
 
 -- | Create copy of mutable matrix
 clone :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
@@ -121,30 +169,6 @@ clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
                        }
   where
     n_elt = ncols * nrows
-
-unsafeRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
-unsafeRow (MMatrix MView{..}) i =
-   MVec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
-
-unsafeCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
-unsafeCol (MMatrix MView{..}) i =
-  MVec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
-
-unsafeRead :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
-           => mat a -> (Int, Int) -> m a
-{-# INLINE unsafeRead #-}
-unsafeRead (asMInput @s -> MView{..}) (i,j)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr buffer $ \p -> do
-    peekElemOff p (i * leadingDim + j)
-
-unsafeWrite :: (Storable a, PrimMonad m, s ~ PrimState m)
-            => MMatrix s a -> (Int, Int) -> a -> m ()
-{-# INLINE unsafeWrite #-}
-unsafeWrite (MMatrix MView{..}) (i,j) a
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr buffer $ \p -> do
-    pokeElemOff p (i * leadingDim + j) a
 
 fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
            => f (g a) -> m (MMatrix s a)
@@ -178,7 +202,6 @@ unsafeNew (n,k) = do
                        , leadingDim = k
                        , buffer     = vecBuffer buffer
                        }
-
 
 -- | Allocate new matrix. Content of buffer zeroed out.
 new :: (Storable a, PrimMonad m, s ~ PrimState m)
