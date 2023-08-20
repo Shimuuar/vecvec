@@ -1,14 +1,29 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
--- |
+-- | Type classes for working with N-dimensional possibly sparse
+-- arrays. All indices are assumed to be 0-based. No assumptions about
+-- data layout in memory are made.
 module Vecvec.Classes.Slice
-  ( -- * Type classes
-    Slice(..)
+  ( -- * Indexing
+    Shape(..)
+  , shape
+  , nColumns
+  , nRows
+  , NDim
+  , IsShape(..)
+  , Index(..)
+  , (!?)
+  , (!)
+    -- * Slicing
+  , Slice(..)
   , slice
   , Slice1D(..)
     -- ** Slice parameters
@@ -20,19 +35,147 @@ module Vecvec.Classes.Slice
   , implSliceMVector
   ) where
 
-import GHC.Generics (Generic)
+import Data.Kind
 import Data.Vector                   qualified as V
 import Data.Vector.Unboxed           qualified as VU
 import Data.Vector.Storable          qualified as VS
 import Data.Vector.Primitive         qualified as VP
 import Data.Vector.Generic           qualified as VG
 import Data.Vector.Mutable           qualified as MV
+import Data.Vector.Fixed             qualified as F
+import Data.Vector.Fixed.Cont        qualified as FC
 import Data.Vector.Unboxed.Mutable   qualified as MVU
 import Data.Vector.Storable.Mutable  qualified as MVS
 import Data.Vector.Primitive.Mutable qualified as MVP
 import Data.Vector.Generic.Mutable   qualified as MVG
 
+import GHC.Generics (Generic)
+import GHC.TypeLits
 
+
+----------------------------------------------------------------
+-- Indexing
+----------------------------------------------------------------
+
+-- | Number of dimensions in array. 1 for vectors, 2 for matrices, etc. By
+--   convention matrices use @(n_rows,n_columns)@.
+type family NDim (v :: Type -> Type)  :: Nat
+
+type instance NDim V.Vector  = 1
+type instance NDim VU.Vector = 1
+type instance NDim VS.Vector = 1
+type instance NDim VP.Vector = 1
+type instance NDim (MV.MVector  s) = 1
+type instance NDim (MVU.MVector s) = 1
+type instance NDim (MVS.MVector s) = 1
+type instance NDim (MVP.MVector s) = 1
+
+
+
+-- | Data type which could represent shape of N-dimensional array
+--   where N is compile-time constant. That is size of each of its
+--   dimensions.
+--
+--   This type class exists in order to allow use of plain @Int@ and
+--   vectors of ints (such as tuples, etc) at the same time.
+class IsShape shape (n :: Nat) where
+  shapeToCVec   :: shape -> F.ContVec n Int
+  shapeFromCVec :: F.ContVec n Int -> shape
+
+instance n ~ 1 => IsShape Int n where
+  shapeToCVec   = FC.mk1
+  shapeFromCVec = FC.head
+  {-# INLINE shapeToCVec   #-}
+  {-# INLINE shapeFromCVec #-}
+
+instance (n ~ F.Dim v, F.Vector v Int, a ~ Int) => IsShape (v a) n where
+  shapeToCVec   = F.cvec
+  shapeFromCVec = F.vector
+  {-# INLINE shapeToCVec   #-}
+  {-# INLINE shapeFromCVec #-}
+
+
+-- | Possibly sparse N-dimensional arrays. Its return type is very
+-- polymorphic
+class Shape v a where
+  shapeCVec :: v a -> FC.ContVec (NDim v) Int
+
+-- | Get shape of an array.
+shape :: (IsShape shape (NDim v), Shape v a) => v a -> shape
+shape = shapeFromCVec . shapeCVec
+{-# INLINE shape #-}
+
+nColumns :: (NDim v ~ 2, Shape v a) => v a -> Int
+nColumns v = FC.runContVec (FC.Fun $ \_ n -> n) (shapeCVec v)
+{-# INLINE nColumns #-}
+
+nRows :: (NDim v ~ 2, Shape v a) => v a -> Int
+nRows v = FC.runContVec (FC.Fun $ \n _ -> n) (shapeCVec v)
+{-# INLINE nRows #-}
+
+instance Shape V.Vector a where
+  shapeCVec = FC.mk1 . V.length
+  {-# INLINE shapeCVec #-}
+instance VS.Storable a => Shape VS.Vector a where
+  shapeCVec = FC.mk1 . VS.length
+  {-# INLINE shapeCVec #-}
+instance VP.Prim a => Shape VP.Vector a where
+  shapeCVec = FC.mk1 . VP.length
+  {-# INLINE shapeCVec #-}
+instance VU.Unbox a => Shape VU.Vector a where
+  shapeCVec = FC.mk1 . VU.length
+  {-# INLINE shapeCVec #-}
+
+instance Shape (MV.MVector s) a where
+  shapeCVec = FC.mk1 . MV.length
+  {-# INLINE shapeCVec #-}
+instance VS.Storable a => Shape (MVS.MVector s) a where
+  shapeCVec = FC.mk1 . MVS.length
+  {-# INLINE shapeCVec #-}
+instance VP.Prim a => Shape (MVP.MVector s) a where
+  shapeCVec = FC.mk1 . MVP.length
+  {-# INLINE shapeCVec #-}
+instance VU.Unbox a => Shape (MVU.MVector s) a where
+  shapeCVec = FC.mk1 . MVU.length
+  {-# INLINE shapeCVec #-}
+
+
+
+class Shape v a => Index v a where
+  indexCVec :: v a -> F.ContVec (NDim v) Int -> Maybe a
+
+(!?) :: (Index v a, IsShape idx (NDim v)) => v a -> idx -> Maybe a
+v !? idx = indexCVec v (shapeToCVec idx)
+{-# INLINE (!?) #-}
+
+(!) :: (Index v a, IsShape idx (NDim v)) => v a -> idx -> a
+v ! idx = case v !? idx of
+  Just a  -> a
+  Nothing -> error "Index out of bounds"
+{-# INLINE (!) #-}
+
+instance Index V.Vector a where
+  {-# INLINE indexCVec #-}
+  indexCVec v idx = v VG.!? FC.runContVec (FC.Fun id) idx
+
+instance VS.Storable a => Index VS.Vector a where
+  {-# INLINE indexCVec #-}
+  indexCVec v idx = v VG.!? FC.runContVec (FC.Fun id) idx
+
+instance VP.Prim a => Index VP.Vector a where
+  {-# INLINE indexCVec #-}
+  indexCVec v idx = v VG.!? FC.runContVec (FC.Fun id) idx
+
+instance VU.Unbox a => Index VU.Vector a where
+  {-# INLINE indexCVec #-}
+  indexCVec v idx = v VG.!? FC.runContVec (FC.Fun id) idx
+
+
+
+
+----------------------------------------------------------------
+-- Slicing
+----------------------------------------------------------------
 
 -- | Very generic type class for slicing vectors, matrices etc. It's
 --   expected that slice is done in /O(1)/. There are many possible
@@ -89,7 +232,7 @@ instance (i ~ Int) => Slice1D (Range i) where
       i  = mirror i0
       j  = mirror j0
       sz = j - i
-      
+
 
 
 
