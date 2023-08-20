@@ -344,25 +344,25 @@ genOffset = choose (0,3)
 
 -- | Generate value with same size
 class Arbitrary a => GenSameSize a where
-  type Shape a
-  shape    :: a -> Shape a
-  withSize :: Shape a -> Gen a
+  type ShapeGen a
+  shapeGen :: a -> ShapeGen a
+  withSize :: ShapeGen a -> Gen a
 
 sameSize :: GenSameSize a => a -> Gen a
-sameSize = withSize . shape
+sameSize = withSize . shapeGen
 
 
 instance GenSameSize Float  where
-  type Shape Float = ()
-  shape    _ = ()
+  type ShapeGen Float = ()
+  shapeGen _ = ()
   withSize _ = genScalar
 instance GenSameSize Double where
-  type Shape Double = ()
-  shape    _ = ()
+  type ShapeGen Double = ()
+  shapeGen _ = ()
   withSize _ = genScalar
 instance ScalarModel a => GenSameSize (Complex a) where
-  type Shape (Complex a) = ()
-  shape    _ = ()
+  type ShapeGen (Complex a) = ()
+  shapeGen _ = ()
   withSize _ = genScalar
 
 
@@ -463,8 +463,8 @@ instance ScalarModel a => Arbitrary (ModelVec a) where
     return $ ModelVec n' x
 
 instance ScalarModel a => GenSameSize (ModelVec a) where
-  type Shape (ModelVec a) = Int
-  shape = length . unModelVec
+  type ShapeGen (ModelVec a) = Int
+  shapeGen = length . unModelVec
   withSize n = ModelVec <$> genStride <*> replicateM n genScalar
 
 -- FIXME: We need to implement checks than values have same size
@@ -568,8 +568,8 @@ instance ScalarModel a => Arbitrary (ModelMat a) where
     [ModelMat{ padRows = p_r, padCols = p_c, .. }]
 
 instance ScalarModel a => GenSameSize (ModelMat a) where
-  type Shape (ModelMat a) = (Int,Int)
-  shape m = (modelMatRows m, modelMatCols m)
+  type ShapeGen (ModelMat a) = (Int,Int)
+  shapeGen m = (modelMatRows m, modelMatCols m)
   withSize (m,n) = ModelMat
     <$> genOffset <*> genOffset
     <*> replicateM m (replicateM n genScalar)

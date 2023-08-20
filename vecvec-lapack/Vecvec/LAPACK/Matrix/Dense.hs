@@ -13,7 +13,6 @@ module Vecvec.LAPACK.Matrix.Dense
     -- ** Creation
   , fromRowsFF
     -- ** Access
-  , nRows, nCols
   , unsafeRead
   , unsafeRow
   , unsafeCol

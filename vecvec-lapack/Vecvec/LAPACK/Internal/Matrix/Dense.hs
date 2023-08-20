@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -28,7 +29,6 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
     -- ** Creation
   , fromRowsFF
     -- ** Access
-  , nRows, nCols
   , unsafeRead
   , unsafeRow
   , unsafeCol
@@ -41,6 +41,7 @@ import Data.Coerce
 import Data.List                    (intercalate)
 import Data.Vector.Generic.Mutable  qualified as MVG
 import Data.Vector.Generic          qualified as VG
+import Data.Vector.Fixed.Cont       qualified as FC
 import Foreign.Storable
 import Foreign.Marshal.Array
 import System.IO.Unsafe
@@ -65,16 +66,17 @@ tryVec (Matrix M.MView{..})
   | ncols /= leadingDim = Nothing
   | otherwise           = Just (Vec (VecRepr (ncols * nrows) 1 buffer))
 
-
-nRows :: Matrix a -> Int
-nRows (Matrix m) = M.nrows m
-
-nCols :: Matrix a -> Int
-nCols (Matrix m) = M.ncols m
-
 instance M.AsMInput s Matrix where
   {-# INLINE asMInput #-}
   asMInput = coerce
+
+type instance NDim Matrix = 2
+
+instance Shape Matrix a where
+  shapeCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols
+  {-# INLINE shapeCVec #-}
+
+
 
 instance (Show a, Storable a) => Show (Matrix a) where
   show m = "[ " ++ intercalate "\n, " [ show (unsafeRow m i) | i <- [0 .. nRows m - 1]] ++ "]"

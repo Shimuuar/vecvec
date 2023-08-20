@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -43,6 +44,7 @@ import Control.Monad.Primitive
 import Data.Coerce
 import Data.Foldable
 import Data.Vector.Generic.Mutable           qualified as MVG
+import Data.Vector.Fixed.Cont                qualified as FC
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
@@ -55,7 +57,7 @@ import Vecvec.LAPACK.FFI                     (MatrixTranspose(..))
 
 
 ----------------------------------------------------------------
--- Data type & instances
+-- Internal memory representation
 ----------------------------------------------------------------
 
 -- | In-memory representation of mutable and immutable matrices.
@@ -80,9 +82,6 @@ instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
                  , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
                  }
 
--- | Mutable generic dense matrix.
-newtype MMatrix s a = MMatrix (MView a)
-
 -- | Values that could be used as read-only dense matrix parameter.
 class AsMInput s m where
   asMInput :: m a -> MView a
@@ -91,7 +90,21 @@ instance s ~ s' => AsMInput s' (MMatrix s) where
   {-# INLINE asMInput #-}
   asMInput = coerce
 
+
+----------------------------------------------------------------
+-- Mutable matrices
+----------------------------------------------------------------
+
+-- | Mutable generic dense matrix.
+newtype MMatrix s a = MMatrix (MView a)
+
 deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
+
+type instance NDim (MMatrix s) = 2
+
+instance Shape (MMatrix s) a where
+  shapeCVec (MMatrix MView{..}) = FC.mk2 nrows ncols
+  {-# INLINE shapeCVec #-}
 
 
 -- | Pattern which is used to check whether matrix is represented by

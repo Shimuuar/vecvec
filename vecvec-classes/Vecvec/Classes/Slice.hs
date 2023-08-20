@@ -15,7 +15,7 @@ module Vecvec.Classes.Slice
   ( -- * Indexing
     Shape(..)
   , shape
-  , nColumns
+  , nCols
   , nRows
   , NDim
   , IsShape(..)
@@ -105,9 +105,9 @@ shape :: (IsShape shape (NDim v), Shape v a) => v a -> shape
 shape = shapeFromCVec . shapeCVec
 {-# INLINE shape #-}
 
-nColumns :: (NDim v ~ 2, Shape v a) => v a -> Int
-nColumns v = FC.runContVec (FC.Fun $ \_ n -> n) (shapeCVec v)
-{-# INLINE nColumns #-}
+nCols :: (NDim v ~ 2, Shape v a) => v a -> Int
+nCols v = FC.runContVec (FC.Fun $ \_ n -> n) (shapeCVec v)
+{-# INLINE nCols #-}
 
 nRows :: (NDim v ~ 2, Shape v a) => v a -> Int
 nRows v = FC.runContVec (FC.Fun $ \n _ -> n) (shapeCVec v)
