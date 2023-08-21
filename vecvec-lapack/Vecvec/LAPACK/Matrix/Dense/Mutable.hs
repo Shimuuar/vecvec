@@ -8,6 +8,7 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , AsMInput
     -- * Operations
     -- ** Construction
+  , clone
   , fromRowsFF
   , new
   , unsafeNew
@@ -19,6 +20,7 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
     -- * BLAS wrappers
   , MatrixTranspose(..)
   , unsafeBlasGemv
+  , unsafeBlasGemm
   ) where
 
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable

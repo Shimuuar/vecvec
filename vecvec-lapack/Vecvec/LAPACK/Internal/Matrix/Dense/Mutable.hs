@@ -24,7 +24,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , pattern AsMVec
     -- * Operations
     -- ** Creation
-  , Vecvec.LAPACK.Internal.Matrix.Dense.Mutable.clone -- FIXME: Name
+  , clone
   , fromRowsFF
   , new
   , unsafeNew
@@ -51,7 +51,7 @@ import Foreign.Marshal.Array
 
 import Vecvec.Classes.Slice
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
 import Vecvec.LAPACK.FFI                     (MatrixTranspose(..))
 
@@ -156,6 +156,8 @@ unsafeWrite (MMatrix MView{..}) (i,j) a
   $ unsafeWithForeignPtr buffer $ \p -> do
     pokeElemOff p (i * leadingDim + j) a
 
+
+
 ----------------------------------------------------------------
 -- Constructors
 ----------------------------------------------------------------
@@ -231,7 +233,6 @@ new (n,k) = do
 ----------------------------------------------------------------
 -- BLAS wrappers
 ----------------------------------------------------------------
-
 
 -- | General matrix-vector multiplication
 --
