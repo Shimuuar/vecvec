@@ -3,6 +3,7 @@
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 -- |
 {-# OPTIONS_GHC -Wno-orphans #-}
