@@ -55,7 +55,7 @@ import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic.Mutable  qualified as MVG
 
 import Vecvec.Classes
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
 

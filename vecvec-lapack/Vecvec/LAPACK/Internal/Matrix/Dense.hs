@@ -47,7 +47,7 @@ import Foreign.Marshal.Array
 import System.IO.Unsafe
 
 import Vecvec.Classes
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector

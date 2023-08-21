@@ -11,7 +11,7 @@
 -- | Type classes for working with N-dimensional possibly sparse
 -- arrays. All indices are assumed to be 0-based. No assumptions about
 -- data layout in memory are made.
-module Vecvec.Classes.Slice
+module Vecvec.Classes.NDArray
   ( -- * Indexing
     Shape(..)
   , shape

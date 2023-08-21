@@ -30,7 +30,7 @@ import Data.Functor.Identity
 import Data.List ( sortBy )
 import Data.Maybe (catMaybes)
 
-import qualified Vecvec.Classes.Slice                  as Slice
+import qualified Vecvec.Classes.NDArray                  as Slice
 
 instance Show a => Show (S.Bundle v a) where
     show s = "Data.Vector.Fusion.Bundle.fromList " ++ show (S.toList s)

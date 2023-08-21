@@ -39,7 +39,7 @@ import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 
 import Vecvec.Classes
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK         (Strided(..))
 import Vecvec.LAPACK         qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense

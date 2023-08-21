@@ -34,7 +34,7 @@ import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
                                              ,blasDotu, blasDotc, blasScal, blasAxpy, clone

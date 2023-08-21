@@ -16,7 +16,7 @@ import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 import Data.Vector.Primitive qualified as VP
 
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK         qualified as VV
 import Vecvec.LAPACK.Internal.Vector.Mutable (Strided(..))
 

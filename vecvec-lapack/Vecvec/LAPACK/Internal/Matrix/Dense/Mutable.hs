@@ -49,7 +49,7 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
-import Vecvec.Classes.Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
