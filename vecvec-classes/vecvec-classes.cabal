@@ -23,6 +23,7 @@ Library
   Ghc-options:          -Wall
   Default-Language:     Haskell2010
   Build-Depends:        base             >=4.12 && <5
+                      , primitive        >=0.7
                       , vector           >=0.13
                       , vector-stream    >=0.1
                       , fixed-vector     >=1.2.2.1
@@ -30,3 +31,4 @@ Library
     Vecvec.Classes
     Vecvec.Classes.Convert
     Vecvec.Classes.NDArray
+    Vecvec.Classes.Util
