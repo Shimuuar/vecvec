@@ -25,9 +25,13 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- * Operations
     -- ** Creation
   , clone
-  , fromRowsFF
   , new
   , unsafeNew
+  , fromRowsFF
+  , zeros
+  , eye
+  , diagF
+  , diag
     -- ** Access
   , read
   , write
@@ -50,6 +54,7 @@ import Data.Coerce
 import Data.Foldable
 import Data.Vector.Generic.Mutable           qualified as MVG
 import Data.Vector.Fixed.Cont                qualified as FC
+import Data.Vector.Generic                   qualified as VG
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
@@ -266,6 +271,48 @@ new (n,k) = do
                        , leadingDim = k
                        , buffer     = vecBuffer buffer
                        }
+
+zeros :: (StorableZero a, PrimMonad m, s ~ PrimState m)
+      => (Int,Int) -> m (MMatrix s a)
+zeros (n,k) = unsafeIOToPrim $ do
+  (MMatrix mat@MView{..}) <- unsafeNew (n,k)
+  unsafeWithForeignPtr buffer $ \p -> zeroOutBuffer p (n*k)
+  pure (MMatrix mat)
+
+-- | Create identity matrix
+eye :: (StorableZero a, Num a, PrimMonad m, s ~ PrimState m)
+    => Int -> m (MMatrix s a)
+eye n = stToPrim $ do
+  mat <- zeros (n,n)
+  -- FIXME: is build/foldr fusion reliable here?
+  forM_ [0..n-1] $ \i -> unsafeWrite mat (i,i) 1
+  pure mat
+
+-- | Create diagonal matrix
+diagF :: (StorableZero a, Foldable f, PrimMonad m, s ~ PrimState m)
+      => f a
+      -> m (MMatrix s a)
+diagF xs = stToPrim $ do
+  mat <- zeros (n,n)
+  -- FIXME: is build/foldr fusion reliable here?
+  forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWrite mat (i,i) x
+  pure mat
+  where
+    n = length xs
+
+-- | Create diagonal matrix
+diag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+     => v a
+     -> m (MMatrix s a)
+{-# INLINE diag #-}
+diag xs = stToPrim $ do
+  mat <- zeros (n,n)
+  -- FIXME: is build/foldr fusion reliable here?
+  VG.iforM_ xs $ \i x -> unsafeWrite mat (i,i) x
+  pure mat
+  where
+    n = VG.length xs
+
 
 
 ----------------------------------------------------------------

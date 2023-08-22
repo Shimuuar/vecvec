@@ -9,9 +9,12 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
     -- * Operations
     -- ** Construction
   , clone
-  , fromRowsFF
   , new
   , unsafeNew
+  , fromRowsFF
+  , eye
+  , diagF
+  , diag
     -- ** Access
   , read
   , write

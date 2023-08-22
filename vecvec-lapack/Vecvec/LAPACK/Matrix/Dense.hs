@@ -12,6 +12,10 @@ module Vecvec.LAPACK.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , zeros
+  , eye
+  , diag
+  , diagF
     -- ** Access
   , getRow
   , getCol

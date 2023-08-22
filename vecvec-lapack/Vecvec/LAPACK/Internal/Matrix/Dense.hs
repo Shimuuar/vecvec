@@ -28,6 +28,10 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , zeros
+  , eye
+  , diag
+  , diagF
     -- ** Access
   , getCol
   , getRow
@@ -51,6 +55,7 @@ import System.IO.Unsafe
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Util
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
@@ -344,3 +349,17 @@ getCol m@(Matrix M.MView{..}) i
 fromRowsFF :: (Storable a, Foldable f, Foldable g)
            => f (g a) -> Matrix a
 fromRowsFF dat = runST $ unsafeFreeze =<< M.fromRowsFF dat
+
+
+zeros :: (StorableZero a) => (Int,Int) -> Matrix a
+zeros sz = runST $ unsafeFreeze =<< M.zeros sz
+
+eye :: (StorableZero a, Num a) => Int -> Matrix a
+eye n = runST $ unsafeFreeze =<< M.eye n
+
+diagF :: (StorableZero a, Foldable f) => f a -> Matrix a
+diagF xs = runST $ unsafeFreeze =<< M.diagF xs
+
+diag :: (StorableZero a, VG.Vector v a) => v a -> Matrix a
+{-# INLINE diag #-}
+diag xs = runST $ unsafeFreeze =<< M.diag xs
