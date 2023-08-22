@@ -13,10 +13,12 @@ module Vecvec.LAPACK.Matrix.Dense
     -- ** Creation
   , fromRowsFF
     -- ** Access
-  , unsafeRead
-  , unsafeRow
-  , unsafeCol
-
+  , getRow
+  , getCol
+    -- * Unsafe functions
+  , unsafeIndex
+  , unsafeGetRow
+  , unsafeGetCol
   ) where
 
 import Vecvec.LAPACK.Internal.Matrix.Dense

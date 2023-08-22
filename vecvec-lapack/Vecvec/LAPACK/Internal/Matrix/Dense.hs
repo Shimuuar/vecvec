@@ -29,9 +29,12 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
     -- ** Creation
   , fromRowsFF
     -- ** Access
-  , unsafeRead
-  , unsafeRow
-  , unsafeCol
+  , getCol
+  , getRow
+    -- * Unsafe variants
+  , unsafeIndex
+  , unsafeGetRow
+  , unsafeGetCol
   ) where
 
 import Control.Monad
@@ -79,14 +82,14 @@ instance Shape Matrix a where
 
 
 instance (Show a, Storable a) => Show (Matrix a) where
-  show m = "[ " ++ intercalate "\n, " [ show (unsafeRow m i) | i <- [0 .. nRows m - 1]] ++ "]"
+  show m = "[ " ++ intercalate "\n, " [ show (unsafeGetRow m i) | i <- [0 .. nRows m - 1]] ++ "]"
 
 instance (Eq a, Storable a) => Eq (Matrix a) where
   a == b
     | nRows a /= nRows b = False
     | nCols a /= nCols b = False
     | otherwise          = and
-        [ unsafeRead a (i,j) == unsafeRead b (i,j)
+        [ unsafeIndex a (i,j) == unsafeIndex b (i,j)
         | i <- [0 .. nRows a - 1]
         , j <- [0 .. nCols a - 1]
         ]
@@ -101,7 +104,7 @@ instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
           case m2 of
             AsVec v2 -> unsafeBlasAxpy 1 v2 vres
             _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
-              unsafeBlasAxpy 1 (unsafeRow m2 i) (M.unsafeRow res i)
+              unsafeBlasAxpy 1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
         _ -> error "IMPOSSIBLE"
@@ -114,7 +117,7 @@ instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
           case m2 of
             AsVec v2 -> unsafeBlasAxpy -1 v2 vres
             _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
-              unsafeBlasAxpy -1 (unsafeRow m2 i) (M.unsafeRow res i)
+              unsafeBlasAxpy -1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
         _ -> error "IMPOSSIBLE"
@@ -133,7 +136,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
     case m of
       AsVec v -> unsafeBlasAxpy a v resV
       _       -> forM_ [0 .. nRows m - 1] $ \i -> do
-        unsafeBlasAxpy a (unsafeRow m i) (M.unsafeRow resM i)
+        unsafeBlasAxpy a (unsafeGetRow m i) (M.unsafeGetRow resM i)
     unsafeFreeze resM
   (.*) = flip (*.)
 
@@ -311,22 +314,32 @@ thaw :: (Storable a, PrimMonad m, s ~ PrimState m)
 thaw = M.clone
 
 
-unsafeRead :: (Storable a) => Matrix a -> (Int, Int) -> a
-{-# INLINE unsafeRead #-}
-unsafeRead (Matrix M.MView{..}) (i,j)
+unsafeIndex :: (Storable a) => Matrix a -> (Int, Int) -> a
+{-# INLINE unsafeIndex #-}
+unsafeIndex (Matrix M.MView{..}) (i,j)
   = unsafeInlineIO
   $ unsafeWithForeignPtr buffer $ \p -> do
     peekElemOff p (i * leadingDim + j)
 
 
 
-unsafeRow :: (Storable a) => Matrix a -> Int -> Vec a
-unsafeRow (Matrix M.MView{..}) i =
+unsafeGetRow :: (Storable a) => Matrix a -> Int -> Vec a
+unsafeGetRow (Matrix M.MView{..}) i =
   Vec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
 
-unsafeCol :: (Storable a) => Matrix a -> Int -> Vec a
-unsafeCol (Matrix M.MView{..}) i =
+unsafeGetCol :: (Storable a) => Matrix a -> Int -> Vec a
+unsafeGetCol (Matrix M.MView{..}) i =
   Vec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
+
+getRow :: (Storable a) => Matrix a -> Int -> Vec a
+getRow m@(Matrix M.MView{..}) i
+  | i < 0 || i >= nrows = error "Out of range"
+  | otherwise           = unsafeGetRow m i 
+
+getCol :: (Storable a) => Matrix a -> Int -> Vec a
+getCol m@(Matrix M.MView{..}) i
+  | i < 0 || i >= ncols = error "Out of range"
+  | otherwise           = unsafeGetCol m i 
 
 fromRowsFF :: (Storable a, Foldable f, Foldable g)
            => f (g a) -> Matrix a

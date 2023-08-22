@@ -13,14 +13,20 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , new
   , unsafeNew
     -- ** Access
-  , unsafeRead
-  , unsafeWrite
-  , unsafeCol
-  , unsafeRow
+  , read
+  , write
+  , getCol
+  , getRow
     -- * BLAS wrappers
   , MatrixTranspose(..)
   , unsafeBlasGemv
   , unsafeBlasGemm
+    -- * Unsafe functions
+  , unsafeRead
+  , unsafeWrite
+  , unsafeGetCol
+  , unsafeGetRow
   ) where
 
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
+import Prelude ()

@@ -29,14 +29,19 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , new
   , unsafeNew
     -- ** Access
-  , unsafeRead
-  , unsafeWrite
-  , unsafeCol
-  , unsafeRow
+  , read
+  , write
+  , getCol
+  , getRow
     -- * BLAS wrappers
   , MatrixTranspose(..)
   , unsafeBlasGemv
   , unsafeBlasGemm
+    -- * Unsafe functions
+  , unsafeRead
+  , unsafeWrite
+  , unsafeGetCol
+  , unsafeGetRow
   ) where
 
 import Control.Monad
@@ -49,7 +54,10 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
+import Prelude hiding (read)
+
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Util
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
@@ -123,15 +131,15 @@ tryMVec (MMatrix MView{..})
 -- | Get nth row of matrix.
 --
 -- __UNSAFE__: this function does not any range checks.
-unsafeRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
-unsafeRow (MMatrix MView{..}) i =
+unsafeGetRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeGetRow (MMatrix MView{..}) i =
    MVec (VecRepr ncols 1 (updPtr (`advancePtr` (leadingDim * i)) buffer))
 
 -- | Get nth column of matrix.
 --
 -- __UNSAFE__: this function does not any range checks.
-unsafeCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
-unsafeCol (MMatrix MView{..}) i =
+unsafeGetCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
+unsafeGetCol (MMatrix MView{..}) i =
   MVec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
 
 -- | Read value at given index
@@ -156,6 +164,36 @@ unsafeWrite (MMatrix MView{..}) (i,j) a
   $ unsafeWithForeignPtr buffer $ \p -> do
     pokeElemOff p (i * leadingDim + j) a
 
+
+-- | Get nth row of matrix.
+getRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
+getRow m@(MMatrix MView{..}) i
+  | i < 0 || i >= nrows = error "Out of range"
+  | otherwise           = unsafeGetRow m i
+
+-- | Get nth column of matrix.
+getCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
+getCol m@(MMatrix MView{..}) i
+  | i < 0 || i >= ncols = error "Out of range"
+  | otherwise           = unsafeGetCol m i
+
+-- | Read value at given index
+read :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
+     => mat a -> (Int, Int) -> m a
+{-# INLINE read #-}
+read m@(asMInput @s -> MView{..}) (i,j)
+  | i < 0 || i >= nrows = error "Out of range"
+  | j < 0 || i >= ncols = error "Out of range"
+  | otherwise           = unsafeRead m (i,j)
+
+-- | Write value at given index.
+write :: (Storable a, PrimMonad m, s ~ PrimState m)
+      => MMatrix s a -> (Int, Int) -> a -> m ()
+{-# INLINE write #-}
+write m@(MMatrix MView{..}) (i,j) a
+  | i < 0 || i >= nrows = error "Out of range"
+  | j < 0 || i >= ncols = error "Out of range"
+  | otherwise           = unsafeWrite m (i,j) a
 
 
 ----------------------------------------------------------------
