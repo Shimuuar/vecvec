@@ -12,6 +12,8 @@ module Vecvec.LAPACK.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , replicate
+  , generate
   , zeros
   , eye
   , diag
@@ -26,3 +28,4 @@ module Vecvec.LAPACK.Matrix.Dense
   ) where
 
 import Vecvec.LAPACK.Internal.Matrix.Dense
+import Prelude ()

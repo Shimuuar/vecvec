@@ -28,6 +28,10 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , new
   , unsafeNew
   , fromRowsFF
+  , replicate
+  , replicateM
+  , generate
+  , generateM
   , zeros
   , eye
   , diagF
@@ -48,7 +52,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , unsafeGetRow
   ) where
 
-import Control.Monad
+import Control.Monad           (foldM)
 import Control.Monad.Primitive
 import Data.Coerce
 import Data.Foldable
@@ -59,7 +63,7 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
-import Prelude hiding (read)
+import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
 import Vecvec.Classes.Util
@@ -272,6 +276,56 @@ new (n,k) = do
                        , buffer     = vecBuffer buffer
                        }
 
+-- | Fill matrix of given size with provided value.
+replicate :: (Storable a, PrimMonad m, s ~ PrimState m)
+          => (Int,Int)
+          -> a
+          -> m (MMatrix s a)
+replicate (n,k) a = unsafeIOToPrim $ do
+  MMatrix mat@MView{..} <- unsafeNew (n,k)
+  unsafeWithForeignPtr buffer $ \ptr -> do
+    forM_ [0 .. (n*k) - 1] $ \i -> pokeElemOff ptr i a
+  pure (MMatrix mat)
+
+-- | Fill matrix of given size using provided monadic action.
+replicateM :: (Storable a, PrimMonad m, s ~ PrimState m)
+           => (Int,Int)
+           -> m a
+           -> m (MMatrix s a)
+replicateM (n,k) action = do
+  mat@(MMatrix MView{..}) <- unsafeNew (n,k)
+  forM_ [0 .. (n*k) - 1] $ \i -> do
+    a <- action
+    unsafeIOToPrim $ unsafeWithForeignPtr buffer $ \ptr -> pokeElemOff ptr i a
+  pure mat
+
+-- | Fill matrix of given size using function from indices to element.
+generate :: (Storable a, PrimMonad m, s ~ PrimState m)
+         => (Int,Int)
+         -> (Int -> Int -> a)
+         -> m (MMatrix s a)
+generate (n,k) fun = stToPrim $ do
+  mat <- unsafeNew (n,k)
+  forM_ [0 .. n-1] $ \i ->
+    forM_ [0 .. k-1] $ \j ->
+      unsafeWrite mat (i,j) (fun i j)
+  pure mat
+
+-- | Fill matrix of given size using monadic function from indices to element.
+generateM :: (Storable a, PrimMonad m, s ~ PrimState m)
+          => (Int,Int)
+          -> (Int -> Int -> m a)
+          -> m (MMatrix s a)
+generateM (n,k) fun = do
+  mat <- unsafeNew (n,k)
+  forM_ [0 .. n-1] $ \i ->
+    forM_ [0 .. k-1] $ \j -> do
+      unsafeWrite mat (i,j) =<< fun i j
+  pure mat
+
+
+-- | Create matrix filled with zeros. It's more efficient than using
+--   'replicate'.
 zeros :: (StorableZero a, PrimMonad m, s ~ PrimState m)
       => (Int,Int) -> m (MMatrix s a)
 zeros (n,k) = unsafeIOToPrim $ do
@@ -288,7 +342,8 @@ eye n = stToPrim $ do
   forM_ [0..n-1] $ \i -> unsafeWrite mat (i,i) 1
   pure mat
 
--- | Create diagonal matrix
+-- | Create diagonal matrix. Diagonal elements are stored in list-like
+--   container.
 diagF :: (StorableZero a, Foldable f, PrimMonad m, s ~ PrimState m)
       => f a
       -> m (MMatrix s a)
@@ -300,7 +355,7 @@ diagF xs = stToPrim $ do
   where
     n = length xs
 
--- | Create diagonal matrix
+-- | Create diagonal matrix. Diagonal elements are stored in vector.
 diag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
      => v a
      -> m (MMatrix s a)

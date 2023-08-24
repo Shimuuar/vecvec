@@ -28,6 +28,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , replicate
+  , generate
   , zeros
   , eye
   , diag
@@ -52,6 +54,7 @@ import Data.Vector.Fixed.Cont       qualified as FC
 import Foreign.Storable
 import Foreign.Marshal.Array
 import System.IO.Unsafe
+import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
@@ -351,15 +354,35 @@ fromRowsFF :: (Storable a, Foldable f, Foldable g)
 fromRowsFF dat = runST $ unsafeFreeze =<< M.fromRowsFF dat
 
 
+-- | Fill matrix of given size with provided value.
+replicate :: (Storable a)
+          => (Int,Int)
+          -> a
+          -> Matrix a
+replicate sz a = runST $ unsafeFreeze =<< M.replicate sz a
+
+-- | Fill matrix of given size using function from indices to element.
+generate :: (Storable a)
+         => (Int,Int)
+         -> (Int -> Int -> a)
+         -> Matrix a
+generate sz f = runST $ unsafeFreeze =<< M.generate sz f
+
+-- | Create matrix filled with zeros. It's more efficient than using
+--   'replicate'.
 zeros :: (StorableZero a) => (Int,Int) -> Matrix a
 zeros sz = runST $ unsafeFreeze =<< M.zeros sz
 
+-- | Create identity matrix
 eye :: (StorableZero a, Num a) => Int -> Matrix a
 eye n = runST $ unsafeFreeze =<< M.eye n
 
+-- | Create diagonal matrix. Diagonal elements are stored in list-like
+--   container.
 diagF :: (StorableZero a, Foldable f) => f a -> Matrix a
 diagF xs = runST $ unsafeFreeze =<< M.diagF xs
 
+-- | Create diagonal matrix. Diagonal elements are stored in vector
 diag :: (StorableZero a, VG.Vector v a) => v a -> Matrix a
 {-# INLINE diag #-}
 diag xs = runST $ unsafeFreeze =<< M.diag xs

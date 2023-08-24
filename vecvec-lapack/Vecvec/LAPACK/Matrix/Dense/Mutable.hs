@@ -12,6 +12,11 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , new
   , unsafeNew
   , fromRowsFF
+  , replicate
+  , replicateM
+  , generate
+  , generateM
+  , zeros
   , eye
   , diagF
   , diag
