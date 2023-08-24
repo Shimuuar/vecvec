@@ -215,6 +215,7 @@ instance VS.Storable a => MVG.MVector MVec a where
   basicUnsafeMove (MVec (VecRepr len 1 fpA)) (MVec (VecRepr _ 1 fpB))
     = MVG.basicUnsafeMove (MVS.MVector len fpA) (MVS.MVector len fpB)
   -- FIXME: We don't handle possible overlap
+  {- for test, which failed
   basicUnsafeMove (MVec (VecRepr len incA fpA)) (MVec (VecRepr _ incB fpB))
     = unsafePrimToPrim
     $ unsafeWithForeignPtr fpA $ \pA ->
@@ -223,6 +224,29 @@ instance VS.Storable a => MVG.MVector MVec a where
                  | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
                                   loop (i + 1)
       in loop 0
+      -}
+  basicUnsafeMove (MVec (VecRepr _   incA fpA)) (MVec (VecRepr _ incB fpB)) | incA == incB && fpA == fpB = pure ()
+  basicUnsafeMove (MVec (VecRepr len _    _))   (MVec (VecRepr{}))          | len == 0                   = pure ()
+  basicUnsafeMove (MVec (VecRepr len incA fpA)) (MVec (VecRepr _ incB fpB))
+    -- TODO 1: use memmove/memcopy for incA, incB = 1
+    -- TODO 2: what to do if **same** start, but different incA/incB?
+    -- TODO 3: overlapping when different fpA,fpB; incA,incB -- but elements still overlapping sometimes.
+    --
+    -- simple solution for overlapping: just check pointer positions.
+    -- this is not effective, but just to check conception
+    = unsafePrimToPrim
+    $ unsafeWithForeignPtr fpA $ \pA ->
+      unsafeWithForeignPtr fpB $ \pB ->
+      if pA < pB then
+          let loop i | i >= len  = pure ()
+                     | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
+                                      loop (i + 1)
+          in loop 0
+      else
+          let loop i | i <= 0  = pure ()
+                     | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
+                                      loop (i - 1)
+          in loop len
 
 
 ----------------------------------------------------------------

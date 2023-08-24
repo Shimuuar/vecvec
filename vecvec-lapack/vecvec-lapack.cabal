@@ -59,14 +59,9 @@ test-suite vecvec-lapack-tests
                     TST.MatMul
                     TST.MatDense
                     TST.Slice
-                    TST.Tools.Model
-                    TST.Tools.MatModel
-                    TST.Tools.Orphanage
-                    TST.Tools.Util
-                    TST.Vector.Boilerplater
-                    TST.Vector.Property
-                    TST.Vector.Utilities
-                    TST.VectorSpace
+                    TST.Orphanage
+                    TST.Property
+                    TST.Memory
   default-extensions: FlexibleContexts
                       ImportQualifiedPost
                       RankNTypes
@@ -85,6 +80,7 @@ test-suite vecvec-lapack-tests
                     , random
                     , tasty            >= 1.2
                     , tasty-quickcheck >= 0.10
+                    , tasty-hunit
                     , template-haskell
                     , transformers
 
