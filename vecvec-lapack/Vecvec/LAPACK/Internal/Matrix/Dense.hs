@@ -355,6 +355,12 @@ fromRowsFF dat = runST $ unsafeFreeze =<< M.fromRowsFF dat
 
 
 -- | Fill matrix of given size with provided value.
+--
+-- ==== __Examples__
+--
+-- >>> replicate (2,3) (42::Double)
+-- [ [42.0,42.0,42.0]
+-- , [42.0,42.0,42.0]]
 replicate :: (Storable a)
           => (Int,Int)
           -> a
@@ -362,15 +368,30 @@ replicate :: (Storable a)
 replicate sz a = runST $ unsafeFreeze =<< M.replicate sz a
 
 -- | Fill matrix of given size using function from indices to element.
+--
+-- ==== __Examples__
+--
+-- >>> generate (3,4) (\i j -> 100*i + j)
+-- [ [0,1,2,3]
+-- , [100,101,102,103]
+-- , [200,201,202,203]]
 generate :: (Storable a)
-         => (Int,Int)
-         -> (Int -> Int -> a)
+         => (Int,Int)         -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+         -> (Int -> Int -> a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
          -> Matrix a
 generate sz f = runST $ unsafeFreeze =<< M.generate sz f
 
 -- | Create matrix filled with zeros. It's more efficient than using
 --   'replicate'.
-zeros :: (StorableZero a) => (Int,Int) -> Matrix a
+--
+-- ==== __Examples__
+--
+-- >>> zeros (2,3) :: Matrix Double
+-- [ [0.0,0.0,0.0]
+-- , [0.0,0.0,0.0]]
+zeros :: (StorableZero a)
+      => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+      -> Matrix a
 zeros sz = runST $ unsafeFreeze =<< M.zeros sz
 
 -- | Create identity matrix

@@ -267,7 +267,8 @@ unsafeNew (n,k) = do
 
 -- | Allocate new matrix. Content of buffer zeroed out.
 new :: (Storable a, PrimMonad m, s ~ PrimState m)
-    => (Int,Int) -> m (MMatrix s a)
+    => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+    -> m (MMatrix s a)
 new (n,k) = do
   MVec buffer <- MVG.new (n * k)
   pure $ MMatrix MView { nrows      = n
@@ -278,7 +279,7 @@ new (n,k) = do
 
 -- | Fill matrix of given size with provided value.
 replicate :: (Storable a, PrimMonad m, s ~ PrimState m)
-          => (Int,Int)
+          => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
           -> a
           -> m (MMatrix s a)
 replicate (n,k) a = unsafeIOToPrim $ do
@@ -289,7 +290,7 @@ replicate (n,k) a = unsafeIOToPrim $ do
 
 -- | Fill matrix of given size using provided monadic action.
 replicateM :: (Storable a, PrimMonad m, s ~ PrimState m)
-           => (Int,Int)
+           => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
            -> m a
            -> m (MMatrix s a)
 replicateM (n,k) action = do
@@ -301,8 +302,8 @@ replicateM (n,k) action = do
 
 -- | Fill matrix of given size using function from indices to element.
 generate :: (Storable a, PrimMonad m, s ~ PrimState m)
-         => (Int,Int)
-         -> (Int -> Int -> a)
+         => (Int,Int)         -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+         -> (Int -> Int -> a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
          -> m (MMatrix s a)
 generate (n,k) fun = stToPrim $ do
   mat <- unsafeNew (n,k)
@@ -313,8 +314,8 @@ generate (n,k) fun = stToPrim $ do
 
 -- | Fill matrix of given size using monadic function from indices to element.
 generateM :: (Storable a, PrimMonad m, s ~ PrimState m)
-          => (Int,Int)
-          -> (Int -> Int -> m a)
+          => (Int,Int)           -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+          -> (Int -> Int -> m a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
           -> m (MMatrix s a)
 generateM (n,k) fun = do
   mat <- unsafeNew (n,k)
@@ -327,7 +328,8 @@ generateM (n,k) fun = do
 -- | Create matrix filled with zeros. It's more efficient than using
 --   'replicate'.
 zeros :: (StorableZero a, PrimMonad m, s ~ PrimState m)
-      => (Int,Int) -> m (MMatrix s a)
+      => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
+      -> m (MMatrix s a)
 zeros (n,k) = unsafeIOToPrim $ do
   (MMatrix mat@MView{..}) <- unsafeNew (n,k)
   unsafeWithForeignPtr buffer $ \p -> zeroOutBuffer p (n*k)
@@ -335,7 +337,8 @@ zeros (n,k) = unsafeIOToPrim $ do
 
 -- | Create identity matrix
 eye :: (StorableZero a, Num a, PrimMonad m, s ~ PrimState m)
-    => Int -> m (MMatrix s a)
+    => Int -- ^ Matrix size
+    -> m (MMatrix s a)
 eye n = stToPrim $ do
   mat <- zeros (n,n)
   -- FIXME: is build/foldr fusion reliable here?

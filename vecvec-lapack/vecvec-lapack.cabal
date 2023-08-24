@@ -83,6 +83,8 @@ test-suite vecvec-lapack-doctest
   main-is:          doctests.hs
   hs-source-dirs:   tests
   default-language: Haskell2010
-  build-depends:    base          -any
-                  , vecvec-lapack -any
+  build-depends:    base           -any
+                  , vecvec-lapack  -any
+                  , vecvec-classes -any
+                  , vecvec-lapack-ffi
                   , doctest       >=0.22 && <0.23
