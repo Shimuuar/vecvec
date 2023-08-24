@@ -40,10 +40,10 @@ import Data.Vector.Storable  qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK         (Strided(..))
-import Vecvec.LAPACK         qualified as VV
-import Vecvec.LAPACK.Internal.Matrix.Dense
-import Vecvec.LAPACK.FFI     (S,D,C,Z)
+import Vecvec.LAPACK                      (Strided(..))
+import Vecvec.LAPACK                       qualified as VV
+import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
+import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 import TST.Orphanage ()
 
 
