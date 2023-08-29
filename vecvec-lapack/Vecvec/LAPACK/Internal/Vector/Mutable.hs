@@ -46,7 +46,6 @@ import Control.Monad.ST
 import Control.Monad.Primitive
 import Data.Primitive.Ptr      hiding (advancePtr)
 import Data.Word
-import Data.Kind
 import Data.Coerce
 import Foreign.Storable
 import Foreign.ForeignPtr
@@ -126,7 +125,7 @@ instance s ~ s => AsInput s (MVS.MVector s') where
 --
 --   This data type is instance of 'MVG.Vector' and all function from
 --   @vector@ works with it.
-newtype MVec (s :: Type) a = MVec (VecRepr a)
+newtype MVec s a = MVec (VecRepr a)
 
 
 -- | /O(1)/ Convert storable vector to strided storable vector. Vector
