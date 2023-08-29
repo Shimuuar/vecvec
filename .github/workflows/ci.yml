@@ -17,9 +17,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - { cabal: "3.6", os: ubuntu-latest,  ghc: "9.2.8"  }
-          - { cabal: "3.6", os: ubuntu-latest,  ghc: "9.4.6"  }
-          - { cabal: "3.6", os: ubuntu-latest,  ghc: "9.6.2"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.2.8"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.6"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.2"  }
       fail-fast: false
     steps:
     # ----------------
