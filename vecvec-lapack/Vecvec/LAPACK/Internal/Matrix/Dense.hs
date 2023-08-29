@@ -81,11 +81,19 @@ instance M.AsMInput s Matrix where
   {-# INLINE asMInput #-}
   asMInput = coerce
 
-type instance NDim Matrix = 2
 
-instance Shape Matrix a where
-  shapeCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols
-  {-# INLINE shapeCVec #-}
+instance HasShape (Matrix a) where
+  type instance NDim (Matrix a) = 2
+  shapeAsCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols
+  {-# INLINE shapeAsCVec #-}
+
+instance Storable a => NDArray (Matrix a) where
+  type Elt (Matrix a) = a
+  {-# INLINE unsafeIndexCVec #-}
+  unsafeIndexCVec (Matrix M.MView{..}) (FC.ContVec cont) = cont $ FC.Fun $ \i j -> do
+    unsafeInlineIO
+      $ unsafeWithForeignPtr buffer $ \p -> do
+        peekElemOff p (i * leadingDim + j)
 
 
 
@@ -320,16 +328,6 @@ freeze = unsafeFreeze <=< M.clone
 thaw :: (Storable a, PrimMonad m, s ~ PrimState m)
      => Matrix a -> m (M.MMatrix s a)
 thaw = M.clone
-
-
-unsafeIndex :: (Storable a) => Matrix a -> (Int, Int) -> a
-{-# INLINE unsafeIndex #-}
-unsafeIndex (Matrix M.MView{..}) (i,j)
-  = unsafeInlineIO
-  $ unsafeWithForeignPtr buffer $ \p -> do
-    peekElemOff p (i * leadingDim + j)
-
-
 
 unsafeGetRow :: (Storable a) => Matrix a -> Int -> Vec a
 unsafeGetRow (Matrix M.MView{..}) i =

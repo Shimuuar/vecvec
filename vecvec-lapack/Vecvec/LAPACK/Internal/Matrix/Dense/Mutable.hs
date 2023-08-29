@@ -117,11 +117,10 @@ newtype MMatrix s a = MMatrix (MView a)
 
 deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
 
-type instance NDim (MMatrix s) = 2
-
-instance Shape (MMatrix s) a where
-  shapeCVec (MMatrix MView{..}) = FC.mk2 nrows ncols
-  {-# INLINE shapeCVec #-}
+instance HasShape (MMatrix s a) where
+  type NDim (MMatrix s a) = 2
+  shapeAsCVec (MMatrix MView{..}) = FC.mk2 nrows ncols
+  {-# INLINE shapeAsCVec #-}
 
 
 -- | Pattern which is used to check whether matrix is represented by

@@ -32,3 +32,4 @@ Library
     Vecvec.Classes.Convert
     Vecvec.Classes.NDArray
     Vecvec.Classes.Util
+    Vecvec.Classes.Via

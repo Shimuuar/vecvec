@@ -66,6 +66,8 @@ import Data.Vector.Fixed.Boxed     qualified as FB
 import Data.Vector.Fixed.Storable  qualified as FS
 import Data.Vector.Fixed.Primitive qualified as FP
 
+import Vecvec.Classes.Via
+
 ----------------------------------------------------------------
 -- Additive group
 ----------------------------------------------------------------
@@ -207,8 +209,6 @@ newtype Conj a = Conj { getConj :: a }
 -- Deriving
 ----------------------------------------------------------------
 
--- | Derive instances using methods from 'Num'
-newtype AsNum a = AsNum a
 
 instance Num a => AdditiveSemigroup (AsNum a) where
   (.+.) = coerce ((+) @a)
@@ -225,9 +225,6 @@ instance (NormedScalar a) => InnerSpace (AsNum a) where
   AsNum a <.> AsNum b = conjugate a * b
   magnitudeSq = coerce (scalarNormSq @a)
 
-
--- | Derive instances for a vector
-newtype AsVector v a = AsVector (v a)
 
 instance (Num a, VG.Vector v a) => AdditiveSemigroup (AsVector v a) where
   (.+.) = coerce (zipWith' @v @a (+))
@@ -249,11 +246,6 @@ instance (NormedScalar a, VG.Vector v a) => InnerSpace (AsVector v a) where
   {-# INLINE (<.>)       #-}
   {-# INLINE magnitudeSq #-}
 
-
--- | Derive vector-space instances for instance of 'F.Vector'. Scalar
---   is type parameter of a type. Operations from 'Num' data type are
---   used for addition and multiplication
-newtype AsFixedVec v a = AsFixedVec (v a)
 
 instance (Num a, F.Vector v a) => AdditiveSemigroup (AsFixedVec v a) where
   (.+.) = coerce (F.zipWith @v @a (+))

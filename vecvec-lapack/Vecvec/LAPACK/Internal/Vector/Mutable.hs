@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
@@ -10,6 +11,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 -- |
 -- Internal module with definition of strided storable vector.  It
 -- exposes constuctors for mutable vector. They are unsafe. Use at you
@@ -57,6 +59,7 @@ import Data.Vector.Generic.Mutable  qualified as MVG
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Via
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
 
@@ -135,6 +138,8 @@ fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
 -- | Data type which is used for slicing which changes stride of a
 --   vector.
 data Strided a = Strided a !Int
+
+deriving via AsMVector MVec s a instance Storable a => HasShape (MVec s a)
 
 instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
   {-# INLINE sliceMaybe #-}

@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
@@ -11,6 +12,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 -- |
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Internal.Vector
@@ -96,6 +98,8 @@ instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
   sliceMaybe = implSliceVector
 
 deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
+
+deriving via AsVector Vec a instance Storable a => HasShape (Vec a)
 
 instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeFreeze #-}
