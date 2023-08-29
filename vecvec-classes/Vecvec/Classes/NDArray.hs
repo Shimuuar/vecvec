@@ -54,11 +54,13 @@ import Data.Vector.Primitive         qualified as VP
 import Data.Vector.Primitive.Mutable qualified as MVP
 import Data.Vector.Fixed             qualified as F
 import Data.Vector.Fixed.Cont        qualified as FC
-import Data.Vector.Fixed.Cont        (ContVec(..),Fun(..))
+import Data.Vector.Fixed.Cont        (ContVec(..),runContVec,Fun(..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
 
 import Vecvec.Classes.Via
+import Vecvec.Classes
+
 
 ----------------------------------------------------------------
 -- Indexing
@@ -102,12 +104,12 @@ shape = shapeFromCVec . shapeAsCVec
 
 -- |
 nCols :: (NDim arr ~ 2, HasShape arr) => arr -> Int
-nCols v = FC.runContVec (Fun $ \_ n -> n) (shapeAsCVec v)
+nCols v = runContVec (Fun $ \_ n -> n) (shapeAsCVec v)
 {-# INLINE nCols #-}
 
 -- |
 nRows :: (NDim arr ~ 2, HasShape arr) => arr -> Int
-nRows v = FC.runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
+nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 {-# INLINE nRows #-}
 
 
@@ -203,6 +205,38 @@ deriving via AsMVector MVS.MVector s a instance VS.Storable a => HasShape (MVS.M
 deriving via AsMVector MVU.MVector s a instance VU.Unbox    a => HasShape (MVU.MVector s a)
 deriving via AsMVector MVP.MVector s a instance VP.Prim     a => HasShape (MVP.MVector s a)
 
+
+instance (HasShape arr, NDim arr ~ 2) => HasShape (Tr arr) where
+  type NDim (Tr arr) = 2
+  shapeAsCVec (Tr arr) = swapFC2 $ shapeAsCVec arr
+  {-# INLINE shapeAsCVec #-}
+
+instance (NDArray arr, NDim arr ~ 2) => NDArray (Tr arr) where
+  type Elt (Tr arr) = Elt arr
+  indexCVec       (Tr arr) = indexCVec       arr . swapFC2
+  indexCVecMaybe  (Tr arr) = indexCVecMaybe  arr . swapFC2
+  unsafeIndexCVec (Tr arr) = unsafeIndexCVec arr . swapFC2
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+
+instance (HasShape arr, NDim arr ~ 2) => HasShape (Conj arr) where
+  type NDim (Conj arr) = 2
+  shapeAsCVec (Conj arr) = swapFC2 $ shapeAsCVec arr
+  {-# INLINE shapeAsCVec #-}
+
+instance (NDArray arr, NDim arr ~ 2, NormedScalar (Elt arr)) => NDArray (Conj arr) where
+  type Elt (Conj arr) = Elt arr
+  indexCVec       (Conj arr) = conjugate      . indexCVec       arr . swapFC2
+  indexCVecMaybe  (Conj arr) = fmap conjugate . indexCVecMaybe  arr . swapFC2
+  unsafeIndexCVec (Conj arr) = conjugate      . unsafeIndexCVec arr . swapFC2
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+
+swapFC2 :: ContVec 2 a -> ContVec 2 a
+swapFC2 (ContVec cont) = ContVec $ \(Fun f) -> cont (Fun $ flip f)
+{-# INLINE swapFC2 #-}
 
 
 ----------------------------------------------------------------
