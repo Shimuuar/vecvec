@@ -33,7 +33,7 @@ jobs:
         cabal-version: ${{ matrix.cabal }}
     # ----------------
     - name: "openblas"
-      run:  "sudo apt-get install libopenblas-dev"
+      run:  "sudo apt-get install libopenblas-dev liblapack-dev"
     # ----------------
     - uses: actions/cache@v1
       name: Cache ~/.cabal/store
