@@ -12,6 +12,7 @@ in
 pkgs.mkShell {
   buildInputs = with pkgs; [
     openblasCompat
+    lapack
     pkgs_hask
   ];
   shellHook = ''

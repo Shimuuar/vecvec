@@ -104,7 +104,7 @@ foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CRepr Ma
 --   type class to provide overloading.
 --
 --   There're only 4 instances excluding newtypes.
-class (Num a, Storable a) => LAPACKy a where
+class (NormedScalar a, Storable a) => LAPACKy a where
   -- | Computes a vector-scalar product and adds the result to a vector.
   --
   -- > y := a*x + y
@@ -184,6 +184,21 @@ class (Num a, Storable a) => LAPACKy a where
     -> CInt                  -- ^ Leading dimension for @C@
     -> IO ()
 
+  -- | LAPACK driver routine for computing SVD decomposition
+  --   \(A=U\Sigma{}V^T\).
+  gesdd
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CChar              -- ^ Job variant
+    -> CInt               -- ^ @m@ number of rows of @A@
+    -> CInt               -- ^ @n@ number of columns of @A@
+    -> Ptr a              -- ^ Matrix @A@
+    -> CInt               -- ^ Leading dimension size of @A@
+    -> Ptr (R a)          -- ^ Vector of singular values @min(m,n)@
+    -> Ptr a              -- ^ Buffer for matrix @U@
+    -> CInt               -- ^ Leading dimension size of @U@
+    -> Ptr a              -- ^ Buffer for matrix @tr(V)@
+    -> CInt               -- ^ Leading dimension of @tr(V)@
+    -> IO CInt
 
 
 instance LAPACKy Float where
@@ -195,6 +210,8 @@ instance LAPACKy Float where
   nrm2 = s_nrm2
   gemv = s_gemv
   gemm = s_gemm
+  -- LAPACK
+  gesdd = c_sgesdd
 
 instance LAPACKy Double where
   axpy = d_axpy
@@ -205,6 +222,8 @@ instance LAPACKy Double where
   nrm2 = d_nrm2
   gemv = d_gemv
   gemm = d_gemm
+  -- LAPACK
+  gesdd = c_dgesdd
 
 instance LAPACKy (Complex Float) where
   copy = c_copy
@@ -244,7 +263,8 @@ instance LAPACKy (Complex Float) where
         poke p_α α
         poke p_β β
         c_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
-
+  -- LAPACK
+  gesdd = c_cgesdd
 
 instance LAPACKy (Complex Double) where
   copy = z_copy
@@ -284,10 +304,12 @@ instance LAPACKy (Complex Double) where
         poke p_α α
         poke p_β β
         z_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
+  -- LAPACK
+  gesdd = c_zgesdd
 
 
 ----------------------------------------------------------------
--- FFI
+-- BLAS FFI
 ----------------------------------------------------------------
 
 foreign import CCALL unsafe "cblas.h cblas_saxpy" s_axpy :: CInt -> S     -> ARR S (ARR S (IO ()))
@@ -393,3 +415,45 @@ foreign import CCALL unsafe "cblas.h cblas_zgemm" z_gemm
   -> Ptr Z
   -> Ptr Z -> CInt
   -> IO ()
+
+
+----------------------------------------------------------------
+-- LAPACK FFI
+----------------------------------------------------------------
+
+-- We have to use ccall.
+foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
+  :: CRepr MatrixLayout -> CChar
+  -> CInt -> CInt
+  -> Ptr Float -> CInt
+  -> Ptr Float
+  -> Ptr Float -> CInt
+  -> Ptr Float -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
+  :: CRepr MatrixLayout -> CChar
+  -> CInt -> CInt
+  -> Ptr Double -> CInt
+  -> Ptr Double
+  -> Ptr Double -> CInt
+  -> Ptr Double -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
+  :: CRepr MatrixLayout -> CChar
+  -> CInt -> CInt
+  -> Ptr (Complex Float) -> CInt
+  -> Ptr Float
+  -> Ptr (Complex Float) -> CInt
+  -> Ptr (Complex Float) -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
+  :: CRepr MatrixLayout -> CChar
+  -> CInt -> CInt
+  -> Ptr (Complex Double) -> CInt
+  -> Ptr Double
+  -> Ptr (Complex Double) -> CInt
+  -> Ptr (Complex Double) -> CInt
+  -> IO CInt

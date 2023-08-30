@@ -37,6 +37,7 @@ Library
     Vecvec.LAPACK.Vector.Mutable
     Vecvec.LAPACK.Matrix.Dense
     Vecvec.LAPACK.Matrix.Dense.Mutable
+    Vecvec.LAPACK.Matrix.Decomposition
     --
     Vecvec.LAPACK.Internal.Vector
     Vecvec.LAPACK.Internal.Vector.Mutable
