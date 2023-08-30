@@ -25,6 +25,6 @@ Library
   Build-Depends:        base             >=4.12 && <5
                       , vecvec-classes
                       , storable-complex >=0.2.2
-  extra-libraries:      openblas lapack
+  extra-libraries:      openblas lapacke
   Exposed-modules:
     Vecvec.LAPACK.FFI
