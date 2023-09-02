@@ -54,8 +54,10 @@ test-suite vecvec-lapack-tests
   hs-source-dirs:   tests
   main-is:          main.hs
   other-modules:    TST.Model
+                    TST.MatMul
                     TST.Slice
                     TST.Orphanage
+                    TST.VectorSpace
                     TST.Vector.Boilerplater
                     TST.Vector.Utilities
                     TST.Vector.Property
