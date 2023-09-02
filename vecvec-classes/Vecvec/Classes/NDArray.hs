@@ -6,11 +6,13 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 -- | Type classes for working with N-dimensional possibly sparse
 -- arrays. All indices are assumed to be 0-based. No assumptions about
 -- data layout in memory are made.
@@ -27,6 +29,8 @@ module Vecvec.Classes.NDArray
   , (!?)
   , unsafeIndex
   , IsShape(..)
+  , pattern N1
+  , pattern N2
     -- * Slicing
   , Slice(..)
   , slice
@@ -112,7 +116,19 @@ nRows :: (NDim arr ~ 2, HasShape arr) => arr -> Int
 nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 {-# INLINE nRows #-}
 
+pattern N1 :: IsShape shape 1 => Int -> shape
+pattern N1 i <- (runContVec (Fun id) . shapeToCVec @_ @1 -> i)
+  where
+    N1 i = shapeFromCVec (FC.mk1 i)
+{-# INLINE N1 #-}
+{-# COMPLETE N1 #-}
 
+pattern N2 :: IsShape shape 2 => Int -> Int -> shape
+pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j))
+  where
+    N2 i j = shapeFromCVec (FC.mk2 i j)
+{-# INLINE N2 #-}
+{-# COMPLETE N2 #-}
 
 -- | Type class for N-dimensional arrays where each dimension is
 --   zero-indexed. There's no restriction on actual representation
