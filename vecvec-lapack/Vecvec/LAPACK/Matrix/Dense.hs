@@ -23,6 +23,8 @@ module Vecvec.LAPACK.Matrix.Dense
     -- ** Access
   , getRow
   , getCol
+  , all
+  , any
     -- * Unsafe functions
   , unsafeIndex
   , unsafeGetRow
