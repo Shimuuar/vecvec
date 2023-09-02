@@ -1,10 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -12,17 +15,26 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE ViewPatterns               #-}
 -- |
--- We want to test that we correctly defined all instances for vectors
--- and matrices. However testing floating point arithmetics is
--- notoriously tricky. In this case we however have a cure. Our
--- operations involve only addition and small number of multiplication
--- so if we limit ourselves to small integers we wont encounter any
--- rounding!
-module TST.Model (tests) where
+-- Tools for writing tests for linear algebra.
+module TST.Model
+  ( -- * Arbitrary extensions
+    ScalarModel(..)
+  , ArbitraryShape(..)
+  , X(..)
+    -- * Models
+  , IsModel(..)
+  , Model(..)
+  , Pair(..)
+  , ModelVec(..)
+  , ModelMat(..)
+    -- * Helpers
+  , genSize
+  , qualTypeName
+  ) where
 
 import Control.Monad
-import Data.Coerce
 import Data.Complex          (Complex(..))
 import Data.Kind             (Type)
 import Data.Function         (on)
@@ -30,9 +42,9 @@ import Data.Typeable
 import Data.List             (intercalate,transpose)
 import Foreign.Storable      (Storable)
 import Linear.Matrix         ((!*), (!*!))
-import Test.Tasty
 import Test.Tasty.QuickCheck
 
+import Data.Vector.Fixed.Cont qualified as FC
 import Data.Vector.Generic   qualified as VG
 import Data.Vector           qualified as V
 import Data.Vector.Unboxed   qualified as VU
@@ -43,374 +55,101 @@ import Vecvec.Classes.NDArray
 import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
-import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 import TST.Orphanage ()
 
 
-tests :: TestTree
-tests = testGroup "classes"
-  [ testGroup "Vector space instances"
-    [ props_inner_space @(VV.Vec S)
-    , props_inner_space @(VV.Vec D)
-    , props_inner_space @(VV.Vec C)
-    , props_inner_space @(VV.Vec Z)
-      -- Matrix
-    , props_vector_space @(Matrix S)
-    , props_vector_space @(Matrix D)
-    , props_vector_space @(Matrix C)
-    , props_vector_space @(Matrix Z)
-      -- Vector instances
-    , props_inner_space @(V.Vector  Double)
-    , props_inner_space @(VU.Vector Double)
-    , props_inner_space @(VS.Vector Double)
-    ]
-  , testGroup "MatMul"
-    [ prop_matmul_scal @(Tr (V.Vector  Double)) @(V.Vector  Double)
-    , prop_matmul_scal @(Tr (VS.Vector Double)) @(VS.Vector Double)
-    , prop_matmul_scal @(Tr (VU.Vector Double)) @(VU.Vector Double)
-    , prop_matmul_scal @(Conj (V.Vector  Z)) @(V.Vector  Z)
-    , prop_matmul_scal @(Conj (VS.Vector Z)) @(VS.Vector Z)
-    , prop_matmul_scal @(Conj (VU.Vector Z)) @(VU.Vector Z)
-      -- BLAS vectors
-    , prop_matmul_scal @(Tr   (VV.Vec S)) @(VV.Vec S)
-    , prop_matmul_scal @(Tr   (VV.Vec D)) @(VV.Vec D)
-    , prop_matmul_scal @(Tr   (VV.Vec C)) @(VV.Vec C)
-    , prop_matmul_scal @(Tr   (VV.Vec Z)) @(VV.Vec Z)
-    , prop_matmul_scal @(Conj (VV.Vec S)) @(VV.Vec S)
-    , prop_matmul_scal @(Conj (VV.Vec D)) @(VV.Vec D)
-    , prop_matmul_scal @(Conj (VV.Vec C)) @(VV.Vec C)
-    , prop_matmul_scal @(Conj (VV.Vec Z)) @(VV.Vec Z)
-      -- Matrix-vector
-    , prop_matmul @(Matrix S)        @(VV.Vec S)
-    , prop_matmul @(Matrix D)        @(VV.Vec D)
-    , prop_matmul @(Matrix C)        @(VV.Vec C)
-    , prop_matmul @(Matrix Z)        @(VV.Vec Z)
-    , prop_matmul @(Tr (Matrix S))   @(VV.Vec S)
-    , prop_matmul @(Tr (Matrix D))   @(VV.Vec D)
-    , prop_matmul @(Tr (Matrix C))   @(VV.Vec C)
-    , prop_matmul @(Tr (Matrix Z))   @(VV.Vec Z)
-    , prop_matmul @(Conj (Matrix S)) @(VV.Vec S)
-    , prop_matmul @(Conj (Matrix D)) @(VV.Vec D)
-    , prop_matmul @(Conj (Matrix C)) @(VV.Vec C)
-    , prop_matmul @(Conj (Matrix Z)) @(VV.Vec Z)
-      -- Matrix-matrix
-      -- 1.
-    , prop_matmul @(Matrix S)        @(Matrix S)
-    , prop_matmul @(Matrix D)        @(Matrix D)
-    , prop_matmul @(Matrix C)        @(Matrix C)
-    , prop_matmul @(Matrix Z)        @(Matrix Z)
-    , prop_matmul @(Tr (Matrix S))   @(Matrix S)
-    , prop_matmul @(Tr (Matrix D))   @(Matrix D)
-    , prop_matmul @(Tr (Matrix C))   @(Matrix C)
-    , prop_matmul @(Tr (Matrix Z))   @(Matrix Z)
-    , prop_matmul @(Conj (Matrix S)) @(Matrix S)
-    , prop_matmul @(Conj (Matrix D)) @(Matrix D)
-    , prop_matmul @(Conj (Matrix C)) @(Matrix C)
-    , prop_matmul @(Conj (Matrix Z)) @(Matrix Z)
-      -- 2.
-    , prop_matmul @(Matrix S)        @(Tr (Matrix S))
-    , prop_matmul @(Matrix D)        @(Tr (Matrix D))
-    , prop_matmul @(Matrix C)        @(Tr (Matrix C))
-    , prop_matmul @(Matrix Z)        @(Tr (Matrix Z))
-    , prop_matmul @(Tr (Matrix S))   @(Tr (Matrix S))
-    , prop_matmul @(Tr (Matrix D))   @(Tr (Matrix D))
-    , prop_matmul @(Tr (Matrix C))   @(Tr (Matrix C))
-    , prop_matmul @(Tr (Matrix Z))   @(Tr (Matrix Z))
-    , prop_matmul @(Conj (Matrix S)) @(Tr (Matrix S))
-    , prop_matmul @(Conj (Matrix D)) @(Tr (Matrix D))
-    , prop_matmul @(Conj (Matrix C)) @(Tr (Matrix C))
-    , prop_matmul @(Conj (Matrix Z)) @(Tr (Matrix Z))
-      -- 3.
-    , prop_matmul @(Matrix S)        @(Conj (Matrix S))
-    , prop_matmul @(Matrix D)        @(Conj (Matrix D))
-    , prop_matmul @(Matrix C)        @(Conj (Matrix C))
-    , prop_matmul @(Matrix Z)        @(Conj (Matrix Z))
-    , prop_matmul @(Tr (Matrix S))   @(Conj (Matrix S))
-    , prop_matmul @(Tr (Matrix D))   @(Conj (Matrix D))
-    , prop_matmul @(Tr (Matrix C))   @(Conj (Matrix C))
-    , prop_matmul @(Tr (Matrix Z))   @(Conj (Matrix Z))
-    , prop_matmul @(Conj (Matrix S)) @(Conj (Matrix S))
-    , prop_matmul @(Conj (Matrix D)) @(Conj (Matrix D))
-    , prop_matmul @(Conj (Matrix C)) @(Conj (Matrix C))
-    , prop_matmul @(Conj (Matrix Z)) @(Conj (Matrix Z))
-    ]
-  ]
+----------------------------------------------------------------
+-- Extending arbitrary
+----------------------------------------------------------------
 
--- Tests for vector space implementation
-props_inner_space
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
-                 , Eq (R a), Show (R a), ScalarModel a, Show a, Eq a
-                 )
-  => TestTree
-props_inner_space = testGroup (prop_name @v)
-  [ prop_addition_correct    @v
-  , prop_subtraction_correct @v
-  , prop_negation_correct    @v
-  , prop_lmul_scalar         @v
-  , prop_rmul_scalar         @v
-  , prop_scalar_product      @v
-  , prop_magnitude           @v
-  ]
+-- | We want to test that multiplication return correct result without
+--   going into dark forest of floating point. This is achieved by
+--   exploiting fact that multiplication and addition small integers
+--   are exact in floating point.
+class Arbitrary a => ScalarModel a where
+  genScalar    :: Gen a
+  shrinkScalar :: a -> [a]
 
--- Tests for vector space implementation
-props_vector_space
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
-                 )
-  => TestTree
-props_vector_space = testGroup (prop_name @v)
-  [ prop_addition_correct    @v
-  , prop_subtraction_correct @v
-  , prop_negation_correct    @v
-  , prop_lmul_scalar         @v
-  , prop_rmul_scalar         @v
-  ]
+instance ScalarModel Float where
+  genScalar = fromIntegral <$> choose @Int (-10, 10)
+  shrinkScalar = \case
+    0 -> []
+    1 -> [0]
+    _ -> [0,1]
+
+instance ScalarModel Double where
+  genScalar = fromIntegral <$> choose @Int (-10, 10)
+  shrinkScalar = \case
+    0 -> []
+    1 -> [0]
+    _ -> [0,1]
+
+instance (RealFloat a, ScalarModel a) => ScalarModel (Complex a) where
+  genScalar = (:+) <$> genScalar <*> genScalar
+  shrinkScalar = \case
+    0      -> []
+    1      -> [0, 0:+1]
+    0 :+ 1 -> [0, 1]
+    _      -> [0, 1, 0:+1]
+
+-- | Scalar which uses @ScalarModel@ for generation
+newtype X a = X a
+  deriving newtype Show
+
+instance ScalarModel a => Arbitrary (X a) where
+  arbitrary = X <$> genScalar
 
 
-prop_name :: forall v. (Typeable v) => String
-prop_name = intercalate " "
-          $ tyConModule con <> "." <> tyConName con
-          : map show par
-  where
-    tyV = typeRep (Proxy @v)
-    (con,par) = splitTyConApp tyV
 
+-- | Generate random NDarray with specified shape
+class (Arbitrary a, HasShape a) => ArbitraryShape a where
+  arbitraryShape :: (IsShape shape (NDim a)) => shape -> Gen a
 
--- Model evaluate addition in the same way as implementation
-prop_addition_correct
-  :: forall v. ( IsModel v, AdditiveSemigroup v, AdditiveSemigroup (Model v))
-  => TestTree
-prop_addition_correct
-  = testProperty "Addition"
-  $ \(Pair m1 m2) ->
-      let v1 = fromModel m1 :: v
-          v2 = fromModel m2 :: v
-          m  = m1 .+. m2
-          v  = v1 .+. v2
-      in id $ counterexample ("MODEL = " ++ show m)
-            $ counterexample ("IMPL  = " ++ show v)
-            $ v == fromModel m
+instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Tr a) where
+  arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
--- Model evaluate subtraction in the same way as implementation
-prop_subtraction_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
-  => TestTree
-prop_subtraction_correct
-  = testProperty "Subtraction"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
-                         v2 = fromModel m2 :: v
-                         m  = m1 .-. m2
-                         v  = v1 .-. v2
-                     in v == fromModel m
+instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Conj a) where
+  arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
 
--- Model evaluate negation in the same way as implementation
-prop_negation_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
-  => TestTree
-prop_negation_correct
-  = testProperty "Negation"
-  $ \m1 -> let v1 = fromModel m1 :: v
-               m  = negateV m1
-               v  = negateV v1
-           in v == fromModel m
-
--- Model evaluates multiplication by scalar on the left
-prop_lmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
-                 )
-  => TestTree
-prop_lmul_scalar
-  = testProperty "Left scalar multiplication"
-  $ \(X a) m1 ->
-      let v1 = fromModel m1 :: v
-          m  = a *. m1
-          v  = a *. v1
-      in id $ counterexample ("MODEL = " ++ show m)
-            $ counterexample ("IMPL  = " ++ show v)
-            $ v == fromModel m
-
--- Model evaluates multiplication by scalar on the right
-prop_rmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
-                 )
-  => TestTree
-prop_rmul_scalar
-  = testProperty "Right scalar multiplication"
-  $ \(X a) m1 ->
-      let v1 = fromModel m1 :: v
-          m  = m1 .* a
-          v  = v1 .* a
-      in id $ counterexample ("MODEL = " ++ show m)
-            $ counterexample ("IMPL  = " ++ show v)
-            $ v == fromModel m
-
-
--- Model evaluates scalar product in the same way
-prop_scalar_product
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
-                 , a ~ Scalar v
-                 , a ~ Scalar (Model v)
-                 , Eq a)
-  => TestTree
-prop_scalar_product
-  = testProperty "Scalar product"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
-                         v2 = fromModel m2 :: v
-                         rV = v1 <.> v2
-                         rM = (m1 <.> m2)
-                     in rV == rM
-
--- Model evaluates magnitude in the same way
-prop_magnitude
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
-                 , a ~ Scalar v
-                 , a ~ Scalar (Model v)
-                 , Eq (R a), Show (R a))
-  => TestTree
-prop_magnitude
-  = testProperty "Magnitude"
-  $ \m -> let v = fromModel m :: v
-              rV = magnitudeSq v
-              rM = magnitudeSq m
-          in id $ counterexample ("Model: " ++ show rM)
-                $ counterexample ("Impl:  " ++ show rV)
-                $ rV == rM
-
-
--- Test for generalized matrix-vector multiplication.
-prop_matmul
-  :: forall v1 v2 vR.
-     ( IsModel v1
-     , IsModel v2
-     , IsModel vR
-     , MatMul (ModelRepr v1) (ModelRepr v2) (ModelRepr vR)
-     , MatMul v1 v2 vR
-     , Arbitrary (MM (ModelRepr v1) (ModelRepr v2))
-     )
-  => TestTree
-prop_matmul
-  = testProperty (prop_name @v1 ++ " x " ++ prop_name @v2)
-  $ \(MM mr1 mr2) ->
-      let m1 = Model mr1    :: Model v1
-          m2 = Model mr2    :: Model v2
-          v1 = fromModel m1 :: v1
-          v2 = fromModel m2 :: v2
-          m  = mr1 @@ mr2
-          v  = v1  @@ v2
-      in id $ counterexample ("MODEL = " ++ show m)
-            $ counterexample ("IMPL  = " ++ show v)
-            $ v == fromModel (Model m)
-
--- Test for generalized matrix-vector multiplication when result is scalar
-prop_matmul_scal
-  :: forall v1 v2 r.
-     ( IsModel v1
-     , IsModel v2
-     , MatMul (ModelRepr v1) (ModelRepr v2) r
-     , MatMul v1 v2 r
-     , Arbitrary (MM (ModelRepr v1) (ModelRepr v2))
-     , Eq r
-     )
-  => TestTree
-prop_matmul_scal
-  = testProperty (prop_name @v1 ++ " " ++ prop_name @v2)
-  $ \(MM mr1 mr2) ->
-      let m1 = Model mr1    :: Model v1
-          m2 = Model mr2    :: Model v2
-          v1 = fromModel m1 :: v1
-          v2 = fromModel m2 :: v2
-          m  = mr1 @@ mr2
-          v  = v1  @@ v2
-      in v == m
 
 
 ----------------------------------------------------------------
 -- Models
 ----------------------------------------------------------------
 
--- | Generate stride for vectors
-genStride :: Gen Int
-genStride = choose (1,3)
+-- | Type class for models. That is data types which implements same
+-- operations in simpler way.
+class ( ArbitraryShape (ModelRepr v)
+      , Typeable v
+      , Eq v
+      , Show v
+      , Show (ModelRepr v)
+      ) => IsModel v where
+  -- | Representation of a model. It may include unobservable
+  --   information such as memory layout of vector or matrix
+  type ModelRepr v :: Type
+  -- | Convert model to actual data type
+  fromModel :: Model v -> v
 
--- | Generate offset for matrices
-genOffset :: Gen Int
-genOffset = choose (0,3)
-
--- | Generate value with same size
-class Arbitrary a => GenSameSize a where
-  type ShapeGen a
-  shapeGen :: a -> ShapeGen a
-  withSize :: ShapeGen a -> Gen a
-
-sameSize :: GenSameSize a => a -> Gen a
-sameSize = withSize . shapeGen
-
-
-instance GenSameSize Float  where
-  type ShapeGen Float = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-instance GenSameSize Double where
-  type ShapeGen Double = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-instance ScalarModel a => GenSameSize (Complex a) where
-  type ShapeGen (Complex a) = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-
-
-deriving newtype instance GenSameSize a => GenSameSize (Tr   a)
-deriving newtype instance GenSameSize a => GenSameSize (Conj a)
-
--- | Generate small exactly representable numbers
-class Arbitrary a => ScalarModel a where
-  genScalar :: Gen a
-
-instance ScalarModel Float where
-  genScalar = fromIntegral <$> choose @Int (-10, 10)
-instance ScalarModel Double where
-  genScalar = fromIntegral <$> choose @Int (-10, 10)
-instance ScalarModel a => ScalarModel (Complex a) where
-  genScalar = (:+) <$> genScalar <*> genScalar
-
--- | New type for model.
+-- | Newtype wrapper for model.
 newtype Model v = Model { unModel :: ModelRepr v }
 
 deriving newtype instance Show               (ModelRepr v) => Show               (Model v)
 deriving newtype instance Arbitrary          (ModelRepr v) => Arbitrary          (Model v)
-deriving newtype instance GenSameSize        (ModelRepr v) => GenSameSize        (Model v)
+deriving newtype instance HasShape           (ModelRepr v) => HasShape           (Model v)
+deriving newtype instance ArbitraryShape     (ModelRepr v) => ArbitraryShape     (Model v)
 deriving newtype instance AdditiveSemigroup  (ModelRepr v) => AdditiveSemigroup  (Model v)
 deriving newtype instance AdditiveQuasigroup (ModelRepr v) => AdditiveQuasigroup (Model v)
 deriving newtype instance VectorSpace        (ModelRepr v) => VectorSpace        (Model v)
 deriving newtype instance InnerSpace         (ModelRepr v) => InnerSpace         (Model v)
 
 
-
--- | Type class which
-class ( GenSameSize (ModelRepr v)
-      , Typeable v
-      , Eq v
-      , Show v
-      , Show (ModelRepr v)
-      ) => IsModel v where
-  type ModelRepr v :: Type
-  fromModel :: Model v -> v
-
-instance IsModel Double where
-  type ModelRepr Double = Double
-  fromModel = coerce
-
-instance (Storable a, Show a, Eq a, Typeable a, ScalarModel a) => IsModel (VV.Vec a) where
+instance (Storable a, Num a, Show a, Eq a, Typeable a, ScalarModel a) => IsModel (VV.Vec a) where
   type ModelRepr (VV.Vec a) = (ModelVec a)
   fromModel (Model (ModelVec stride xs))
-    = slice ((0,End) `Strided` stride) $ VG.fromList $ replicate stride =<< xs
+    = slice ((0,End) `Strided` stride)
+    $ VG.fromList
+    $ (\n -> n : replicate (stride-1) 0) =<< xs
 
 instance (Typeable a, Show a, Eq a, ScalarModel a) => IsModel (V.Vector a) where
   type ModelRepr (V.Vector a) = ModelVec a
@@ -434,12 +173,11 @@ instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel
     where
       nC = modelMatCols m
 
-
-instance IsModel a => IsModel (Tr a) where
+instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Tr a) where
   type ModelRepr (Tr a) = Tr (ModelRepr a)
   fromModel (Model (Tr a)) = Tr $ fromModel (Model a)
 
-instance IsModel a => IsModel (Conj a) where
+instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Conj a) where
   type ModelRepr (Conj a) = Conj (ModelRepr a)
   fromModel (Model (Conj a)) = Conj $ fromModel (Model a)
 
@@ -454,18 +192,20 @@ data ModelVec a = ModelVec { modelVecStride :: !Int
                            }
   deriving stock (Show)
 
+instance HasShape (ModelVec a) where
+  type NDim (ModelVec a) = 1
+  shapeAsCVec = FC.mk1 . length . unModelVec
+
 instance ScalarModel a => Arbitrary (ModelVec a) where
-  arbitrary = ModelVec <$> genStride <*> listOf genScalar
+  arbitrary = arbitraryShape =<< genSize @Int
   shrink (ModelVec n xs) = do
     n' <- case n of 1 -> [1]
                     _ -> [1,n]
     x  <- shrinkList (const []) xs
     return $ ModelVec n' x
 
-instance ScalarModel a => GenSameSize (ModelVec a) where
-  type ShapeGen (ModelVec a) = Int
-  shapeGen = length . unModelVec
-  withSize n = ModelVec <$> genStride <*> replicateM n genScalar
+instance ScalarModel a => ArbitraryShape (ModelVec a) where
+  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
 
 -- FIXME: We need to implement checks than values have same size
 instance Num a => AdditiveSemigroup (ModelVec a) where
@@ -484,64 +224,16 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
   ModelVec _ xs <.> ModelVec _ ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
   magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
 
+
+
 ----------------------------------------------------------------
 -- Model for matrix/vector multiplication
 ----------------------------------------------------------------
 
-instance (a ~ Scalar a, VectorSpace a, Num a) => MatMul (Tr (ModelVec a)) (ModelVec a) a where
-  Tr a @@ b = sum $ (zipWith (*) `on` unModelVec) a b
-
-instance (a ~ Scalar a, VectorSpace a, NormedScalar a) => MatMul (Conj (ModelVec a)) (ModelVec a) a where
-  Conj a @@ b = sum $ (zipWith (\x y -> conjugate x * y) `on` unModelVec) a b
-
-instance (Num a) => MatMul (ModelMat a) (ModelVec a) (ModelVec a) where
-  m @@ v = ModelVec 1 $ unModelMat m !* unModelVec v
-
-instance (Num a) => MatMul (Tr (ModelMat a)) (ModelVec a) (ModelVec a) where
-  Tr m @@ v = ModelVec 1 $ transpose (unModelMat m) !* unModelVec v
-
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a) where
-  Conj m @@ v = ModelVec 1 $ m' !* unModelVec v
-    where m' = (fmap . fmap) conjugate $ transpose $ unModelMat m
-
-
-
-
-
-instance (NormedScalar a) => MatMul       (ModelMat a)        (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul       (ModelMat a)  (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul       (ModelMat a)  (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-
-
--- | Type class for values that could be represented as matrices
-class IsModelMat m a where
-  toModelMat :: m -> ModelMat a
-
-instance a ~ a' => IsModelMat (ModelMat a) a' where
-  toModelMat = id
-instance a ~ a' => IsModelMat (Tr (ModelMat a)) a' where
-  toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
-instance (NormedScalar a, a ~ a') => IsModelMat (Conj (ModelMat a)) a' where
-  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
-
--- | Default model implementation of matrix-matrix multiplication
-defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
-defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
-
-
-----------------------------------------------------------------
--- Model for dense matrices
-----------------------------------------------------------------
-
+-- | Model for general dense matrices
 data ModelMat a = ModelMat
-  { padRows    :: !Int
-  , padCols    :: !Int
+  { padRows    :: !Int  -- ^ Extra padding for rows
+  , padCols    :: !Int  -- ^ Extra padding for columns
   , unModelMat :: [[a]]
   }
   deriving stock (Show,Eq)
@@ -551,27 +243,25 @@ modelMatCols m = case unModelMat m of
   []  -> 0
   x:_ -> length x
 
-modelMatRows :: ModelMat a -> Int
-modelMatRows = length . unModelMat
+instance HasShape (ModelMat a) where
+  type NDim (ModelMat a) = 2
+  shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
 
-instance ScalarModel a => Arbitrary (ModelMat a) where
-  arbitrary = do
-    cols <- arbitrary
-    row  <- mapM (const genScalar) (() : cols)
-    rows <- listOf $ unModelVec <$> sameSize (ModelVec 1 row)
-    r    <- genOffset
-    c    <- genOffset
-    pure $ ModelMat r c (row:rows)
-  shrink ModelMat{..} = do
+instance (ScalarModel a, Eq a) => Arbitrary (ModelMat a) where
+  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  shrink mat0@ModelMat{..} = do
     p_r <- case padRows of 0 -> [0]; _ -> [0,padRows]
     p_c <- case padCols of 0 -> [0]; _ -> [0,padCols]
-    [ModelMat{ padRows = p_r, padCols = p_c, .. }]
+    p_elem <- (traverse . traverse) shrinkScalar unModelMat
+    let mat = ModelMat p_r p_c p_elem
+    guard (mat /= mat0)
+    return mat
 
-instance ScalarModel a => GenSameSize (ModelMat a) where
-  type ShapeGen (ModelMat a) = (Int,Int)
-  shapeGen m = (modelMatRows m, modelMatCols m)
-  withSize (m,n) = ModelMat
-    <$> genOffset <*> genOffset
+instance (Eq a, ScalarModel a) => ArbitraryShape (ModelMat a) where
+  arbitraryShape (N2 m n)
+     = ModelMat
+    <$> genOffset
+    <*> genOffset
     <*> replicateM m (replicateM n genScalar)
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
@@ -587,6 +277,45 @@ instance Num a => VectorSpace (ModelMat a) where
   ModelMat _ _ xs .* a = ModelMat 0 0 $ (fmap . fmap) (*a) xs
 
 
+
+-- | Data types which could be converted to matrix model
+class IsModelMat m a where
+  toModelMat :: m -> ModelMat a
+
+instance a ~ a' => IsModelMat (ModelMat a) a' where
+  toModelMat = id
+instance a ~ a' => IsModelMat (Tr (ModelMat a)) a' where
+  toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
+instance (NormedScalar a, a ~ a') => IsModelMat (Conj (ModelMat a)) a' where
+  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
+
+
+instance (Num a) => MatMul (ModelMat a) (ModelVec a) (ModelVec a) where
+  m @@ v = ModelVec 1 $ unModelMat m !* unModelVec v
+
+instance (Num a) => MatMul (Tr (ModelMat a)) (ModelVec a) (ModelVec a) where
+  m @@ v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
+
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a) where
+  m @@ v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
+
+
+instance (NormedScalar a) => MatMul       (ModelMat a)        (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul       (ModelMat a)  (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul       (ModelMat a)  (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+
+-- | Default model implementation of matrix-matrix multiplication
+defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
+defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
+
+
+
 ----------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------
@@ -596,92 +325,31 @@ data Pair v = Pair (Model v) (Model v)
 
 deriving stock instance Show (Model v) => Show (Pair v)
 
-instance IsModel v => Arbitrary (Pair v) where
-  arbitrary = do m1 <- arbitrary
-                 m2 <- sameSize m1
-                 pure $ Pair m1 m2
-
--- | Scalar which uses @ScalarModel@ for generation
-newtype X a = X a
-  deriving newtype Show
-
-instance ScalarModel a => Arbitrary (X a) where
-  arbitrary = X <$> genScalar
-
-
-data MM a b = MM a b
-
-instance (Show a, Show b) => Show (MM a b) where
-  show (MM a b) = show a ++ "\n" ++ show b
-
-instance (ScalarModel a) => Arbitrary (MM (Tr (ModelVec a)) (ModelVec a)) where
+instance (IsModel v) => Arbitrary (Pair v) where
   arbitrary = do
-    Tr a <- arbitrary
-    b    <- sameSize a
-    pure $ MM (Tr a) b
+    sz <- genSize @(FC.ContVec _ _)
+    Pair <$> arbitraryShape sz <*> arbitraryShape sz
 
-instance (ScalarModel a) => Arbitrary (MM (Conj (ModelVec a)) (ModelVec a)) where
-  arbitrary = do
-    Conj a <- arbitrary
-    b      <- sameSize a
-    pure $ MM (Conj a) b
+-- | Pretty print name of type
+qualTypeName :: forall v. (Typeable v) => String
+qualTypeName = intercalate " "
+             $ tyConModule con <> "." <> tyConName con
+             : map showParam par
+  where
+    tyV = typeRep (Proxy @v)
+    (con,par) = splitTyConApp tyV
+    showParam p = case show p of
+      s | ' ' `elem` s -> "("++s++")"
+        | otherwise    -> s
 
-instance (ScalarModel a) => Arbitrary (MM (ModelMat a) (ModelVec a)) where
-  arbitrary = do
-    m <- arbitrary
-    v <- withSize (modelMatCols m)
-    pure $ MM m v
+-- | Generate size for N-dimensional array
+genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape
+genSize = shapeFromCVec <$> FC.replicateM @n (choose (1,10))
 
-instance (ScalarModel a) => Arbitrary (MM (Tr (ModelMat a)) (ModelVec a)) where
-  arbitrary = do
-    Tr m <- arbitrary
-    v    <- withSize (modelMatRows m)
-    pure $ MM (Tr m) v
+-- | Generate stride for vectors
+genStride :: Gen Int
+genStride = choose (1,3)
 
-instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelVec a)) where
-  arbitrary = do
-    Conj m <- arbitrary
-    v      <- withSize (modelMatRows m)
-    pure $ MM (Conj m) v
-
-
-
-instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (ModelMat a)) where
-  arbitrary = defaultArbitraryMM modelMatCols SharedRow (id,id)
-instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (ModelMat a)) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedRow (Tr,id)
-instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (ModelMat a)) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedRow (Conj,id)
-
-instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (Tr (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatCols SharedCol (id,Tr)
-instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (Tr (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Tr,Tr)
-instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (Tr (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Conj,Tr)
-
-instance (ScalarModel a) => Arbitrary (MM       (ModelMat a)  (Conj (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatCols SharedCol (id,Conj)
-instance (ScalarModel a) => Arbitrary (MM (Tr   (ModelMat a)) (Conj (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Tr,Conj)
-instance (ScalarModel a) => Arbitrary (MM (Conj (ModelMat a)) (Conj (ModelMat a))) where
-  arbitrary = defaultArbitraryMM modelMatRows SharedCol (Conj,Conj)
-
-
-data SharedSize = SharedRow
-                | SharedCol
-
-defaultArbitraryMM
-  :: (ScalarModel a)
-  => (ModelMat a -> Int) -- Shared size for first matrix
-  -> SharedSize
-  -> (ModelMat a -> m1, ModelMat a -> m2)
-  -> Gen (MM m1 m2)
-defaultArbitraryMM getSz shared (mk1,mk2) = do
-  m1 <- arbitrary
-  k  <- sized $ \n -> chooseInt (1, 1+n)
-  m2 <- withSize $ case shared of
-    SharedRow -> (getSz m1, k)
-    SharedCol -> (k, getSz m1)
-  pure $ MM (mk1 m1) (mk2 m2)
-
+-- | Generate offset for matrices
+genOffset :: Gen Int
+genOffset = choose (0,3)

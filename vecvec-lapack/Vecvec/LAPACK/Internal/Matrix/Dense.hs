@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -34,9 +35,13 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , eye
   , diag
   , diagF
+  , gdiag
+  , gdiagF
     -- ** Access
   , getCol
   , getRow
+  , all
+  , any
     -- * Unsafe variants
   , unsafeIndex
   , unsafeGetRow
@@ -54,7 +59,7 @@ import Data.Vector.Fixed.Cont       qualified as FC
 import Foreign.Storable
 import Foreign.Marshal.Array
 import System.IO.Unsafe
-import Prelude hiding (replicate)
+import Prelude hiding (replicate,all,any)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
@@ -405,3 +410,36 @@ diagF xs = runST $ unsafeFreeze =<< M.diagF xs
 diag :: (StorableZero a, VG.Vector v a) => v a -> Matrix a
 {-# INLINE diag #-}
 diag xs = runST $ unsafeFreeze =<< M.diag xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiagF :: (StorableZero a, Foldable f) => (Int,Int) -> f a -> Matrix a
+gdiagF sz xs = runST $ unsafeFreeze =<< M.gdiagF sz xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiag :: (StorableZero a, VG.Vector v a) => (Int,Int) -> v a -> Matrix a
+{-# INLINE gdiag #-}
+gdiag sz xs = runST $ unsafeFreeze =<< M.gdiag sz xs
+
+-- | Check that every element of matrix satisfy predicate.
+all :: (Storable a) => (a -> Bool) -> Matrix a -> Bool
+all fun mat = loop 0 0
+  where
+    -- FIXME: Factor out iteration over elements
+    (n_row,n_col) = shape mat
+    loop !i !j
+      | j >= n_col                  = loop (i+1) 0
+      | i >= n_row                  = True
+      | fun (unsafeIndex mat (i,j)) = loop i (j+1)
+      | otherwise                   = False
+
+-- | Check at least one element of matrix satisfy predicate.
+any :: (Storable a) => (a -> Bool) -> Matrix a -> Bool
+any fun mat = loop 0 0
+  where
+    -- FIXME: Factor out iteration over elements
+    (n_row,n_col) = shape mat
+    loop !i !j
+      | j >= n_col                  = loop (i+1) 0
+      | i >= n_row                  = False
+      | fun (unsafeIndex mat (i,j)) = True
+      | otherwise                   = loop i (j+1)

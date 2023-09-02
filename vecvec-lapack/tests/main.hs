@@ -1,12 +1,15 @@
 import Test.Tasty (defaultMain,testGroup)
-import qualified TST.Model
+import qualified TST.MatMul
 import qualified TST.Slice
-import qualified TST.Property
-
+import qualified TST.Vector.Property
+import qualified TST.VectorSpace
+import qualified TST.Decomposition
 
 main :: IO ()
 main = defaultMain $ testGroup "vecvec"
-  [ TST.Model.tests
+  [ TST.MatMul.tests
   , TST.Slice.tests
-  , TST.Property.tests
+  , TST.VectorSpace.tests
+  , TST.Decomposition.tests
+  , TST.Vector.Property.tests
   ]
