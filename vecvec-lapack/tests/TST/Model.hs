@@ -177,10 +177,13 @@ props_vector_space = testGroup (prop_name @v)
 prop_name :: forall v. (Typeable v) => String
 prop_name = intercalate " "
           $ tyConModule con <> "." <> tyConName con
-          : map show par
+          : map showParam par
   where
     tyV = typeRep (Proxy @v)
     (con,par) = splitTyConApp tyV
+    showParam p = case show p of
+      s | ' ' `elem` s -> "("++s++")"
+        | otherwise    -> s
 
 
 -- Model evaluate addition in the same way as implementation
