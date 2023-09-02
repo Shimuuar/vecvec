@@ -30,6 +30,7 @@ module Vecvec.Classes
   , VectorSpace(..)
   , (./)
   , NormedScalar(..)
+  , scalarNorm
   , InnerSpace(..)
   , magnitude
   , normalize
@@ -177,7 +178,9 @@ class (Num v, Num (R v)) => NormedScalar v where
   -- | Convert norm to a scalar
   fromR        :: R v -> v
 
-
+scalarNorm :: (Floating (R v), NormedScalar v) => v -> R v
+{-# INLINE scalarNorm #-}
+scalarNorm = sqrt . scalarNormSq
 
 ----------------------------------------------------------------
 -- Matrix operations
