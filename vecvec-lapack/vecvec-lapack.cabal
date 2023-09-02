@@ -71,6 +71,7 @@ test-suite vecvec-lapack-tests
                     --
                     , linear           >=1.20
                     , vector           -any
+                    , fixed-vector     -any
                     --
                     , QuickCheck
                     , random
