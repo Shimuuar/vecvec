@@ -136,6 +136,11 @@ tests = testGroup "classes"
     ]
   ]
 
+
+----------------------------------------------------------------
+--
+---------------------------------------------------------------
+
 -- Tests for vector space implementation
 props_inner_space
   :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
@@ -351,25 +356,13 @@ class Arbitrary a => GenSameSize a where
 sameSize :: GenSameSize a => a -> Gen a
 sameSize = withSize . shapeGen
 
-
-instance GenSameSize Float  where
-  type ShapeGen Float = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-instance GenSameSize Double where
-  type ShapeGen Double = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-instance ScalarModel a => GenSameSize (Complex a) where
-  type ShapeGen (Complex a) = ()
-  shapeGen _ = ()
-  withSize _ = genScalar
-
-
 deriving newtype instance GenSameSize a => GenSameSize (Tr   a)
 deriving newtype instance GenSameSize a => GenSameSize (Conj a)
 
--- | Generate small exactly representable numbers
+-- | We want to test that multiplication return correct result without
+--   going into dark forest of floating point. This is achieved by
+--   exploiting fact that multiplication and addition small integers
+--   are exact in floating point.
 class Arbitrary a => ScalarModel a where
   genScalar :: Gen a
 
@@ -402,10 +395,6 @@ class ( GenSameSize (ModelRepr v)
       ) => IsModel v where
   type ModelRepr v :: Type
   fromModel :: Model v -> v
-
-instance IsModel Double where
-  type ModelRepr Double = Double
-  fromModel = coerce
 
 instance (Storable a, Show a, Eq a, Typeable a, ScalarModel a) => IsModel (VV.Vec a) where
   type ModelRepr (VV.Vec a) = (ModelVec a)
