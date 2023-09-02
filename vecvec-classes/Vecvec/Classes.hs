@@ -390,48 +390,6 @@ deriving via AsVector VP.Vector a instance (Num a, VP.Prim a)          => Additi
 deriving via AsVector VP.Vector a instance (Num a, VP.Prim a)          => VectorSpace        (VP.Vector a)
 deriving via AsVector VP.Vector a instance (NormedScalar a, VP.Prim a) => InnerSpace         (VP.Vector a)
 
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b
-         ) => MatMul (Tr (V.Vector a)) (V.Vector b) a where
-  (@@) = vectorScalarProduct
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, VU.Unbox a
-         ) => MatMul (Tr (VU.Vector a)) (VU.Vector b) a where
-  (@@) = vectorScalarProduct
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, VS.Storable a
-         ) => MatMul (Tr (VS.Vector a)) (VS.Vector b) a where
-  (@@) = vectorScalarProduct
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, VP.Prim a
-         ) => MatMul (Tr (VP.Vector a)) (VP.Vector b) a where
-  (@@) = vectorScalarProduct
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b
-         ) => MatMul (Conj (V.Vector a)) (V.Vector b) a where
-  (@@) = vectorScalarProductC
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, VU.Unbox a
-         ) => MatMul (Conj (VU.Vector a)) (VU.Vector b) a where
-  (@@) = vectorScalarProductC
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, VS.Storable a
-         ) => MatMul (Conj (VS.Vector a)) (VS.Vector b) a where
-  (@@) = vectorScalarProductC
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, VP.Prim a
-         ) => MatMul (Conj (VP.Vector a)) (VP.Vector b) a where
-  (@@) = vectorScalarProductC
-  {-# INLINE (@@) #-}
-
-
-
 deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveSemigroup  (FB.Vec n a)
 deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveMonoid     (FB.Vec n a)
 deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveQuasigroup (FB.Vec n a)
@@ -560,15 +518,3 @@ mapWithSum :: (VG.Vector v a, Num b)
            => (a -> b) -> v a -> b
 {-# INLINE mapWithSum #-}
 mapWithSum f = Bundle.foldl' (+) 0 . Bundle.map f . VG.stream
-
-vectorScalarProduct :: (Num a, VG.Vector v a) => Tr (v a) -> v a -> a
-{-# INLINE vectorScalarProduct #-}
-vectorScalarProduct (Tr v) u
-  | VG.length v == VG.length u = VG.sum $ VG.zipWith (*) v u
-  | otherwise = error "Length mismatch"
-
-vectorScalarProductC :: (NormedScalar a, VG.Vector v a) => Conj (v a) -> v a -> a
-{-# INLINE vectorScalarProductC #-}
-vectorScalarProductC (Conj v) u
-  | VG.length v == VG.length u = VG.sum $ VG.zipWith (\a b -> conjugate a * b) v u
-  | otherwise = error "Length mismatch"
