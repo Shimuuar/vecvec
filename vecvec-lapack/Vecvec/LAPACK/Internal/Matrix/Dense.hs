@@ -34,6 +34,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , eye
   , diag
   , diagF
+  , gdiag
+  , gdiagF
     -- ** Access
   , getCol
   , getRow
@@ -405,3 +407,12 @@ diagF xs = runST $ unsafeFreeze =<< M.diagF xs
 diag :: (StorableZero a, VG.Vector v a) => v a -> Matrix a
 {-# INLINE diag #-}
 diag xs = runST $ unsafeFreeze =<< M.diag xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiagF :: (StorableZero a, Foldable f) => (Int,Int) -> f a -> Matrix a
+gdiagF sz xs = runST $ unsafeFreeze =<< M.gdiagF sz xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiag :: (StorableZero a, VG.Vector v a) => (Int,Int) -> v a -> Matrix a
+{-# INLINE gdiag #-}
+gdiag sz xs = runST $ unsafeFreeze =<< M.gdiag sz xs

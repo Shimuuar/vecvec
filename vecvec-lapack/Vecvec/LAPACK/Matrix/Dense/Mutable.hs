@@ -20,6 +20,8 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , eye
   , diagF
   , diag
+  , gdiagF
+  , gdiag
     -- ** Access
   , read
   , write

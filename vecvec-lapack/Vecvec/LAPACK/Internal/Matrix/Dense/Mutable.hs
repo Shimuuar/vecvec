@@ -36,6 +36,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , eye
   , diagF
   , diag
+  , gdiagF
+  , gdiag
     -- ** Access
   , read
   , write
@@ -364,11 +366,41 @@ diag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
 {-# INLINE diag #-}
 diag xs = stToPrim $ do
   mat <- zeros (n,n)
-  -- FIXME: is build/foldr fusion reliable here?
   VG.iforM_ xs $ \i x -> unsafeWrite mat (i,i) x
   pure mat
   where
     n = VG.length xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiagF :: (StorableZero a, Foldable f, PrimMonad m, s ~ PrimState m)
+       => (Int,Int)
+       -> f a
+       -> m (MMatrix s a)
+{-# INLINE gdiagF #-}
+gdiagF (n,k) xs
+  | len > min n k = error "Diagonal is too long"
+  | otherwise     = stToPrim $ do
+      mat <- zeros (n,k)
+      -- FIXME: is build/foldr fusion reliable here?
+      forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWrite mat (i,i) x
+      pure mat
+  where
+    len = length xs
+
+-- | Create general diagonal matrix. Diagonal elements are stored in vector.
+gdiag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+      => (Int,Int)
+      -> v a
+      -> m (MMatrix s a)
+{-# INLINE gdiag #-}
+gdiag (n,k) xs
+  | len > min n k = error "Diagonal is too long"
+  | otherwise     = stToPrim $ do
+      mat <- zeros (n,k)
+      VG.iforM_ xs $ \i x -> unsafeWrite mat (i,i) x
+      pure mat
+  where
+    len = VG.length xs
 
 
 

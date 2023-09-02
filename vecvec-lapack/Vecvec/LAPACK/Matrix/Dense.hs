@@ -18,6 +18,8 @@ module Vecvec.LAPACK.Matrix.Dense
   , eye
   , diag
   , diagF
+  , gdiag
+  , gdiagF
     -- ** Access
   , getRow
   , getCol
