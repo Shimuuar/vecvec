@@ -27,6 +27,8 @@ module TST.Model
   , IsModel(..)
   , Model(..)
   , Pair(..)
+  , ModelVec(..)
+  , ModelMat(..)
     -- * Helpers
   , genSize
   , qualTypeName

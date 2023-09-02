@@ -55,6 +55,7 @@ test-suite vecvec-lapack-tests
   main-is:          main.hs
   other-modules:    TST.Model
                     TST.MatMul
+                    TST.Decomposition
                     TST.Slice
                     TST.Orphanage
                     TST.VectorSpace
