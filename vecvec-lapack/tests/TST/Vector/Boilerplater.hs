@@ -1,7 +1,7 @@
 -- TODO this is a copy from `vector` package
 --
 {-# LANGUAGE TemplateHaskellQuotes #-}
-module Boilerplater where
+module TST.Vector.Boilerplater where
 
 import Test.Tasty.QuickCheck
 

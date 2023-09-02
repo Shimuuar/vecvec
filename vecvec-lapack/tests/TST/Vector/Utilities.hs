@@ -9,7 +9,7 @@
 {-# OPTIONS_GHC -Wno-missing-signatures    #-}
 {-# OPTIONS_GHC -fno-warn-orphans          #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
-module Utilities where
+module TST.Vector.Utilities where
 
 import Test.QuickCheck
 

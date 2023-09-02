@@ -53,12 +53,12 @@ test-suite vecvec-lapack-tests
   ghc-options:      -O2 -Wall -Wredundant-constraints -threaded
   hs-source-dirs:   tests
   main-is:          main.hs
-  other-modules:    Boilerplater
-                    Utilities
-                    TST.Model
+  other-modules:    TST.Model
                     TST.Slice
                     TST.Orphanage
-                    TST.Property
+                    TST.Vector.Boilerplater
+                    TST.Vector.Utilities
+                    TST.Vector.Property
   default-extensions: FlexibleContexts
                       ImportQualifiedPost
                       RankNTypes

@@ -9,11 +9,11 @@
 -- we almost don't edit it, but just silence the warnings.
 -- In the hope that the tests from `vector` will be separated into a separate package.
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-module TST.Property (tests) where
+module TST.Vector.Property (tests) where
 
 
-import Boilerplater
-import Utilities as Util hiding (limitUnfolds)
+import TST.Vector.Boilerplater
+import TST.Vector.Utilities as Util hiding (limitUnfolds)
 
 import           Control.Monad
 import           Control.Monad.ST
