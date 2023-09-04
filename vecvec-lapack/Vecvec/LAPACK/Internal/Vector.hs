@@ -31,6 +31,7 @@ import Text.Read
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic          qualified as VG
+import Data.Vector.Generic.New      (New(..))
 import Data.Vector.Generic.Mutable  qualified as MVG
 import Data.Vector.Fusion.Bundle    qualified as Bundle
 import Data.Vector.Fusion.Util      (liftBox)
@@ -134,27 +135,25 @@ instance VS.Storable a => VG.Vector Vec a where
 ----------------------------------------------------------------
 
 instance LAPACKy a => AdditiveSemigroup (Vec a) where
-  v .+. u = runST $ do
+  v .+. u = VG.new $ New $ do
     mr <- clone v
-    blasAxpy 1 u mr
-    VG.unsafeFreeze mr
+    mr <$ blasAxpy 1 u mr
+  -- FIXME: GHC still fires warning about rules
+  {-# NOINLINE[1] (.+.) #-}
 
 instance LAPACKy a => AdditiveQuasigroup (Vec a) where
-  v .-. u = runST $ do
+  v .-. u = VG.new $ New $ do
     mr <- clone v
-    blasAxpy -1 u mr
-    VG.unsafeFreeze mr
-  negateV v = runST $ do
+    mr <$ blasAxpy -1 u mr
+  negateV v = VG.new $ New $ do
     mr <- clone v
-    blasScal -1 mr
-    VG.unsafeFreeze mr
+    mr <$ blasScal -1 mr
 
 instance LAPACKy a => VectorSpace (Vec a) where
   type Scalar (Vec a) = a
-  a *. v = runST $ do
+  a *. v = VG.new $ New $ do
     mr <- clone v
-    blasScal a mr
-    VG.unsafeFreeze mr
+    mr <$ blasScal a mr
   (.*) = flip (*.)
 
 instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
@@ -163,3 +162,16 @@ instance (NormedScalar a, LAPACKy a) => InnerSpace (Vec a) where
   -- revert to in-haskell implementation
   {-# INLINE magnitudeSq #-}
   magnitudeSq = coerce (magnitudeSq @(AsVector Vec a))
+
+
+{-# RULES
+"Vec/reuse_add_rhs" forall
+  (v :: LAPACKy a => Vec a)
+  (u :: forall s. ST s (MVec s a)).
+  v .+. (VG.new (New u)) = VG.new (New (u >>= (\mr -> mr <$ blasAxpy 1 v mr)))
+
+"Vec/reuse_add_lhs" forall
+  (v :: LAPACKy a => Vec a)
+  (u :: forall s. ST s (MVec s a)).
+  (VG.new (New u)) .+. v = VG.new (New (u >>= (\mr -> mr <$ blasAxpy 1 v mr)))
+  #-}
