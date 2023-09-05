@@ -1,11 +1,28 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE ImportQualifiedPost   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards       #-}
 -- |
-module Vecvec.LAPACK.Matrix.Decomposition where
+module Vecvec.LAPACK.Matrix.Decomposition
+  ( -- * Linear systems
+    LinearEqRHS(..)
+  , solveLinEq
+    -- * Matrix decomposition
+  , decomposeSVD
+  ) where
 
+import Control.Monad
+import Control.Monad.ST
+import Control.Monad.Primitive
 import Foreign.Storable
+import Foreign.Marshal.Array
 import Data.Char
+import Data.Vector               qualified as V
+import Data.Vector.Unboxed       qualified as VU
+import Data.Vector.Storable      qualified as VS
+import Data.Vector.Primitive     qualified as VP
+import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Matrix.Dense
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as MM
@@ -15,6 +32,7 @@ import Vecvec.LAPACK.Internal.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
 import Vecvec.LAPACK.FFI
 import Vecvec.Classes
+import Vecvec.Classes.NDArray
 
 import System.IO.Unsafe
 
@@ -56,5 +74,90 @@ decomposeSVD a = unsafePerformIO $ do
     _ -> error "SVD failed"
 
 
+----------------------------------------------------------------
+-- Linear equation
+----------------------------------------------------------------
 
-    
+-- | When solving linear equations like \(Ax=b\) most of the work is
+--   spent on factoring matrix. Thus it's computationally advantageous
+--   to batch right hand sides of an equation. This type class exists
+--   in order to built such batches in form of matrices from haskell
+--   data structures
+--
+--   Type class is traversal like and should obey following law:
+--
+--   > rhsGetSolutions rhs (runST (rhsToMatrix rhs >>= unsafeFreeze))
+--   >   == rhs
+class LinearEqRHS rhs a where
+  -- | Convert right hand of equation to matrix where each \(b\) is
+  --   arranged as column. We need to create mutable matrix in order
+  --   to ensure that fresh buffer is allocated since LAPACK routines
+  --   frequently reuse storage.
+  rhsToMatrix     :: Storable a => rhs a -> ST s (MMatrix s a)
+  -- | Extract solutions from matrix. First argument is used to retain
+  --   information which isn't right hand sides.
+  rhsGetSolutions :: Storable a => rhs a -> Matrix a -> rhs a
+
+
+instance LinearEqRHS Matrix a where
+  rhsToMatrix     = MM.clone
+  rhsGetSolutions = const id
+
+instance LinearEqRHS [] a where
+  rhsToMatrix v = MM.fromColsFF [v]
+  rhsGetSolutions _ m = VG.toList $ getCol m 0
+
+instance LinearEqRHS Vec a where
+  rhsToMatrix v = MM.fromColsFV [v]
+  rhsGetSolutions _ m = getCol m 0
+
+instance LinearEqRHS V.Vector a where
+  rhsToMatrix v = MM.fromColsFV [v]
+  rhsGetSolutions _ m = VG.convert $ getCol m 0
+
+instance VS.Storable a => LinearEqRHS VS.Vector a where
+  rhsToMatrix v = MM.fromColsFV [v]
+  rhsGetSolutions _ m = VG.convert $ getCol m 0
+
+instance VP.Prim a => LinearEqRHS VP.Vector a where
+  rhsToMatrix v = MM.fromColsFV [v]
+  rhsGetSolutions _ m = VG.convert $ getCol m 0
+
+instance VU.Unbox a => LinearEqRHS VU.Vector a where
+  rhsToMatrix v = MM.fromColsFV [v]
+  rhsGetSolutions _ m = VG.convert $ getCol m 0
+
+
+-- | Simple solver for linear equation of the form \(Ax=b\).
+--
+--   Note that this function does not check whether matrix is
+--   ill-conditioned and may return nonsensical answers in this case.
+--
+--   /Uses GESV LAPACK routine internally/
+solveLinEq
+  :: (LinearEqRHS rhs a, LAPACKy a)
+  => Matrix a -- ^ Matrix \(A\)
+  -> rhs a
+  -> rhs a
+solveLinEq a _
+  | nRows a /= nCols a = error "Matrix A is not square"
+solveLinEq a0 rhs = unsafePerformIO $ do
+  -- Prepare right hand side and check sizes. We also need to clone
+  -- A. It gets destroyed during solution
+  MMatrix a <- MM.clone a0
+  let n = ncols a
+  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  when (nrows b /= n) $ error "Right hand dimensions don't match"
+  -- Solve equation
+  info <-
+    unsafeWithForeignPtr (buffer a) $ \ptr_a    ->
+    unsafeWithForeignPtr (buffer b) $ \ptr_b    ->
+    allocaArray n                   $ \ptr_ipiv ->
+      gesv (toCEnum RowMajor)
+        (fromIntegral n) (fromIntegral (ncols b))
+        ptr_a (fromIntegral (leadingDim a))
+        ptr_ipiv
+        ptr_b (fromIntegral (leadingDim b))
+  case info of
+    0 -> pure $ rhsGetSolutions rhs (Matrix b)
+    _ -> error "solveLinEq failed"
