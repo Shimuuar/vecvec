@@ -12,6 +12,9 @@ module Vecvec.LAPACK.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , fromRowsFV
+  , fromColsFF
+  , fromColsFV
   , replicate
   , generate
   , zeros

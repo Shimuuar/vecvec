@@ -12,6 +12,9 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , new
   , unsafeNew
   , fromRowsFF
+  , fromRowsFV
+  , fromColsFF
+  , fromColsFV
   , replicate
   , replicateM
   , generate

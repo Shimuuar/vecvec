@@ -29,6 +29,9 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , fromRowsFV
+  , fromColsFF
+  , fromColsFV
   , replicate
   , generate
   , zeros
@@ -352,10 +355,28 @@ getCol m@(Matrix M.MView{..}) i
   | i < 0 || i >= ncols = error "Out of range"
   | otherwise           = unsafeGetCol m i 
 
+
+-- | Create matrix from list of rows.
 fromRowsFF :: (Storable a, Foldable f, Foldable g)
            => f (g a) -> Matrix a
 fromRowsFF dat = runST $ unsafeFreeze =<< M.fromRowsFF dat
 
+-- | Create matrix from list of rows.
+fromRowsFV :: (Storable a, Foldable f, VG.Vector v a)
+           => f (v a) -> Matrix a
+{-# INLINE fromRowsFV #-}
+fromRowsFV dat = runST $ unsafeFreeze =<< M.fromRowsFV dat
+
+-- | Create matrix from list of columns.
+fromColsFF :: (Storable a, Foldable f, Foldable g)
+           => f (g a) -> Matrix a
+fromColsFF dat = runST $ unsafeFreeze =<< M.fromColsFF dat
+
+-- | Create matrix from list of columns..
+fromColsFV :: (Storable a, Foldable f, VG.Vector v a)
+           => f (v a) -> Matrix a
+{-# INLINE fromColsFV #-}
+fromColsFV dat = runST $ unsafeFreeze =<< M.fromColsFV dat
 
 -- | Fill matrix of given size with provided value.
 --
