@@ -28,6 +28,9 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , new
   , unsafeNew
   , fromRowsFF
+  , fromRowsFV
+  , fromColsFF
+  , fromColsFV
   , replicate
   , replicateM
   , generate
@@ -233,6 +236,7 @@ clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
   where
     n_elt = ncols * nrows
 
+-- | Create matrix from list of rows.
 fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
            => f (g a) -> m (MMatrix s a)
 fromRowsFF dat
@@ -252,6 +256,71 @@ fromRowsFF dat
   where
     nrows = length dat
     ncols = length $ head $ toList dat
+
+-- | Create matrix from list of rows.
+fromRowsFV :: (Storable a, Foldable f, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+           => f (v a) -> m (MMatrix s a)
+{-# INLINE fromRowsFV #-}
+fromRowsFV dat
+  | ncols == 0 = error "Number of columns is zero"
+  | nrows == 0 = error "Number of rows is zero"
+  | otherwise = unsafePrimToPrim $ do
+      buffer <- mallocForeignPtrArray (ncols * nrows)
+      let step ptr0 row
+            | VG.length row /= ncols = error "Row has different length"
+            | otherwise              = VG.foldM
+                (\ptr a -> advancePtr ptr 1 <$ poke ptr a)
+                ptr0 row
+      _ <- unsafeWithForeignPtr buffer $ \p -> foldM step p dat
+      pure $ MMatrix MView { leadingDim = ncols
+                           , ..
+                           }
+  where
+    nrows = length dat
+    ncols = VG.length $ head $ toList dat
+
+-- | Create matrix from list of columns.
+fromColsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
+           => f (g a) -> m (MMatrix s a)
+fromColsFF dat
+  | ncols == 0 = error "Number of columns is zero"
+  | nrows == 0 = error "Number of rows is zero"
+  | otherwise = unsafePrimToPrim $ do
+      buffer <- mallocForeignPtrArray (ncols * nrows)
+      let step ptr0 col
+            | length col /= nrows = error "Columns has different length"
+            | otherwise           = do
+                _ <- foldM (\ptr a -> advancePtr ptr ncols <$ poke ptr a) ptr0 col
+                pure $! advancePtr ptr0 1
+      _ <- unsafeWithForeignPtr buffer $ \p -> foldM step p dat
+      pure $ MMatrix MView { leadingDim = ncols
+                           , ..
+                           }
+  where
+    ncols = length dat
+    nrows = length $ head $ toList dat
+
+-- | Create matrix from list of columns.
+fromColsFV :: (Storable a, Foldable f, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+           => f (v a) -> m (MMatrix s a)
+{-# INLINE fromColsFV #-}
+fromColsFV dat
+  | ncols == 0 = error "Number of columns is zero"
+  | nrows == 0 = error "Number of rows is zero"
+  | otherwise = unsafePrimToPrim $ do
+      buffer <- mallocForeignPtrArray (ncols * nrows)
+      let step ptr0 col
+            | VG.length col /= nrows = error "Columns has different length"
+            | otherwise              = do
+                VG.foldM_ (\ptr a -> advancePtr ptr ncols <$ poke ptr a) ptr0 col
+                pure $! advancePtr ptr0 1
+      _ <- unsafeWithForeignPtr buffer $ \p -> foldM step p dat
+      pure $ MMatrix MView { leadingDim = ncols
+                           , ..
+                           }
+  where
+    ncols = length dat
+    nrows = VG.length $ head $ toList dat
 
 
 -- | Allocate new matrix. Content of buffer if not touched and may

@@ -200,6 +200,29 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> CInt               -- ^ Leading dimension of @tr(V)@
     -> IO CInt
 
+  -- | Solve linear system \(Ax=B\) where B could have multiple right
+  -- sides where A is square matrix of dimension @N×N@
+  --
+  -- The LU decomposition with partial pivoting and row interchanges
+  -- is used to factor A as \(A = PLU\) where P is a permutation
+  -- matrix, L is unit lower triangular, and U is upper triangular.
+  -- The factored form of A is then used to solve the system of
+  -- equations A * X = B.
+  gesv
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CInt               -- ^ Size of square matrix A
+    -> CInt               -- ^ Number of right sides
+    -> Ptr a              -- ^ Buffer of @A@. Upon exit factor @L@ and
+                          --   @U@ are stored there.
+    -> CInt               -- ^ Leading dimension size of @A@
+    -> Ptr CInt           -- ^ Integer array of size @N@. Upon exit
+                          --   contains pivot indices that define the
+                          --   permutation matrix P; row i of the matrix
+                          --   was interchanged with row IPIV[i].
+    -> Ptr a              -- ^ Right side of equations @B@. On exit
+                          --   contains solutions to equation
+    -> CInt               -- ^ Leading dimension size of @B@
+    -> IO CInt
 
 instance LAPACKy Float where
   axpy = s_axpy
@@ -212,6 +235,7 @@ instance LAPACKy Float where
   gemm = s_gemm
   -- LAPACK
   gesdd = c_sgesdd
+  gesv  = c_sgesv
 
 instance LAPACKy Double where
   axpy = d_axpy
@@ -224,6 +248,7 @@ instance LAPACKy Double where
   gemm = d_gemm
   -- LAPACK
   gesdd = c_dgesdd
+  gesv  = c_dgesv
 
 instance LAPACKy (Complex Float) where
   copy = c_copy
@@ -265,6 +290,7 @@ instance LAPACKy (Complex Float) where
         c_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
   -- LAPACK
   gesdd = c_cgesdd
+  gesv  = c_cgesv
 
 instance LAPACKy (Complex Double) where
   copy = z_copy
@@ -306,6 +332,7 @@ instance LAPACKy (Complex Double) where
         z_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
   -- LAPACK
   gesdd = c_zgesdd
+  gesv  = c_zgesv
 
 
 ----------------------------------------------------------------
@@ -421,7 +448,9 @@ foreign import CCALL unsafe "cblas.h cblas_zgemm" z_gemm
 -- LAPACK FFI
 ----------------------------------------------------------------
 
--- We have to use ccall.
+-- We have to use ccall. GHC cannot compile capi wrappers
+
+
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
   :: CRepr MatrixLayout -> CChar
   -> CInt -> CInt
@@ -455,5 +484,39 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
   -> Ptr (Complex Double) -> CInt
   -> Ptr Double
   -> Ptr (Complex Double) -> CInt
+  -> Ptr (Complex Double) -> CInt
+  -> IO CInt
+
+
+
+foreign import ccall unsafe "lapacke.h LAPACKE_sgesv" c_sgesv
+  :: CRepr MatrixLayout
+  -> CInt -> CInt
+  -> Ptr Float -> CInt
+  -> Ptr CInt
+  -> Ptr Float -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dgesv" c_dgesv
+  :: CRepr MatrixLayout
+  -> CInt -> CInt
+  -> Ptr Double -> CInt
+  -> Ptr CInt
+  -> Ptr Double -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_cgesv" c_cgesv
+  :: CRepr MatrixLayout
+  -> CInt -> CInt
+  -> Ptr (Complex Float) -> CInt
+  -> Ptr CInt
+  -> Ptr (Complex Float) -> CInt
+  -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zgesv" c_zgesv
+  :: CRepr MatrixLayout
+  -> CInt -> CInt
+  -> Ptr (Complex Double) -> CInt
+  -> Ptr CInt
   -> Ptr (Complex Double) -> CInt
   -> IO CInt

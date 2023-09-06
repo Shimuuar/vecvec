@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Tests for matrix decomposition
-module TST.Decomposition (tests) where
+module TST.Decomposition (tests, Epsilon(..)) where
 
 import Foreign.Storable (Storable)
 import Data.Typeable

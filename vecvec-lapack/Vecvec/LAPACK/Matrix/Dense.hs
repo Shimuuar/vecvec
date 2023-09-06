@@ -12,6 +12,9 @@ module Vecvec.LAPACK.Matrix.Dense
   , thaw
     -- ** Creation
   , fromRowsFF
+  , fromRowsFV
+  , fromColsFF
+  , fromColsFV
   , replicate
   , generate
   , zeros
@@ -23,6 +26,8 @@ module Vecvec.LAPACK.Matrix.Dense
     -- ** Access
   , getRow
   , getCol
+  , toColList
+  , toRowList
   , all
   , any
     -- * Unsafe functions
