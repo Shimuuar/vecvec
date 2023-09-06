@@ -4,10 +4,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 -- |
-module Vecvec.LAPACK.Matrix.Decomposition
+-- Linear algebra routines
+module Vecvec.LAPACK.LinAlg
   ( -- * Linear systems
     LinearEqRHS(..)
   , solveLinEq
+    -- ** Matrix inverse
+  , invertMatrix
     -- * Matrix decomposition
   , decomposeSVD
   ) where
@@ -77,6 +80,29 @@ decomposeSVD a = unsafePerformIO $ do
 ----------------------------------------------------------------
 -- Linear equation
 ----------------------------------------------------------------
+
+-- | Compute inverse of square matrix @A@
+invertMatrix :: LAPACKy a => Matrix a -> Matrix a
+invertMatrix m
+  | nCols m /= nRows m = error "Matrix must be square"
+  | otherwise          = unsafePerformIO $ do
+      MMatrix inv@MView{..} <- MM.clone m
+      id $
+        unsafeWithForeignPtr buffer $ \ptr_a    ->
+        allocaArray ncols           $ \ptr_ipiv -> do
+          info_trf <- getrf
+            (toCEnum RowMajor) (fromIntegral ncols) (fromIntegral ncols)
+            ptr_a (fromIntegral leadingDim) ptr_ipiv
+          case info_trf of 0 -> pure ()
+                           _ -> error "invertMatrix failed (GETRF)"
+          info_tri <- getri
+            (toCEnum RowMajor) (fromIntegral ncols)
+            ptr_a (fromIntegral leadingDim) ptr_ipiv
+          case info_tri of 0 -> pure ()
+                           _ -> error "invertMatrix failed (GETRF)"
+      --
+      pure $ Matrix inv
+
 
 -- | When solving linear equations like \(Ax=b\) most of the work is
 --   spent on factoring matrix. Thus it's computationally advantageous
