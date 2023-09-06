@@ -8,6 +8,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -31,6 +32,7 @@ module TST.Model
   , ModelMat(..)
     -- * Helpers
   , genSize
+  , genNonsingularMatrix
   , qualTypeName
   ) where
 
@@ -52,9 +54,11 @@ import Data.Vector.Storable  qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Util
 import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
+import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
 import TST.Orphanage ()
 
 
@@ -71,14 +75,14 @@ class Arbitrary a => ScalarModel a where
   shrinkScalar :: a -> [a]
 
 instance ScalarModel Float where
-  genScalar = fromIntegral <$> choose @Int (-10, 10)
+  genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
   shrinkScalar = \case
     0 -> []
     1 -> [0]
     _ -> [0,1]
 
 instance ScalarModel Double where
-  genScalar = fromIntegral <$> choose @Int (-10, 10)
+  genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
   shrinkScalar = \case
     0 -> []
     1 -> [0]
@@ -91,6 +95,9 @@ instance (RealFloat a, ScalarModel a) => ScalarModel (Complex a) where
     1      -> [0, 0:+1]
     0 :+ 1 -> [0, 1]
     _      -> [0, 1, 0:+1]
+
+maxGenScacar :: Num a => a
+maxGenScacar = 10
 
 -- | Scalar which uses @ScalarModel@ for generation
 newtype X a = X a
@@ -353,3 +360,13 @@ genStride = choose (1,3)
 -- | Generate offset for matrices
 genOffset :: Gen Int
 genOffset = choose (0,3)
+
+-- | Generate nonsingular square matrix. In order to ensure
+--   nonsingularity we generate matrix with diagonal dominance
+genNonsingularMatrix
+  :: (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a, StorableZero a)
+  => Int -> Gen (Matrix a)
+genNonsingularMatrix sz = do
+  mdl <- arbitraryShape (sz,sz)
+  pure $  (2 * maxGenScacar * fromIntegral sz) *. Mat.eye sz
+      .+. fromModel mdl

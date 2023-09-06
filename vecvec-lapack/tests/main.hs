@@ -4,6 +4,7 @@ import qualified TST.Slice
 import qualified TST.Vector.Property
 import qualified TST.VectorSpace
 import qualified TST.Decomposition
+import qualified TST.LinSolve
 
 main :: IO ()
 main = defaultMain $ testGroup "vecvec"
@@ -12,4 +13,5 @@ main = defaultMain $ testGroup "vecvec"
   , TST.VectorSpace.tests
   , TST.Decomposition.tests
   , TST.Vector.Property.tests
+  , TST.LinSolve.tests
   ]

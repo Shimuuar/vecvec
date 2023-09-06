@@ -57,6 +57,7 @@ test-suite vecvec-lapack-tests
                     TST.MatMul
                     TST.Decomposition
                     TST.Slice
+                    TST.LinSolve
                     TST.Orphanage
                     TST.VectorSpace
                     TST.Vector.Boilerplater
