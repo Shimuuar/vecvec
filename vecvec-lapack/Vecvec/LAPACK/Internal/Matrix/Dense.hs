@@ -43,6 +43,8 @@ module Vecvec.LAPACK.Internal.Matrix.Dense
     -- ** Access
   , getCol
   , getRow
+  , toColList
+  , toRowList
   , all
   , any
     -- * Unsafe variants
@@ -354,6 +356,14 @@ getCol :: (Storable a) => Matrix a -> Int -> Vec a
 getCol m@(Matrix M.MView{..}) i
   | i < 0 || i >= ncols = error "Out of range"
   | otherwise           = unsafeGetCol m i 
+
+toRowList :: (Storable a) => Matrix a -> [Vec a]
+toRowList m@(Matrix M.MView{..}) =
+  [ unsafeGetRow m i | i <- [0 .. nrows-1]]
+
+toColList :: (Storable a) => Matrix a -> [Vec a]
+toColList m@(Matrix M.MView{..}) =
+  [ unsafeGetCol m i | i <- [0 .. ncols-1]]
 
 
 -- | Create matrix from list of rows.
