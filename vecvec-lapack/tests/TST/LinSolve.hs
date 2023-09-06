@@ -41,7 +41,7 @@ import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 import Vecvec.LAPACK.Vector                (Vec)
 import Vecvec.LAPACK.Matrix.Dense          (Matrix)
 import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
-import Vecvec.LAPACK.Matrix.Decomposition
+import Vecvec.LAPACK.LinAlg
 
 import TST.Orphanage ()
 import TST.Model

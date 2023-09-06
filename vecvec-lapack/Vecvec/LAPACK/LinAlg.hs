@@ -4,7 +4,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 -- |
-module Vecvec.LAPACK.Matrix.Decomposition
+-- Linear algebra routines
+module Vecvec.LAPACK.LinAlg
   ( -- * Linear systems
     LinearEqRHS(..)
   , solveLinEq
