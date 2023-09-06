@@ -223,6 +223,38 @@ class (NormedScalar a, Storable a) => LAPACKy a where
                           --   contains solutions to equation
     -> CInt               -- ^ Leading dimension size of @B@
     -> IO CInt
+  -- NOTE: *getrs solves using transposition/conjugation
+
+  -- | Compute inverse of square matrix @A@ using the LU factorization
+  --   computed by 'getrf' routine.
+  getri
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CInt               -- ^ Matrix size @N@
+    -> Ptr a              -- ^ LU decomposition of @A@ matrix.
+    -> CInt               -- ^ Leading dimension of @A@
+    -> Ptr CInt           -- ^ Buffer of length @N@ for permutation matrix
+    -> IO CInt
+
+  -- | Compute LU factorization of a general M-by-N matrix A using
+  --   partial pivoting with row interchanges. The factorization has
+  --   the form
+  --
+  --  \[ A = P L U \]
+  --
+  -- where P is a permutation matrix, L is lower triangular with unit
+  -- diagonal elements (lower trapezoidal if m > n), and U is upper
+  -- triangular (upper trapezoidal if m < n).
+  getrf
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CInt               -- ^ @M@: Number of rows of matrix @A@
+    -> CInt               -- ^ @N@: Number of columns of matrix @A@
+    -> Ptr a              -- ^ Matrix @A@. Overwritten with factors @L@ and @U@.
+    -> CInt               -- ^ Leading dimension of @A@
+    -> Ptr CInt           -- ^ Integer array @IPIV@, dimension
+                          --   @min(M,N)@. Row i of the matrix was
+                          --   interchanged with row IPIV(i).
+    -> IO CInt
+
 
 instance LAPACKy Float where
   axpy = s_axpy
@@ -236,6 +268,8 @@ instance LAPACKy Float where
   -- LAPACK
   gesdd = c_sgesdd
   gesv  = c_sgesv
+  getri = c_sgetri
+  getrf = c_sgetrf
 
 instance LAPACKy Double where
   axpy = d_axpy
@@ -249,6 +283,8 @@ instance LAPACKy Double where
   -- LAPACK
   gesdd = c_dgesdd
   gesv  = c_dgesv
+  getri = c_dgetri
+  getrf = c_dgetrf
 
 instance LAPACKy (Complex Float) where
   copy = c_copy
@@ -291,6 +327,8 @@ instance LAPACKy (Complex Float) where
   -- LAPACK
   gesdd = c_cgesdd
   gesv  = c_cgesv
+  getri = c_cgetri
+  getrf = c_cgetrf
 
 instance LAPACKy (Complex Double) where
   copy = z_copy
@@ -333,7 +371,8 @@ instance LAPACKy (Complex Double) where
   -- LAPACK
   gesdd = c_zgesdd
   gesv  = c_zgesv
-
+  getri = c_zgetri
+  getrf = c_zgetrf
 
 ----------------------------------------------------------------
 -- BLAS FFI
@@ -520,3 +559,21 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zgesv" c_zgesv
   -> Ptr CInt
   -> Ptr (Complex Double) -> CInt
   -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_sgetri" c_sgetri
+  :: CRepr MatrixLayout -> CInt -> Ptr Float -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_dgetri" c_dgetri
+  :: CRepr MatrixLayout -> CInt -> Ptr Double -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_cgetri" c_cgetri
+  :: CRepr MatrixLayout -> CInt -> Ptr (Complex Float) -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_zgetri" c_zgetri
+  :: CRepr MatrixLayout -> CInt -> Ptr (Complex Double) -> CInt -> Ptr CInt -> IO CInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_sgetrf" c_sgetrf
+  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr Float -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_dgetrf" c_dgetrf
+  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr Double -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_cgetrf" c_cgetrf
+  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr (Complex Float) -> CInt -> Ptr CInt -> IO CInt
+foreign import ccall unsafe "lapacke.h LAPACKE_zgetrf" c_zgetrf
+  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr (Complex Double) -> CInt -> Ptr CInt -> IO CInt

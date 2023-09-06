@@ -34,6 +34,7 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
+import Vecvec.Classes.NDArray
 import Vecvec.Classes.Util
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
@@ -49,13 +50,21 @@ import TST.Decomposition (Epsilon(..))
 
 -- | Run tests for solvers for linear systems
 tests :: TestTree
-tests = testGroup "LinSolve"
-  [ testSimpleSolve @Vec
-  , testSimpleSolve @V.Vector
-  , testSimpleSolve @VS.Vector
-  , testSimpleSolve @VU.Vector
-  , testSimpleSolve @Matrix
-  , testSimpleSolve @[]
+tests = testGroup "LinAlg"
+  [ testGroup "solveLinEq"
+    [ testSimpleSolve @Vec
+    , testSimpleSolve @V.Vector
+    , testSimpleSolve @VS.Vector
+    , testSimpleSolve @VU.Vector
+    , testSimpleSolve @Matrix
+    , testSimpleSolve @[]
+    ]
+  , testGroup "invertMatrix"
+    [ testProperty "S" $ prop_invertMatrix @S
+    , testProperty "D" $ prop_invertMatrix @D
+    , testProperty "C" $ prop_invertMatrix @C
+    , testProperty "Z" $ prop_invertMatrix @Z
+    ]
   ]
 
 
@@ -76,9 +85,22 @@ testSimpleSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
   ]
 
 
+-- | Inverse is indeed inverse
+prop_invertMatrix
+  :: forall a.
+     ( VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a), StorableZero a)
+  => Nonsingular a
+  -> Property
+prop_invertMatrix (Nonsingular m)
+  = property
+  $ matrixNearZero z
+  where
+    m' = invertMatrix m
+    z  = m' @@ m .-. Mat.eye (nCols m)
+
+-- | Test that solution of linear system is indeed solution
 prop_SimpleSolve
-  :: forall rhs a.
-     (ArbitraryRHS rhs a, LinearEqRHS rhs a, VV.LAPACKy a)
+  :: forall rhs a. (ArbitraryRHS rhs a, LinearEqRHS rhs a, VV.LAPACKy a)
   => LinSimple rhs a
   -> Property
 prop_SimpleSolve (LinSimple a rhs)
@@ -148,3 +170,6 @@ instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRH
 
 nearZero :: (VG.Vector v a, Epsilon (R a), NormedScalar a, Floating (R a), Ord (R a)) => v a -> Bool
 nearZero = VG.all (\d -> scalarNorm d < epsilon)
+
+matrixNearZero :: (VS.Storable a, Epsilon (R a), NormedScalar a, Floating (R a), Ord (R a)) => Matrix a -> Bool
+matrixNearZero = Mat.all (\d -> scalarNorm d < epsilon)

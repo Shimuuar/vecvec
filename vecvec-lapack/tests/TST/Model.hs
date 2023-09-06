@@ -24,6 +24,7 @@ module TST.Model
     ScalarModel(..)
   , ArbitraryShape(..)
   , X(..)
+  , Nonsingular(..)
     -- * Models
   , IsModel(..)
   , Model(..)
@@ -105,6 +106,12 @@ newtype X a = X a
 
 instance ScalarModel a => Arbitrary (X a) where
   arbitrary = X <$> genScalar
+
+newtype Nonsingular a = Nonsingular { getNonsingular :: Matrix a }
+  deriving newtype Show
+
+instance (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a, StorableZero a) => Arbitrary (Nonsingular a) where
+  arbitrary = Nonsingular <$> (genNonsingularMatrix =<< genSize)
 
 
 
