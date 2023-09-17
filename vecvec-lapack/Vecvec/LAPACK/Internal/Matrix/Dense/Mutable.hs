@@ -51,6 +51,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- * Unsafe functions
   , unsafeGetCol
   , unsafeGetRow
+  , unsafeCast
   ) where
 
 import Control.Monad           (foldM)
@@ -140,6 +141,9 @@ instance Storable a => NDMutable MMatrix a where
   {-# INLINE basicUnsafeReadArr  #-}
   {-# INLINE basicUnsafeWriteArr #-}
 
+
+unsafeCast :: MMatrix s a -> MMatrix s' a
+unsafeCast = coerce
 
 -- | Pattern which is used to check whether matrix is represented by
 --   contiguous vector

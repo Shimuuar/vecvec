@@ -44,6 +44,8 @@ Library
     Vecvec.LAPACK.Internal.Vector.Mutable
     Vecvec.LAPACK.Internal.Matrix.Dense
     Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
+    Vecvec.LAPACK.Internal.Matrix.Symmetric
+    Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
   Other-modules:
     Vecvec.LAPACK.Internal.Compat
 
