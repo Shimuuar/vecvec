@@ -73,6 +73,7 @@ import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
+import Vecvec.LAPACK.Utils
 
 -- | Immutable matrix
 newtype Matrix a = Matrix (M.MView a)
@@ -128,7 +129,7 @@ instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
         res@(M.AsMVec vres) -> do
           case m2 of
             AsVec v2 -> unsafeBlasAxpy 1 v2 vres
-            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+            _        -> loop0_ (nRows m1) $ \i -> do
               unsafeBlasAxpy 1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
@@ -141,7 +142,7 @@ instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
         res@(M.AsMVec vres) -> do
           case m2 of
             AsVec v2 -> unsafeBlasAxpy -1 v2 vres
-            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+            _        -> loop0_ (nRows m1) $ \i -> do
               unsafeBlasAxpy -1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
@@ -160,7 +161,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
           }
     case m of
       AsVec v -> unsafeBlasAxpy a v resV
-      _       -> forM_ [0 .. nRows m - 1] $ \i -> do
+      _       -> loop0_ (nRows m) $ \i -> do
         unsafeBlasAxpy a (unsafeGetRow m i) (M.unsafeGetRow resM i)
     unsafeFreeze resM
   (.*) = flip (*.)

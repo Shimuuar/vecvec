@@ -61,6 +61,7 @@ import Vecvec.Classes.NDArray
 import Vecvec.Classes.Via
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
+import Vecvec.LAPACK.Utils
 
 import Vecvec.LAPACK.Internal.Compat
 
@@ -197,7 +198,7 @@ instance VS.Storable a => MVG.MVector MVec a where
   basicSet (MVec (VecRepr len inc fp)) a
     = unsafePrimToPrim
     $ unsafeWithForeignPtr fp
-    $ \p -> forM_ [0 .. len-1] (\i -> pokeElemOff p (i*inc) a)
+    $ \p -> loop0_ len (\i -> pokeElemOff p (i*inc) a)
   {-# INLINE basicUnsafeCopy #-}
   basicUnsafeCopy (MVec (VecRepr len 1 fpA)) (MVec (VecRepr _ 1 fpB))
     = MVG.basicUnsafeCopy (MVS.MVector len fpA) (MVS.MVector len fpB)

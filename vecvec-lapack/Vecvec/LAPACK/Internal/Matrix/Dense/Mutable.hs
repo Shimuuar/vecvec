@@ -71,6 +71,7 @@ import Foreign.Marshal.Array
 import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
+import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
@@ -354,7 +355,7 @@ replicate :: (Storable a, PrimMonad m, s ~ PrimState m)
 replicate (n,k) a = unsafeIOToPrim $ do
   MMatrix mat@MView{..} <- unsafeNew (n,k)
   unsafeWithForeignPtr buffer $ \ptr -> do
-    forM_ [0 .. (n*k) - 1] $ \i -> pokeElemOff ptr i a
+    loop0_ (n*k) $ \i -> pokeElemOff ptr i a
   pure (MMatrix mat)
 
 -- | Fill matrix of given size using provided monadic action.
@@ -364,7 +365,7 @@ replicateM :: (Storable a, PrimMonad m, s ~ PrimState m)
            -> m (MMatrix s a)
 replicateM (n,k) action = do
   mat@(MMatrix MView{..}) <- unsafeNew (n,k)
-  forM_ [0 .. (n*k) - 1] $ \i -> do
+  loop0_ (n*k) $ \i -> do
     a <- action
     unsafeIOToPrim $ unsafeWithForeignPtr buffer $ \ptr -> pokeElemOff ptr i a
   pure mat
@@ -376,8 +377,8 @@ generate :: (Storable a, PrimMonad m, s ~ PrimState m)
          -> m (MMatrix s a)
 generate (n,k) fun = stToPrim $ do
   mat <- unsafeNew (n,k)
-  forM_ [0 .. n-1] $ \i ->
-    forM_ [0 .. k-1] $ \j ->
+  loop0_ n $ \i ->
+    loop0_ k $ \j ->
       unsafeWrite mat (i,j) (fun i j)
   pure mat
 
@@ -388,8 +389,8 @@ generateM :: (Storable a, PrimMonad m, s ~ PrimState m)
           -> m (MMatrix s a)
 generateM (n,k) fun = do
   mat <- unsafeNew (n,k)
-  forM_ [0 .. n-1] $ \i ->
-    forM_ [0 .. k-1] $ \j -> do
+  loop0_ n $ \i ->
+    loop0_ k $ \j -> do
       unsafeWrite mat (i,j) =<< fun i j
   pure mat
 
@@ -410,8 +411,7 @@ eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
     -> m (MMatrix s a)
 eye n = stToPrim $ do
   mat <- zeros (n,n)
-  -- FIXME: is build/foldr fusion reliable here?
-  forM_ [0..n-1] $ \i -> unsafeWrite mat (i,i) 1
+  loop0_ n $ \i -> unsafeWrite mat (i,i) 1
   pure mat
 
 -- | Create diagonal matrix. Diagonal elements are stored in list-like
