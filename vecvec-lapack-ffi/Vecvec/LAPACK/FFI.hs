@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 -- |
 module Vecvec.LAPACK.FFI
@@ -22,6 +23,7 @@ module Vecvec.LAPACK.FFI
   ) where
 
 import Data.Complex
+import Data.Primitive.Ptr
 import Foreign.C
 import Foreign.Ptr
 import Foreign.Storable
@@ -105,6 +107,12 @@ foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CRepr Ma
 --
 --   There're only 4 instances excluding newtypes.
 class (NormedScalar a, Storable a) => LAPACKy a where
+  -- | Fill buffer with zeros
+  fillZeros :: Ptr a -- ^ Pointer to buffer
+            -> Int   -- ^ Size of buffer in elements
+            -> IO ()
+
+
   -- | Computes a vector-scalar product and adds the result to a vector.
   --
   -- > y := a*x + y
@@ -257,6 +265,7 @@ class (NormedScalar a, Storable a) => LAPACKy a where
 
 
 instance LAPACKy Float where
+  fillZeros ptr n = setPtr ptr n 0
   axpy = s_axpy
   copy = s_copy
   scal = s_scal
@@ -272,6 +281,7 @@ instance LAPACKy Float where
   getrf = c_sgetrf
 
 instance LAPACKy Double where
+  fillZeros ptr n = setPtr ptr n 0
   axpy = d_axpy
   copy = d_copy
   scal = d_scal
@@ -287,6 +297,7 @@ instance LAPACKy Double where
   getrf = c_dgetrf
 
 instance LAPACKy (Complex Float) where
+  fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) n
   copy = c_copy
   nrm2 = c_nrm2
   --
@@ -331,6 +342,7 @@ instance LAPACKy (Complex Float) where
   getrf = c_cgetrf
 
 instance LAPACKy (Complex Double) where
+  fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) (2*n)
   copy = z_copy
   nrm2 = z_nrm2
   --

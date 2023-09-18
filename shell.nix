@@ -3,7 +3,7 @@ let
   config = {};
   overlays = [];
 
-  pkgs_hask = pkgs.haskellPackages.ghcWithPackages (p: with p; [
+  pkgs_hask = pkgs.haskell.packages.ghc943.ghcWithPackages (p: with p; [
     hmatrix
     vector
     fixed-vector

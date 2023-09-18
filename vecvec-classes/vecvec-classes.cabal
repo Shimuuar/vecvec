@@ -1,6 +1,6 @@
 Name:           vecvec-classes
 Version:        0.0.1
-Synopsis:       Type classes for working iwth linear algebra
+Synopsis:       Type classes for working with linear algebra
 Description:
   This package package defines set of type classes used for working with liner algebra
 

@@ -68,12 +68,12 @@ import Prelude hiding (replicate,all,any)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Util
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Vecvec.LAPACK.FFI                           qualified as C
+import Vecvec.LAPACK.Utils
 
 -- | Immutable matrix
 newtype Matrix a = Matrix (M.MView a)
@@ -129,7 +129,7 @@ instance C.LAPACKy a => AdditiveSemigroup (Matrix a) where
         res@(M.AsMVec vres) -> do
           case m2 of
             AsVec v2 -> unsafeBlasAxpy 1 v2 vres
-            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+            _        -> loop0_ (nRows m1) $ \i -> do
               unsafeBlasAxpy 1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
@@ -142,7 +142,7 @@ instance C.LAPACKy a => AdditiveQuasigroup (Matrix a) where
         res@(M.AsMVec vres) -> do
           case m2 of
             AsVec v2 -> unsafeBlasAxpy -1 v2 vres
-            _        -> forM_ [0 .. nRows m1 - 1] $ \i -> do
+            _        -> loop0_ (nRows m1) $ \i -> do
               unsafeBlasAxpy -1 (unsafeGetRow m2 i) (M.unsafeGetRow res i)
           unsafeFreeze res
         -- Safe since matrix is newly allocated
@@ -161,7 +161,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
           }
     case m of
       AsVec v -> unsafeBlasAxpy a v resV
-      _       -> forM_ [0 .. nRows m - 1] $ \i -> do
+      _       -> loop0_ (nRows m) $ \i -> do
         unsafeBlasAxpy a (unsafeGetRow m i) (M.unsafeGetRow resM i)
     unsafeFreeze resM
   (.*) = flip (*.)
@@ -423,31 +423,31 @@ generate sz f = runST $ unsafeFreeze =<< M.generate sz f
 -- >>> zeros (2,3) :: Matrix Double
 -- [ [0.0,0.0,0.0]
 -- , [0.0,0.0,0.0]]
-zeros :: (StorableZero a)
+zeros :: (LAPACKy a)
       => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
       -> Matrix a
 zeros sz = runST $ unsafeFreeze =<< M.zeros sz
 
 -- | Create identity matrix
-eye :: (StorableZero a, Num a) => Int -> Matrix a
+eye :: (LAPACKy a, Num a) => Int -> Matrix a
 eye n = runST $ unsafeFreeze =<< M.eye n
 
 -- | Create diagonal matrix. Diagonal elements are stored in list-like
 --   container.
-diagF :: (StorableZero a, Foldable f) => f a -> Matrix a
+diagF :: (LAPACKy a, Foldable f) => f a -> Matrix a
 diagF xs = runST $ unsafeFreeze =<< M.diagF xs
 
 -- | Create diagonal matrix. Diagonal elements are stored in vector
-diag :: (StorableZero a, VG.Vector v a) => v a -> Matrix a
+diag :: (LAPACKy a, VG.Vector v a) => v a -> Matrix a
 {-# INLINE diag #-}
 diag xs = runST $ unsafeFreeze =<< M.diag xs
 
 -- | Create general diagonal matrix. Diagonal elements are stored in vector.
-gdiagF :: (StorableZero a, Foldable f) => (Int,Int) -> f a -> Matrix a
+gdiagF :: (LAPACKy a, Foldable f) => (Int,Int) -> f a -> Matrix a
 gdiagF sz xs = runST $ unsafeFreeze =<< M.gdiagF sz xs
 
 -- | Create general diagonal matrix. Diagonal elements are stored in vector.
-gdiag :: (StorableZero a, VG.Vector v a) => (Int,Int) -> v a -> Matrix a
+gdiag :: (LAPACKy a, VG.Vector v a) => (Int,Int) -> v a -> Matrix a
 {-# INLINE gdiag #-}
 gdiag sz xs = runST $ unsafeFreeze =<< M.gdiag sz xs
 
