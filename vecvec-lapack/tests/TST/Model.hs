@@ -55,7 +55,6 @@ import Data.Vector.Storable  qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Util
 import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
@@ -110,7 +109,7 @@ instance ScalarModel a => Arbitrary (X a) where
 newtype Nonsingular a = Nonsingular { getNonsingular :: Matrix a }
   deriving newtype Show
 
-instance (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a, StorableZero a) => Arbitrary (Nonsingular a) where
+instance (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (Nonsingular a) where
   arbitrary = Nonsingular <$> (genNonsingularMatrix =<< genSize)
 
 
@@ -371,7 +370,7 @@ genOffset = choose (0,3)
 -- | Generate nonsingular square matrix. In order to ensure
 --   nonsingularity we generate matrix with diagonal dominance
 genNonsingularMatrix
-  :: (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a, StorableZero a)
+  :: (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
   mdl <- arbitraryShape (sz,sz)

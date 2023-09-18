@@ -35,7 +35,6 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Util
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 import Vecvec.LAPACK.Vector                (Vec)
@@ -88,7 +87,7 @@ testSimpleSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
 -- | Inverse is indeed inverse
 prop_invertMatrix
   :: forall a.
-     ( VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a), StorableZero a)
+     ( VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a))
   => Nonsingular a
   -> Property
 prop_invertMatrix (Nonsingular m)
@@ -112,7 +111,7 @@ data LinSimple rhs a = LinSimple (Matrix a) (rhs a)
 instance (Show a, Show (rhs a), VS.Storable a) => Show (LinSimple rhs a) where
   show (LinSimple a rhs) = "A = \n"++show a++"\nb =\n"++show rhs
   
-instance ( Show a,Eq a,StorableZero a, VV.LAPACKy a,ScalarModel a,Typeable a,ArbitraryRHS rhs a
+instance ( Show a,Eq a,VV.LAPACKy a,ScalarModel a,Typeable a,ArbitraryRHS rhs a
          ) => Arbitrary (LinSimple rhs a) where
   arbitrary = do
     sz  <- genSize @Int

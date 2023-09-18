@@ -71,7 +71,6 @@ import Foreign.Marshal.Array
 import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Util
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
@@ -397,16 +396,16 @@ generateM (n,k) fun = do
 
 -- | Create matrix filled with zeros. It's more efficient than using
 --   'replicate'.
-zeros :: (StorableZero a, PrimMonad m, s ~ PrimState m)
+zeros :: (LAPACKy a, PrimMonad m, s ~ PrimState m)
       => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
       -> m (MMatrix s a)
 zeros (n,k) = unsafeIOToPrim $ do
   (MMatrix mat@MView{..}) <- unsafeNew (n,k)
-  unsafeWithForeignPtr buffer $ \p -> zeroOutBuffer p (n*k)
+  unsafeWithForeignPtr buffer $ \p -> C.fillZeros p (n*k)
   pure (MMatrix mat)
 
 -- | Create identity matrix
-eye :: (StorableZero a, Num a, PrimMonad m, s ~ PrimState m)
+eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
     => Int -- ^ Matrix size
     -> m (MMatrix s a)
 eye n = stToPrim $ do
@@ -417,7 +416,7 @@ eye n = stToPrim $ do
 
 -- | Create diagonal matrix. Diagonal elements are stored in list-like
 --   container.
-diagF :: (StorableZero a, Foldable f, PrimMonad m, s ~ PrimState m)
+diagF :: (LAPACKy a, Foldable f, PrimMonad m, s ~ PrimState m)
       => f a
       -> m (MMatrix s a)
 diagF xs = stToPrim $ do
@@ -429,7 +428,7 @@ diagF xs = stToPrim $ do
     n = length xs
 
 -- | Create diagonal matrix. Diagonal elements are stored in vector.
-diag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+diag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
      => v a
      -> m (MMatrix s a)
 {-# INLINE diag #-}
@@ -441,7 +440,7 @@ diag xs = stToPrim $ do
     n = VG.length xs
 
 -- | Create general diagonal matrix. Diagonal elements are stored in vector.
-gdiagF :: (StorableZero a, Foldable f, PrimMonad m, s ~ PrimState m)
+gdiagF :: (LAPACKy a, Foldable f, PrimMonad m, s ~ PrimState m)
        => (Int,Int)
        -> f a
        -> m (MMatrix s a)
@@ -457,7 +456,7 @@ gdiagF (n,k) xs
     len = length xs
 
 -- | Create general diagonal matrix. Diagonal elements are stored in vector.
-gdiag :: (StorableZero a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+gdiag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
       => (Int,Int)
       -> v a
       -> m (MMatrix s a)
