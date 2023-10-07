@@ -538,18 +538,6 @@ implSliceMVector idx vec = do
   (i,n) <- computeSlice1D (MVG.length vec) idx
   Just $ MVG.slice i n vec
 
--- implMVectorRangeCheck :: (MVG.MVector v a) => v s a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
--- {-# INLINE implMVectorRangeCheck #-}
--- implMVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` MVG.length v of
---   True  -> IndexOK
---   False -> OutOfRange
-
--- implVectorRangeCheck :: (VG.Vector v a) => v a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
--- {-# INLINE implVectorRangeCheck #-}
--- implVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` VG.length v of
---   True  -> IndexOK
---   False -> OutOfRange
-
 -- | Function which uses trick with unsigned comparison to save one
 --   comparison when checking whether index in @[0,n)@ range.
 inRange :: Int -- ^ Index

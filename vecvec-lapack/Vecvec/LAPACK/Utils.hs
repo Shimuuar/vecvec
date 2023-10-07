@@ -5,6 +5,7 @@ module Vecvec.LAPACK.Utils
     loop_
   , loop0_
   , loopUp_
+  , loopUpD_
   ) where
 
 -- | Loop over range @[k,n)@.
@@ -40,3 +41,13 @@ loopUp_
   -> m ()
 {-# INLINE loopUp_ #-}
 loopUp_ n action = loop0_ n $ \i -> loop_ i n $ \j -> action i j
+
+-- | Loop over square matrix of size @n@ which references only
+--   elements above diagonal
+loopUpD_
+  :: (Applicative m)
+  => Int                 -- ^ Matrix size @n@
+  -> (Int -> Int -> m a) -- ^ Callback \(N_{row}\) \(N_{column}\)
+  -> m ()
+{-# INLINE loopUpD_ #-}
+loopUpD_ n action = loop0_ n $ \i -> loop_ (i+1) n $ \j -> action i j
