@@ -36,8 +36,7 @@ import Vecvec.LAPACK.Matrix.Dense          (Matrix,gdiag)
 import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
-import TST.Orphanage ()
-import TST.Model
+import TST.Tools.Model
 
 tests :: TestTree
 tests = testGroup "Decomposition"

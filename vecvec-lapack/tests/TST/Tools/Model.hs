@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Tools for writing tests for linear algebra.
-module TST.Model
+module TST.Tools.Model
   ( -- * Arbitrary extensions
     ScalarModel(..)
   , ArbitraryShape(..)
@@ -59,7 +59,7 @@ import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
-import TST.Orphanage ()
+import TST.Tools.Orphanage ()
 
 
 ----------------------------------------------------------------
@@ -272,7 +272,7 @@ instance (ScalarModel a, Eq a) => Arbitrary (ModelMat a) where
 
 instance (Eq a, ScalarModel a) => ArbitraryShape (ModelMat a) where
   arbitraryShape (N2 m n)
-     = ModelMat
+     =  ModelMat
     <$> genOffset
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)

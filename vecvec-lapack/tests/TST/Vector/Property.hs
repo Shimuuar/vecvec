@@ -38,7 +38,7 @@ import           Test.Tasty
 import           Test.Tasty.QuickCheck hiding (testProperties)
 
 import           Vecvec.LAPACK.Internal.Vector
-import           TST.Orphanage ()
+import           TST.Tools.Orphanage ()
 
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)

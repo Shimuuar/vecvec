@@ -54,16 +54,16 @@ test-suite vecvec-lapack-tests
   ghc-options:      -O2 -Wall -Wredundant-constraints -threaded
   hs-source-dirs:   tests
   main-is:          main.hs
-  other-modules:    TST.Model
-                    TST.MatMul
-                    TST.Decomposition
-                    TST.Slice
+  other-modules:    TST.Decomposition
                     TST.LinSolve
-                    TST.Orphanage
-                    TST.VectorSpace
+                    TST.MatMul
+                    TST.Slice
+                    TST.Tools.Model
+                    TST.Tools.Orphanage
                     TST.Vector.Boilerplater
-                    TST.Vector.Utilities
                     TST.Vector.Property
+                    TST.Vector.Utilities
+                    TST.VectorSpace
   default-extensions: FlexibleContexts
                       ImportQualifiedPost
                       RankNTypes

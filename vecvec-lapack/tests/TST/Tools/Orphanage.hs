@@ -3,7 +3,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
-module TST.Orphanage where
+module TST.Tools.Orphanage where
 
 import           Data.Complex
 import           System.Random

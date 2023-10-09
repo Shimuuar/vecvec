@@ -42,8 +42,7 @@ import Vecvec.LAPACK.Matrix.Dense          (Matrix)
 import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
-import TST.Orphanage ()
-import TST.Model
+import TST.Tools.Model
 import TST.Decomposition (Epsilon(..))
 
 

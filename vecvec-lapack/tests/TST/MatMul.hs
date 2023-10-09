@@ -28,8 +28,7 @@ import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 
-import TST.Orphanage ()
-import TST.Model
+import TST.Tools.Model
 
 tests :: TestTree
 tests = testGroup "MatMul"
