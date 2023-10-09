@@ -4,8 +4,9 @@
 {-# LANGUAGE TypeApplications    #-}
 -- |
 module TST.Tools.Util
-  ( -- * Names
+  ( -- * Utility
     qualTypeName
+  , zipWithX
     -- * Precision
   , Epsilon(..)
   ) where
@@ -25,7 +26,12 @@ qualTypeName = intercalate " "
       s | ' ' `elem` s -> "("++s++")"
         | otherwise    -> s
 
-
+-- | Variant of 'zipWith' which throws error when lists have different
+--   lengths
+zipWithX :: (a -> b -> c) -> [a] -> [b] -> [c]
+zipWithX _ []     []     = []
+zipWithX f (a:as) (b:bs) = f a b : zipWithX f as bs
+zipWithX _ _ _ = error "zipWithX: length mismatch"
 
 -- | Absolute error for tests of numeric routines.
 class Epsilon a where

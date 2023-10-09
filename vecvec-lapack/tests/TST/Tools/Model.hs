@@ -57,6 +57,7 @@ import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
+import TST.Tools.Util
 import TST.Tools.Orphanage ()
 
 ----------------------------------------------------------------
@@ -153,6 +154,63 @@ deriving newtype instance VectorSpace        (ModelRepr v) => VectorSpace       
 deriving newtype instance InnerSpace         (ModelRepr v) => InnerSpace         (Model v)
 
 
+instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Tr a) where
+  type ModelRepr (Tr a) = Tr (ModelRepr a)
+  fromModel (Model (Tr a)) = Tr $ fromModel (Model a)
+
+instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Conj a) where
+  type ModelRepr (Conj a) = Conj (ModelRepr a)
+  fromModel (Model (Conj a)) = Conj $ fromModel (Model a)
+
+
+----------------------------------------------------------------
+-- Model for vectors
+----------------------------------------------------------------
+
+-- | We use lists as model for vectors.
+data ModelVec a = ModelVec
+  { modelVecStride :: !Int
+    -- ^ Stride for vector. Ignored if not supported
+  , unModelVec     :: [a]
+    -- ^ Data for vectors
+  }
+  deriving stock (Show)
+
+instance HasShape (ModelVec a) where
+  type NDim (ModelVec a) = 1
+  shapeAsCVec = FC.mk1 . length . unModelVec
+
+instance ScalarModel a => Arbitrary (ModelVec a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  shrink (ModelVec n xs) = do
+    n' <- case n of 1 -> [1]
+                    _ -> [1,n]
+    x  <- shrinkList (const []) xs
+    return $ ModelVec n' x
+
+instance ScalarModel a => ArbitraryShape (ModelVec a) where
+  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
+
+instance Num a => AdditiveSemigroup (ModelVec a) where
+  a .+. b = ModelVec 1 $ (zipWithX (+) `on` unModelVec) a b
+
+instance Num a => AdditiveQuasigroup (ModelVec a) where
+  a .-. b = ModelVec 1 $ (zipWithX (-) `on` unModelVec) a b
+  negateV = ModelVec 1 . map negate . unModelVec
+
+instance Num a => VectorSpace (ModelVec a) where
+  type Scalar (ModelVec a) = a
+  a *. ModelVec _ xs = ModelVec 1 $ fmap (a*) xs
+  ModelVec _ xs .* a = ModelVec 1 $ fmap (*a) xs
+
+instance NormedScalar a => InnerSpace (ModelVec a) where
+  ModelVec _ xs <.> ModelVec _ ys = sum $ zipWithX (\x y -> conjugate x * y) xs ys
+  magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
+
+
+----------------------------------------
+-- Instances for vector types
+
 instance (Storable a, Num a, Show a, Eq a, Typeable a) => IsModel (VV.Vec a) where
   type ModelRepr (VV.Vec a) = (ModelVec a)
   fromModel (Model (ModelVec stride xs))
@@ -182,61 +240,9 @@ instance (Typeable a, Show a, Eq a, Storable a, Num a) => IsModel (Matrix a) whe
     where
       nC = modelMatCols m
 
-instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Tr a) where
-  type ModelRepr (Tr a) = Tr (ModelRepr a)
-  fromModel (Model (Tr a)) = Tr $ fromModel (Model a)
-
-instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Conj a) where
-  type ModelRepr (Conj a) = Conj (ModelRepr a)
-  fromModel (Model (Conj a)) = Conj $ fromModel (Model a)
-
 
 ----------------------------------------------------------------
--- Model for vectors
-----------------------------------------------------------------
-
--- | We use lists as model for vectors.
-data ModelVec a = ModelVec { modelVecStride :: !Int
-                           , unModelVec     :: [a]
-                           }
-  deriving stock (Show)
-
-instance HasShape (ModelVec a) where
-  type NDim (ModelVec a) = 1
-  shapeAsCVec = FC.mk1 . length . unModelVec
-
-instance ScalarModel a => Arbitrary (ModelVec a) where
-  arbitrary = arbitraryShape =<< genSize @Int
-  shrink (ModelVec n xs) = do
-    n' <- case n of 1 -> [1]
-                    _ -> [1,n]
-    x  <- shrinkList (const []) xs
-    return $ ModelVec n' x
-
-instance ScalarModel a => ArbitraryShape (ModelVec a) where
-  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
-
--- FIXME: We need to implement checks than values have same size
-instance Num a => AdditiveSemigroup (ModelVec a) where
-  a .+. b = ModelVec 1 $ (zipWith (+) `on` unModelVec) a b
-
-instance Num a => AdditiveQuasigroup (ModelVec a) where
-  a .-. b = ModelVec 1 $ (zipWith (-) `on` unModelVec) a b
-  negateV = ModelVec 1 . map negate . unModelVec
-
-instance Num a => VectorSpace (ModelVec a) where
-  type Scalar (ModelVec a) = a
-  a *. ModelVec _ xs = ModelVec 1 $ fmap (a*) xs
-  ModelVec _ xs .* a = ModelVec 1 $ fmap (*a) xs
-
-instance NormedScalar a => InnerSpace (ModelVec a) where
-  ModelVec _ xs <.> ModelVec _ ys = sum $ zipWith (\x y -> conjugate x * y) xs ys
-  magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
-
-
-
-----------------------------------------------------------------
--- Model for matrix/vector multiplication
+-- Model for general dense matrix
 ----------------------------------------------------------------
 
 -- | Model for general dense matrices
@@ -274,10 +280,10 @@ instance (Eq a, ScalarModel a) => ArbitraryShape (ModelMat a) where
     <*> replicateM m (replicateM n genScalar)
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
-  a .+. b = ModelMat 0 0 $ ((zipWith . zipWith) (+) `on` unModelMat) a b
+  a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` unModelMat) a b
 
 instance Num a => AdditiveQuasigroup (ModelMat a) where
-  a .-. b = ModelMat 0 0 $ ((zipWith . zipWith) (-) `on` unModelMat) a b
+  a .-. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (-) `on` unModelMat) a b
   negateV = ModelMat 0 0 . ((map . map) negate) . unModelMat
 
 instance Num a => VectorSpace (ModelMat a) where
