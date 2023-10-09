@@ -8,7 +8,6 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -34,7 +33,6 @@ module TST.Tools.Model
     -- * Helpers
   , genSize
   , genNonsingularMatrix
-  , qualTypeName
   ) where
 
 import Control.Monad
@@ -42,7 +40,7 @@ import Data.Complex          (Complex(..))
 import Data.Kind             (Type)
 import Data.Function         (on)
 import Data.Typeable
-import Data.List             (intercalate,transpose)
+import Data.List             (transpose)
 import Foreign.Storable      (Storable)
 import Linear.Matrix         ((!*), (!*!))
 import Test.Tasty.QuickCheck
@@ -60,7 +58,6 @@ import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
 import TST.Tools.Orphanage ()
-
 
 ----------------------------------------------------------------
 -- Extending arbitrary
@@ -342,18 +339,6 @@ instance (IsModel v) => Arbitrary (Pair v) where
   arbitrary = do
     sz <- genSize @(FC.ContVec _ _)
     Pair <$> arbitraryShape sz <*> arbitraryShape sz
-
--- | Pretty print name of type
-qualTypeName :: forall v. (Typeable v) => String
-qualTypeName = intercalate " "
-             $ tyConModule con <> "." <> tyConName con
-             : map showParam par
-  where
-    tyV = typeRep (Proxy @v)
-    (con,par) = splitTyConApp tyV
-    showParam p = case show p of
-      s | ' ' `elem` s -> "("++s++")"
-        | otherwise    -> s
 
 -- | Generate size for N-dimensional array
 genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape

@@ -60,6 +60,7 @@ test-suite vecvec-lapack-tests
                     TST.Slice
                     TST.Tools.Model
                     TST.Tools.Orphanage
+                    TST.Tools.Util
                     TST.Vector.Boilerplater
                     TST.Vector.Property
                     TST.Vector.Utilities
