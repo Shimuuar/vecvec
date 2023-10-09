@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Tests for matrix decomposition
-module TST.Decomposition (tests, Epsilon(..)) where
+module TST.Decomposition (tests) where
 
 import Foreign.Storable (Storable)
 import Data.Typeable
@@ -36,6 +36,8 @@ import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
 import TST.Tools.Model
+import TST.Tools.Util
+
 
 tests :: TestTree
 tests = testGroup "Decomposition"
@@ -93,12 +95,4 @@ prop_SVD_unitarity (fromModel -> mat)
     (u,_,v) = decomposeSVD mat
     deltaU  = (Conj u @@ u) .-. Mat.eye n
     deltaV  = (Conj v @@ v) .-. Mat.eye k
-
-
-
-class Epsilon a where
-  epsilon :: a
-
-instance Epsilon Float  where epsilon = 1e-4
-instance Epsilon Double where epsilon = 1e-12
   

@@ -44,7 +44,6 @@ import Vecvec.LAPACK.LinAlg
 
 import TST.Tools.Model
 import TST.Tools.Util
-import TST.Decomposition (Epsilon(..))
 
 
 -- | Run tests for solvers for linear systems

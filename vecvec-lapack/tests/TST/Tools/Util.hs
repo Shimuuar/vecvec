@@ -4,7 +4,10 @@
 {-# LANGUAGE TypeApplications    #-}
 -- |
 module TST.Tools.Util
-  ( qualTypeName
+  ( -- * Names
+    qualTypeName
+    -- * Precision
+  , Epsilon(..)
   ) where
 
 import Data.List (intercalate)
@@ -21,3 +24,12 @@ qualTypeName = intercalate " "
     showParam p = case show p of
       s | ' ' `elem` s -> "("++s++")"
         | otherwise    -> s
+
+
+
+-- | Absolute error for tests of numeric routines.
+class Epsilon a where
+  epsilon :: a
+
+instance Epsilon Float  where epsilon = 1e-4
+instance Epsilon Double where epsilon = 1e-12
