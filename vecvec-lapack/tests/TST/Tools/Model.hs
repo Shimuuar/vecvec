@@ -129,8 +129,7 @@ instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Conj a) where
 
 -- | Type class for models. That is data types which implements same
 -- operations in simpler way.
-class ( ArbitraryShape (ModelRepr v)
-      , Typeable v
+class ( Typeable v
       , Eq v
       , Show v
       , Show (ModelRepr v)
@@ -154,26 +153,26 @@ deriving newtype instance VectorSpace        (ModelRepr v) => VectorSpace       
 deriving newtype instance InnerSpace         (ModelRepr v) => InnerSpace         (Model v)
 
 
-instance (Storable a, Num a, Show a, Eq a, Typeable a, ScalarModel a) => IsModel (VV.Vec a) where
+instance (Storable a, Num a, Show a, Eq a, Typeable a) => IsModel (VV.Vec a) where
   type ModelRepr (VV.Vec a) = (ModelVec a)
   fromModel (Model (ModelVec stride xs))
     = slice ((0,End) `Strided` stride)
     $ VG.fromList
     $ (\n -> n : replicate (stride-1) 0) =<< xs
 
-instance (Typeable a, Show a, Eq a, ScalarModel a) => IsModel (V.Vector a) where
+instance (Typeable a, Show a, Eq a) => IsModel (V.Vector a) where
   type ModelRepr (V.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, VU.Unbox a, ScalarModel a) => IsModel (VU.Vector a) where
+instance (Typeable a, Show a, Eq a, VU.Unbox a) => IsModel (VU.Vector a) where
   type ModelRepr (VU.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a) => IsModel (VS.Vector a) where
+instance (Typeable a, Show a, Eq a, Storable a) => IsModel (VS.Vector a) where
   type ModelRepr (VS.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec . unModel
 
-instance (Typeable a, Show a, Eq a, Storable a, ScalarModel a, Num a) => IsModel (Matrix a) where
+instance (Typeable a, Show a, Eq a, Storable a, Num a) => IsModel (Matrix a) where
   type ModelRepr (Matrix a) = ModelMat a
   fromModel (Model m@ModelMat{unModelMat=mat, ..})
     = slice ((padRows,End), (padCols,End))
@@ -335,7 +334,7 @@ data Pair v = Pair (Model v) (Model v)
 
 deriving stock instance Show (Model v) => Show (Pair v)
 
-instance (IsModel v) => Arbitrary (Pair v) where
+instance (IsModel v, ArbitraryShape (Model v)) => Arbitrary (Pair v) where
   arbitrary = do
     sz <- genSize @(FC.ContVec _ _)
     Pair <$> arbitraryShape sz <*> arbitraryShape sz

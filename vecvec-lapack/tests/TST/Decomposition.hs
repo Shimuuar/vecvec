@@ -61,7 +61,7 @@ testSVD = testGroup (show (typeOf (undefined :: a)))
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_valid
-  :: ( VV.LAPACKy a, Typeable a, Show a, Eq a, ScalarModel a
+  :: ( VV.LAPACKy a, Typeable a, Show a, Eq a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
   => Model (Matrix a)
@@ -79,7 +79,7 @@ prop_SVD_valid (fromModel -> mat)
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_unitarity
-  :: ( VV.LAPACKy a, Typeable a, Show a, Eq a, ScalarModel a
+  :: ( VV.LAPACKy a, Typeable a, Show a, Eq a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
   => Model (Matrix a)

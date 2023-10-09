@@ -64,7 +64,7 @@ tests = testGroup "VectorSpace instances"
 
 -- Tests for vector space implementation
 props_inner_space
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
                  , Eq (R a), Show (R a), ScalarModel a, Show a, Eq a
                  )
@@ -81,7 +81,7 @@ props_inner_space = testGroup (qualTypeName @v)
 
 -- Tests for vector space implementation
 props_vector_space
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
                  , ScalarModel a, Show a
                  )
@@ -98,7 +98,7 @@ props_vector_space = testGroup (qualTypeName @v)
 
 -- Model evaluate addition in the same way as implementation
 prop_addition_correct
-  :: forall v. ( IsModel v, AdditiveSemigroup v, AdditiveSemigroup (Model v))
+  :: forall v. ( IsModel v, AdditiveSemigroup v, AdditiveSemigroup (Model v), ArbitraryShape (Model v))
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
@@ -113,7 +113,7 @@ prop_addition_correct
 
 -- Model evaluate subtraction in the same way as implementation
 prop_subtraction_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
+  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v), ArbitraryShape (Model v))
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
@@ -125,7 +125,7 @@ prop_subtraction_correct
 
 -- Model evaluate negation in the same way as implementation
 prop_negation_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v))
+  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v), ArbitraryShape (Model v))
   => TestTree
 prop_negation_correct
   = testProperty "Negation"
@@ -136,7 +136,7 @@ prop_negation_correct
 
 -- Model evaluates multiplication by scalar on the left
 prop_lmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
                  , ScalarModel a, Show a
                  )
@@ -153,7 +153,7 @@ prop_lmul_scalar
 
 -- Model evaluates multiplication by scalar on the right
 prop_rmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v)
+  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
                  , ScalarModel a, Show a
                  )
@@ -171,7 +171,7 @@ prop_rmul_scalar
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
                  , a ~ Scalar v
                  , a ~ Scalar (Model v)
                  , Eq a)
@@ -186,7 +186,7 @@ prop_scalar_product
 
 -- Model evaluates magnitude in the same way
 prop_magnitude
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v)
+  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
                  , a ~ Scalar v
                  , a ~ Scalar (Model v)
                  , Eq (R a), Show (R a))
