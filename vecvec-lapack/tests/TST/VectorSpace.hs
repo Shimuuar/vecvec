@@ -102,7 +102,7 @@ prop_addition_correct
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
-  $ \(Pair m1 m2) ->
+  $ \(Pair m1 m2 :: Pair v) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           m  = m1 .+. m2
@@ -117,11 +117,12 @@ prop_subtraction_correct
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
-                         v2 = fromModel m2 :: v
-                         m  = m1 .-. m2
-                         v  = v1 .-. v2
-                     in v == fromModel m
+  $ \(Pair m1 m2 :: Pair v) ->
+      let v1 = fromModel m1 :: v
+          v2 = fromModel m2 :: v
+          m  = m1 .-. m2
+          v  = v1 .-. v2
+      in v == fromModel m
 
 -- Model evaluate negation in the same way as implementation
 prop_negation_correct
@@ -178,11 +179,12 @@ prop_scalar_product
   => TestTree
 prop_scalar_product
   = testProperty "Scalar product"
-  $ \(Pair m1 m2) -> let v1 = fromModel m1 :: v
-                         v2 = fromModel m2 :: v
-                         rV = v1 <.> v2
-                         rM = (m1 <.> m2)
-                     in rV == rM
+  $ \(Pair m1 m2 :: Pair v) ->
+      let v1 = fromModel m1 :: v
+          v2 = fromModel m2 :: v
+          rV = v1 <.> v2
+          rM = (m1 <.> m2)
+      in rV == rM
 
 -- Model evaluates magnitude in the same way
 prop_magnitude
@@ -193,7 +195,7 @@ prop_magnitude
   => TestTree
 prop_magnitude
   = testProperty "Magnitude"
-  $ \m -> let v = fromModel m :: v
+  $ \m -> let v  = fromModel m :: v
               rV = magnitudeSq v
               rM = magnitudeSq m
           in id $ counterexample ("Model: " ++ show rM)

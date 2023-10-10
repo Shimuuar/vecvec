@@ -26,7 +26,6 @@ module TST.Tools.Model
   , Nonsingular(..)
     -- * Models
   , IsModel(..)
-  , Model(..)
   , Pair(..)
   , ModelVec(..)
   , ModelMat(..)
@@ -133,34 +132,22 @@ instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Conj a) where
 class ( Typeable v
       , Eq v
       , Show v
-      , Show (ModelRepr v)
+      , Show (Model v)
       ) => IsModel v where
   -- | Representation of a model. It may include unobservable
   --   information such as memory layout of vector or matrix
-  type ModelRepr v :: Type
+  type Model v :: Type
   -- | Convert model to actual data type
   fromModel :: Model v -> v
 
--- | Newtype wrapper for model.
-newtype Model v = Model { unModel :: ModelRepr v }
 
-deriving newtype instance Show               (ModelRepr v) => Show               (Model v)
-deriving newtype instance Arbitrary          (ModelRepr v) => Arbitrary          (Model v)
-deriving newtype instance HasShape           (ModelRepr v) => HasShape           (Model v)
-deriving newtype instance ArbitraryShape     (ModelRepr v) => ArbitraryShape     (Model v)
-deriving newtype instance AdditiveSemigroup  (ModelRepr v) => AdditiveSemigroup  (Model v)
-deriving newtype instance AdditiveQuasigroup (ModelRepr v) => AdditiveQuasigroup (Model v)
-deriving newtype instance VectorSpace        (ModelRepr v) => VectorSpace        (Model v)
-deriving newtype instance InnerSpace         (ModelRepr v) => InnerSpace         (Model v)
+instance (NDim (Model a) ~ 2, IsModel a) => IsModel (Tr a) where
+  type Model (Tr a) = Tr (Model a)
+  fromModel (Tr a) = Tr $ fromModel a
 
-
-instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Tr a) where
-  type ModelRepr (Tr a) = Tr (ModelRepr a)
-  fromModel (Model (Tr a)) = Tr $ fromModel (Model a)
-
-instance (NDim (ModelRepr a) ~ 2, IsModel a) => IsModel (Conj a) where
-  type ModelRepr (Conj a) = Conj (ModelRepr a)
-  fromModel (Model (Conj a)) = Conj $ fromModel (Model a)
+instance (NDim (Model a) ~ 2, IsModel a) => IsModel (Conj a) where
+  type Model (Conj a) = Conj (Model a)
+  fromModel (Conj a) = Conj $ fromModel a
 
 
 ----------------------------------------------------------------
@@ -212,27 +199,27 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
 -- Instances for vector types
 
 instance (Storable a, Num a, Show a, Eq a, Typeable a) => IsModel (VV.Vec a) where
-  type ModelRepr (VV.Vec a) = (ModelVec a)
-  fromModel (Model (ModelVec stride xs))
+  type Model (VV.Vec a) = ModelVec a
+  fromModel (ModelVec stride xs)
     = slice ((0,End) `Strided` stride)
     $ VG.fromList
     $ (\n -> n : replicate (stride-1) 0) =<< xs
 
 instance (Typeable a, Show a, Eq a) => IsModel (V.Vector a) where
-  type ModelRepr (V.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec . unModel
+  type Model (V.Vector a) = ModelVec a
+  fromModel = VG.fromList . unModelVec
 
 instance (Typeable a, Show a, Eq a, VU.Unbox a) => IsModel (VU.Vector a) where
-  type ModelRepr (VU.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec . unModel
+  type Model (VU.Vector a) = ModelVec a
+  fromModel = VG.fromList . unModelVec
 
 instance (Typeable a, Show a, Eq a, Storable a) => IsModel (VS.Vector a) where
-  type ModelRepr (VS.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec . unModel
+  type Model (VS.Vector a) = ModelVec a
+  fromModel = VG.fromList . unModelVec
 
 instance (Typeable a, Show a, Eq a, Storable a, Num a) => IsModel (Matrix a) where
-  type ModelRepr (Matrix a) = ModelMat a
-  fromModel (Model m@ModelMat{unModelMat=mat, ..})
+  type Model (Matrix a) = ModelMat a
+  fromModel m@ModelMat{unModelMat=mat, ..}
     = slice ((padRows,End), (padCols,End))
     $ fromRowsFF
     $ replicate padRows (replicate (nC + padCols) 0)
