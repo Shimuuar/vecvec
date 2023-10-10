@@ -23,6 +23,7 @@ import           Data.Foldable               (foldrM)
 import           Data.Functor.Identity
 import           Data.List
 import qualified Data.List.NonEmpty          as DLE
+import           Data.Maybe                  (mapMaybe)
 import           Data.Semigroup              (Semigroup (..))
 import qualified Data.Traversable            as T (Traversable (..))
 import qualified Data.Vector.Fusion.Bundle   as S
