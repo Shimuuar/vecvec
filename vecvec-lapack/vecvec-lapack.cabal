@@ -57,6 +57,7 @@ test-suite vecvec-lapack-tests
   other-modules:    TST.Decomposition
                     TST.LinSolve
                     TST.MatMul
+                    TST.MatDense
                     TST.Slice
                     TST.Tools.Model
                     TST.Tools.Orphanage
