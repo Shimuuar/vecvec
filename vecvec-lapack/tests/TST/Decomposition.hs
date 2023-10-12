@@ -35,7 +35,7 @@ import Vecvec.LAPACK.Matrix.Dense          (Matrix,gdiag)
 import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
-import TST.Tools.Model
+import TST.Tools.MatModel
 import TST.Tools.Util
 
 

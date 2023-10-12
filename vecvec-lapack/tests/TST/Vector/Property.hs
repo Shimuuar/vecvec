@@ -11,7 +11,6 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 module TST.Vector.Property (tests) where
 
-
 import TST.Vector.Boilerplater
 import TST.Vector.Utilities as Util hiding (limitUnfolds)
 
@@ -40,7 +39,7 @@ import           Test.Tasty.QuickCheck hiding (testProperties)
 
 import           Vecvec.LAPACK.Internal.Vector
 import           TST.Tools.Orphanage ()
-
+import           TST.Tools.Model
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
 type VanillaContext a   = ( Eq a , Show a, Arbitrary a, CoArbitrary a

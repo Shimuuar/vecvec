@@ -60,6 +60,7 @@ test-suite vecvec-lapack-tests
                     TST.MatDense
                     TST.Slice
                     TST.Tools.Model
+                    TST.Tools.MatModel
                     TST.Tools.Orphanage
                     TST.Tools.Util
                     TST.Vector.Boilerplater

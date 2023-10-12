@@ -36,7 +36,7 @@ import Vecvec.Classes
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
-import TST.Tools.Model
+import TST.Tools.MatModel
 import TST.Tools.Util
 
 tests :: TestTree
