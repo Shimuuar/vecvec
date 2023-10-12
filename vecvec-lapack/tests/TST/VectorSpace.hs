@@ -66,7 +66,7 @@ tests = testGroup "VectorSpace instances"
 props_inner_space
   :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
-                 , Eq (R a), Show (R a), ScalarModel a, Show a, Eq a
+                 , Eq (R a), Show (R a), SmallScalar a, Show a, Eq a
                  )
   => TestTree
 props_inner_space = testGroup (qualTypeName @v)
@@ -83,7 +83,7 @@ props_inner_space = testGroup (qualTypeName @v)
 props_vector_space
   :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
+                 , SmallScalar a, Show a
                  )
   => TestTree
 props_vector_space = testGroup (qualTypeName @v)
@@ -139,7 +139,7 @@ prop_negation_correct
 prop_lmul_scalar
   :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
+                 , SmallScalar a, Show a
                  )
   => TestTree
 prop_lmul_scalar
@@ -156,7 +156,7 @@ prop_lmul_scalar
 prop_rmul_scalar
   :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
                  , Scalar v ~ a, Scalar (Model v) ~ a
-                 , ScalarModel a, Show a
+                 , SmallScalar a, Show a
                  )
   => TestTree
 prop_rmul_scalar

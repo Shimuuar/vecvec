@@ -20,7 +20,7 @@
 -- Tools for writing tests for linear algebra.
 module TST.Tools.MatModel
   ( -- * Arbitrary extensions
-    ScalarModel(..)
+    SmallScalar(..)
   , ArbitraryShape(..)
   , X(..)
   , Nonsingular(..)
@@ -67,25 +67,25 @@ import TST.Tools.Orphanage ()
 --   going into dark forest of floating point. This is achieved by
 --   exploiting fact that multiplication and addition small integers
 --   are exact in floating point.
-class Arbitrary a => ScalarModel a where
+class Arbitrary a => SmallScalar a where
   genScalar    :: Gen a
   shrinkScalar :: a -> [a]
 
-instance ScalarModel Float where
+instance SmallScalar Float where
   genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
   shrinkScalar = \case
     0 -> []
     1 -> [0]
     _ -> [0,1]
 
-instance ScalarModel Double where
+instance SmallScalar Double where
   genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
   shrinkScalar = \case
     0 -> []
     1 -> [0]
     _ -> [0,1]
 
-instance (RealFloat a, ScalarModel a) => ScalarModel (Complex a) where
+instance (RealFloat a, SmallScalar a) => SmallScalar (Complex a) where
   genScalar = (:+) <$> genScalar <*> genScalar
   shrinkScalar = \case
     0      -> []
@@ -96,17 +96,17 @@ instance (RealFloat a, ScalarModel a) => ScalarModel (Complex a) where
 maxGenScacar :: Num a => a
 maxGenScacar = 10
 
--- | Scalar which uses @ScalarModel@ for generation
+-- | Scalar which uses @SmallScalar@ for generation
 newtype X a = X a
   deriving newtype Show
 
-instance ScalarModel a => Arbitrary (X a) where
+instance SmallScalar a => Arbitrary (X a) where
   arbitrary = X <$> genScalar
 
 newtype Nonsingular a = Nonsingular { getNonsingular :: Matrix a }
   deriving newtype Show
 
-instance (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (Nonsingular a) where
+instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (Nonsingular a) where
   arbitrary = Nonsingular <$> (genNonsingularMatrix =<< genSize)
 
 
@@ -167,7 +167,7 @@ instance HasShape (ModelVec a) where
   type NDim (ModelVec a) = 1
   shapeAsCVec = FC.mk1 . length . unModelVec
 
-instance ScalarModel a => Arbitrary (ModelVec a) where
+instance SmallScalar a => Arbitrary (ModelVec a) where
   arbitrary = arbitraryShape =<< genSize @Int
   shrink (ModelVec n xs) = do
     n' <- case n of 1 -> [1]
@@ -175,7 +175,7 @@ instance ScalarModel a => Arbitrary (ModelVec a) where
     x  <- shrinkList (const []) xs
     return $ ModelVec n' x
 
-instance ScalarModel a => ArbitraryShape (ModelVec a) where
+instance SmallScalar a => ArbitraryShape (ModelVec a) where
   arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
@@ -249,7 +249,7 @@ instance HasShape (ModelMat a) where
   type NDim (ModelMat a) = 2
   shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
 
-instance (ScalarModel a, Eq a) => Arbitrary (ModelMat a) where
+instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
   shrink mat0@ModelMat{..} = do
     p_r <- case padRows of 0 -> [0]; _ -> [0,padRows]
@@ -259,7 +259,7 @@ instance (ScalarModel a, Eq a) => Arbitrary (ModelMat a) where
     guard (mat /= mat0)
     return mat
 
-instance (Eq a, ScalarModel a) => ArbitraryShape (ModelMat a) where
+instance (Eq a, SmallScalar a) => ArbitraryShape (ModelMat a) where
   arbitraryShape (N2 m n)
      =  ModelMat
     <$> genOffset
@@ -347,7 +347,7 @@ genOffset = choose (0,3)
 -- | Generate nonsingular square matrix. In order to ensure
 --   nonsingularity we generate matrix with diagonal dominance
 genNonsingularMatrix
-  :: (ScalarModel a, VV.LAPACKy a, Typeable a, Show a, Eq a)
+  :: (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
   mdl <- arbitraryShape (sz,sz)

@@ -110,7 +110,7 @@ data LinSimple rhs a = LinSimple (Matrix a) (rhs a)
 instance (Show a, Show (rhs a), VS.Storable a) => Show (LinSimple rhs a) where
   show (LinSimple a rhs) = "A = \n"++show a++"\nb =\n"++show rhs
   
-instance ( Show a,Eq a,VV.LAPACKy a,ScalarModel a,Typeable a,ArbitraryRHS rhs a
+instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
          ) => Arbitrary (LinSimple rhs a) where
   arbitrary = do
     sz  <- genSize @Int
@@ -121,7 +121,7 @@ instance ( Show a,Eq a,VV.LAPACKy a,ScalarModel a,Typeable a,ArbitraryRHS rhs a
 
 -- | Generate arbitrary right hand side for equation and check it for validity
 class ArbitraryRHS rhs a where
-  arbitraryRHS :: ScalarModel a => Int -> Gen (rhs a)
+  arbitraryRHS :: SmallScalar a => Int -> Gen (rhs a)
   checkLinEq   :: Matrix a -> rhs a -> rhs a -> Property
 
 instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a), Eq a, Show a, Typeable a

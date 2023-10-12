@@ -50,7 +50,7 @@ tests = testGroup "Decomposition"
   ]
 
 
-testSVD :: forall a. (VV.LAPACKy a, Typeable a, ScalarModel a, Eq a, Show a
+testSVD :: forall a. (VV.LAPACKy a, Typeable a, SmallScalar a, Eq a, Show a
                      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
                      )
         => TestTree

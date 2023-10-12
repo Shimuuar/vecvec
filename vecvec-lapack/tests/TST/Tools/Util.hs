@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 -- |
+-- General helpers for defining tests
 module TST.Tools.Util
   ( -- * Utility
     qualTypeName
