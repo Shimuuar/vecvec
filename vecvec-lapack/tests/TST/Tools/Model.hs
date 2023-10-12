@@ -3,7 +3,15 @@
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 -- |
-module TST.Tools.Model where
+module TST.Tools.Model
+  ( -- * Model-related classes
+    TestData(..)
+  , Conclusion(..)
+  , P(..)
+  , (===>)
+  , eq
+    -- * QC extras
+  ) where
 
 import Test.QuickCheck
 import Data.Bifunctor
