@@ -9,14 +9,12 @@
 module TST.Tools.Orphanage where
 
 import Control.Monad.Trans.Writer
-import Data.Complex
 import Data.Vector               qualified as V
 import Data.Vector.Storable      qualified as VS
 import Data.Vector.Unboxed       qualified as VU
 import Data.Vector.Primitive     qualified as VP
 import Data.Vector.Generic       qualified as VG
 import Data.Vector.Fusion.Bundle qualified as S
-import System.Random
 
 import Test.Tasty.QuickCheck
 
@@ -24,13 +22,10 @@ import Vecvec.Classes
 import Vecvec.Classes.NDArray        qualified as Slice
 import Vecvec.LAPACK.Internal.Vector as VV
 
+----------------------------------------------------------------
+-- Other instances
+----------------------------------------------------------------
 
-instance Random a => Random (Complex a) where
-  randomR (al :+ bl, ah :+ bh) g =
-    (\((a,b), g') -> (a :+ b, g')) $ randomR ((al,bl), (ah,bh)) g
-  random g =
-    (\((a,b),g') -> (a :+ b, g')) $ random g
-  {-# INLINE random #-}
 
 instance Show a => Show (S.Bundle v a) where
     show s = "Data.Vector.Fusion.Bundle.fromList " ++ show (S.toList s)
