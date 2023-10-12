@@ -1,8 +1,10 @@
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
@@ -18,14 +20,13 @@ import Data.Vector.Fusion.Bundle qualified as S
 
 import Test.Tasty.QuickCheck
 
-import Vecvec.Classes
-import Vecvec.Classes.NDArray        qualified as Slice
+import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Vector as VV
+
 
 ----------------------------------------------------------------
 -- Other instances
 ----------------------------------------------------------------
-
 
 instance Show a => Show (S.Bundle v a) where
     show s = "Data.Vector.Fusion.Bundle.fromList " ++ show (S.toList s)
@@ -34,13 +35,6 @@ instance Show a => Show (S.Bundle v a) where
 ----------------------------------------------------------------
 -- QC instances
 ----------------------------------------------------------------
-
-deriving newtype instance Arbitrary a => Arbitrary (Tr   a)
-deriving newtype instance Arbitrary a => Arbitrary (Conj a)
-
-deriving newtype instance CoArbitrary a => CoArbitrary (Tr   a)
-deriving newtype instance CoArbitrary a => CoArbitrary (Conj a)
-
 
 instance Arbitrary a => Arbitrary (V.Vector a) where
     arbitrary = fmap V.fromList arbitrary
@@ -81,7 +75,7 @@ instance (Arbitrary a, VS.Storable a) => Arbitrary (VV.Vec a) where
     arbitrary = do
         stride <- choose (1,3)
         lst <- arbitrary
-        let vec = Slice.slice ((0,Slice.End) `Strided` stride) $ VG.fromList $ replicate stride =<< lst
+        let vec = slice ((0,End) `Strided` stride) $ VG.fromList $ replicate stride =<< lst
         pure vec
 
 instance (CoArbitrary a, VS.Storable a) => CoArbitrary (VV.Vec a) where
@@ -95,4 +89,3 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (Writer a b) where
 
 instance CoArbitrary a => CoArbitrary (Writer a ()) where
     coarbitrary = coarbitrary . runWriter
-
