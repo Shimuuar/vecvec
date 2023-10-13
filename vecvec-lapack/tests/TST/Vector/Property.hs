@@ -42,10 +42,10 @@ import           TST.Tools.Orphanage ()
 import           TST.Tools.Model
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
-type VanillaContext a   = ( Eq a , Show a, Arbitrary a, CoArbitrary a
-                          , TestData a, Model a ~ a, EqTest a ~ Property)
+type VanillaContext a   = ( Eq a, Show a, Arbitrary a, CoArbitrary a
+                          , LiftTestEq a, TestEquiv a, Model a ~ a, EqTest a ~ Property)
 type VectorContext  a v = ( Eq (v a), Show (v a), Arbitrary (v a), CoArbitrary (v a)
-                          , TestData (v a), Model (v a) ~ [a],  EqTest (v a) ~ Property, V.Vector v a)
+                          , LiftTestEq (v a), TestEquiv (v a), Model (v a) ~ [a], EqTest (v a) ~ Property, V.Vector v a)
 
 -- TODO: implement Vector equivalents of list functions for some of the commented out properties
 

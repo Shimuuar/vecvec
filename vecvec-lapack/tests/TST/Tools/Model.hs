@@ -1,32 +1,42 @@
 {-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE DerivingVia          #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ImportQualifiedPost  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |
 module TST.Tools.Model
-  ( -- * Model-related classes
+{-  ( -- * Model-related classes
     TestData(..)
+  , TestEquiv(..)
   , Conclusion(..)
   , P(..)
   , (===>)
   , eq
     -- * QC extras
-  ) where
-
-import Test.QuickCheck
-import Data.Bifunctor
-import qualified Data.Vector as DV
-import qualified Data.Vector.Generic as DVG
-import qualified Data.Vector.Primitive as DVP
-import qualified Data.Vector.Storable as DVS
-import qualified Data.Vector.Unboxed as DVU
-import Vecvec.LAPACK.Internal.Vector as VV
+  ) -} where
 
 import Control.Monad.Trans.Writer
+import Data.Bifunctor
+import Data.Coerce
 import Data.Complex
+import Data.Function
 import Data.Functor.Identity
+import Data.Functor.Classes
+import Data.Vector           qualified as DV
+import Data.Vector.Generic   qualified as DVG
+import Data.Vector.Primitive qualified as DVP
+import Data.Vector.Storable  qualified as DVS
+import Data.Vector.Unboxed   qualified as DVU
 
-import qualified Vecvec.Classes.NDArray                  as Slice
+import Test.QuickCheck
+
+import Vecvec.LAPACK.Internal.Vector as VV
+import Vecvec.Classes.NDArray qualified as Slice
 
 
 ----------------------------------------------------------------
@@ -35,17 +45,37 @@ import qualified Vecvec.Classes.NDArray                  as Slice
 
 -- | Type class for values which has corresponding model for which
 --   functions which we desire to test could be easily implemented.
-class (Testable (EqTest a), Conclusion (EqTest a)) => TestData a where
+class TestData a where
   type Model a
   model :: a -> Model a
   unmodel :: Model a -> a
-  -- | Property which is returned as equivalence test
-  type EqTest a
-  type instance EqTest a = Property
+
+-- | Equivalence relation between data types. It's same as 'Eq' except
+--   for treatment of NaNs.
+class TestEquiv a where
+  equiv :: a -> a -> Bool
+  default equiv :: (Eq a) => a -> a -> Bool
+  equiv = (==)
+
+
+
+type family EqTest a where
+  EqTest (a -> b) = a -> EqTest b
+  EqTest  a       = Property
+
+
+class (Testable (EqTest a), Conclusion (EqTest a), TestData a) => LiftTestEq a where
   -- | Equivalence test. To be used with quickcheck
-  equal :: a -> a -> EqTest a
-  default equal :: (Eq a, EqTest a ~ Property) => a -> a -> EqTest a
-  equal x y = property (x == y)
+  equal :: a -> Model a -> EqTest a
+
+instance {-# OVERLAPPABLE #-} (TestData a, TestEquiv a, EqTest a ~ Property) => LiftTestEq a where
+  equal a m = property (equiv a (unmodel m))
+
+instance (Show a, Arbitrary a, TestData a, LiftTestEq b) => LiftTestEq (a -> b) where
+  equal f g = \x -> equal (f x) (g (model x))
+
+
+
 
 -- | Attach predicate to parameters of testable function.
 class Conclusion p where
@@ -60,50 +90,158 @@ instance Conclusion p => Conclusion (a -> p) where
   type Predicate (a -> p) = a -> Predicate p
   predicate f p = \x -> predicate (f x) (p x)
 
-
+-- | Newtype wrapper for property
 newtype P a = P { unP :: EqTest a }
 
-infixr 0 ===>
-(===>) :: TestData a => Predicate (EqTest a) -> P a -> P a
+-- | Only run tests when predicate succeeds
+(===>) :: LiftTestEq a => Predicate (EqTest a) -> P a -> P a
 p ===> P a = P (predicate p a)
+infixr 0 ===>
 
+-- | Test implementation and its model for equivalence
+eq :: LiftTestEq a => a -> Model a -> P a
+eq x y = P (equal x y)
 infix 4 `eq`
-eq :: TestData a => a -> Model a -> P a
-eq x y = P (equal x (unmodel y))
 
-
-instance TestData a => Testable (P a) where
+instance (Testable (EqTest a)) => Testable (P a) where
   property (P a) = property a
 
+----------------------------------------------------------------
+-- Deriving via
+----------------------------------------------------------------
+
+-- | Newtype for deriving 'TestData' instance where model is same as
+--   type itself. 'Eq' is used for equality tests.
+newtype ModelSelf a = ModelSelf a
+
+instance TestData (ModelSelf a) where
+  type Model (ModelSelf a) = a
+  model   = coerce
+  unmodel = coerce
+
+instance Eq a => TestEquiv (ModelSelf a) where
+  equiv = coerce ((==) @a)
+
+-- | Newtype for deriving 'TestData' for functorial data type
+newtype ModelFunctor f a = ModelFunctor (f a)
+
+instance (Functor f, TestData a) => TestData (ModelFunctor f a) where
+  type Model (ModelFunctor f a) = f (Model a)
+  model (ModelFunctor f) = fmap model f
+  unmodel = ModelFunctor . fmap unmodel
+
+instance (Eq1 f, TestEquiv a) => TestEquiv (ModelFunctor f a) where
+  equiv (ModelFunctor f) (ModelFunctor g) = liftEq equiv f g
 
 
 ----------------------------------------------------------------
 -- Instances for models
 ----------------------------------------------------------------
 
-instance (Eq a, TestData a) => TestData (DV.Vector a) where
+instance (TestData a, TestData b) => TestData (a -> b) where
+  type Model (a -> b) = Model a -> Model b
+  model   f = model   . f . unmodel
+  unmodel f = unmodel . f . model
+
+deriving via ModelSelf () instance TestData  ()
+deriving via ModelSelf () instance TestEquiv ()
+
+deriving via ModelSelf Bool instance TestData  Bool
+deriving via ModelSelf Bool instance TestEquiv Bool
+
+deriving via ModelSelf Int instance TestData  Int
+deriving via ModelSelf Int instance TestEquiv Int
+
+deriving via ModelSelf Ordering instance TestData  Ordering
+deriving via ModelSelf Ordering instance TestEquiv Ordering
+
+deriving via ModelSelf Float instance TestData Float
+instance TestEquiv Float where
+  equiv x y = x == y || (isNaN x && isNaN y)
+
+deriving via ModelSelf Double instance TestData Double
+instance TestEquiv Double where
+  equiv x y = x == y || (isNaN x && isNaN y)
+
+deriving via ModelFunctor Complex a instance TestData  a => TestData  (Complex a)
+deriving via ModelFunctor Complex a instance TestEquiv a => TestEquiv (Complex a)
+
+deriving via ModelFunctor Identity a instance TestData  a => TestData  (Identity a)
+deriving via ModelFunctor Identity a instance TestEquiv a => TestEquiv (Identity a)
+
+deriving via ModelFunctor Maybe a instance TestData  a => TestData  (Maybe a)
+deriving via ModelFunctor Maybe a instance TestEquiv a => TestEquiv (Maybe a)
+
+deriving via ModelFunctor [] a instance TestData  a => TestData  [a]
+deriving via ModelFunctor [] a instance TestEquiv a => TestEquiv [a]
+
+
+instance (TestData a, TestData b) => TestData (Either a b) where
+  type Model (Either a b) = Either (Model a) (Model b)
+  model   = bimap model   model
+  unmodel = bimap unmodel unmodel
+
+instance (TestEquiv a, TestEquiv b) => TestEquiv (Either a b) where
+  equiv = liftEq2 equiv equiv
+
+
+instance (TestData a, TestData b) => TestData (a,b) where
+  type Model (a,b) = (Model a, Model b)
+  model   (a,b) = (model   a, model   b)
+  unmodel (a,b) = (unmodel a, unmodel b)
+
+instance (TestEquiv a, TestEquiv b) => TestEquiv (a,b) where
+  equiv (a1,b1) (a2,b2) = equiv a1 a2 && equiv b1 b2
+
+
+instance (TestData a, TestData b, TestData c) => TestData (a,b,c) where
+  type Model (a,b,c) = (Model a, Model b, Model c)
+  model   (a,b,c) = (model   a, model   b, model   c)
+  unmodel (a,b,c) = (unmodel a, unmodel b, unmodel c)
+
+instance (TestEquiv a, TestEquiv b, TestEquiv c) => TestEquiv (a,b,c) where
+  equiv (a1,b1,c1) (a2,b2,c2) = equiv a1 a2 && equiv b1 b2 && equiv c1 c2
+
+
+instance (TestData a, TestData b) => TestData (Writer a b) where
+  type Model (Writer a b) = Writer (Model a) (Model b)
+  model   = mapWriter model
+  unmodel = mapWriter unmodel
+
+instance (TestEquiv a, TestEquiv b) => TestEquiv (Writer a b) where
+  equiv = equiv `on` runWriter
+
+
+
+----------------------------------------
+-- Vectors
+
+instance (TestData a) => TestData (DV.Vector a) where
   type Model (DV.Vector a) = [Model a]
   model   = map model   . DV.toList
   unmodel = DV.fromList . map unmodel
 
-instance (Eq a, DVP.Prim a, TestData a) => TestData (DVP.Vector a) where
+instance (DVP.Prim a, TestData a) => TestData (DVP.Vector a) where
   type Model (DVP.Vector a) = [Model a]
   model   = map model    . DVP.toList
   unmodel = DVP.fromList . map unmodel
 
-instance (Eq a, DVS.Storable a, TestData a) => TestData (DVS.Vector a) where
+instance (DVS.Storable a, TestData a) => TestData (DVS.Vector a) where
   type Model (DVS.Vector a) = [Model a]
   model   = map model    . DVS.toList
   unmodel = DVS.fromList . map unmodel
 
-instance (Eq a, DVU.Unbox a, TestData a) => TestData (DVU.Vector a) where
+instance (DVU.Unbox a, TestData a) => TestData (DVU.Vector a) where
   type Model (DVU.Vector a) = [Model a]
   model   = map model    . DVU.toList
   unmodel = DVU.fromList . map unmodel
 
--- TODO use TST.Model
+instance (                TestEquiv a) => TestEquiv (DV.Vector  a) where equiv = DV.eqBy equiv
+instance (DVP.Prim a,     TestEquiv a) => TestEquiv (DVP.Vector a) where equiv = DVP.eqBy equiv
+instance (DVS.Storable a, TestEquiv a) => TestEquiv (DVS.Vector a) where equiv = DVS.eqBy equiv
+instance (DVU.Unbox a,    TestEquiv a) => TestEquiv (DVU.Vector a) where equiv = DVU.eqBy equiv
 
-instance (Eq a, DVS.Storable a, TestData a) => TestData (VV.Vec a) where
+instance (DVS.Storable a, TestData a) => TestData (VV.Vec a) where
   type Model (VV.Vec a) = [Model a]
   model = map model . DVG.toList
   -- We want to exercise both stride=1 and >1 but list doesn't have
@@ -114,91 +252,5 @@ instance (Eq a, DVS.Storable a, TestData a) => TestData (VV.Vec a) where
                        $ DVG.fromList
                        $ replicate stride =<< map unmodel lst
     where stride = 2
-  type EqTest (VV.Vec a) = Property
-  equal x y = property (x == y)
 
-
-
-
-instance TestData () where
-  type Model () = ()
-  model   = id
-  unmodel = id
-
-instance TestData Bool where
-  type Model Bool = Bool
-  model   = id
-  unmodel = id
-
-instance TestData Int where
-  type Model Int = Int
-  model   = id
-  unmodel = id
-
-instance TestData Ordering where
-  type Model Ordering = Ordering
-  model   = id
-  unmodel = id
-
-instance TestData Float where
-  type Model Float = Float
-  model   = id
-  unmodel = id
-  equal x y = property (x == y || (isNaN x && isNaN y))
-
-instance TestData Double where
-  type Model Double = Double
-  model   = id
-  unmodel = id
-  equal x y = property (x == y || (isNaN x && isNaN y))
-
-instance TestData a => TestData (Complex a) where
-  type Model (Complex a) = Complex (Model a)
-  model   = fmap model
-  unmodel = fmap unmodel
-  equal (r1 :+ i1) (r2 :+ i2) = equal r1 r2 .&&. equal i1 i2
-
--- Functorish models
--- All of these need UndecidableInstances although they are actually well founded. Oh well.
-instance (Eq a, TestData a) => TestData (Maybe a) where
-  type Model (Maybe a) = Maybe (Model a)
-  model   = fmap model
-  unmodel = fmap unmodel
-
-instance (Eq a, TestData a, Eq b, TestData b) => TestData (Either a b) where
-  type Model (Either a b) = Either (Model a) (Model b)
-  model   = bimap model model
-  unmodel = bimap unmodel unmodel
-
-instance (Eq a, TestData a) => TestData [a] where
-  type Model [a] = [Model a]
-  model   = fmap model
-  unmodel = fmap unmodel
-
-instance (Eq a, TestData a) => TestData (Identity a) where
-  type Model (Identity a) = Identity (Model a)
-  model   = fmap model
-  unmodel = fmap unmodel
-
-instance (Eq a, TestData a, Eq b, TestData b, Monoid a) => TestData (Writer a b) where
-  type Model (Writer a b) = Writer (Model a) (Model b)
-  model   = mapWriter model
-  unmodel = mapWriter unmodel
-
-instance (Eq a, Eq b, TestData a, TestData b) => TestData (a,b) where
-  type Model (a,b) = (Model a, Model b)
-  model   (a,b) = (model   a, model   b)
-  unmodel (a,b) = (unmodel a, unmodel b)
-
-instance (Eq a, Eq b, Eq c, TestData a, TestData b, TestData c) => TestData (a,b,c) where
-  type Model (a,b,c) = (Model a, Model b, Model c)
-  model   (a,b,c) = (model   a, model   b, model   c)
-  unmodel (a,b,c) = (unmodel a, unmodel b, unmodel c)
-
-instance (Arbitrary a, Show a, TestData a, TestData b) => TestData (a -> b) where
-  type Model (a -> b) = Model a -> Model b
-  model   f = model   . f . unmodel
-  unmodel f = unmodel . f . model
-
-  type EqTest (a -> b) = a -> EqTest b
-  equal f g = \x -> equal (f x) (g x)
+instance (DVS.Storable a, TestEquiv a) => TestEquiv (VV.Vec a) where equiv = DVG.eqBy equiv
