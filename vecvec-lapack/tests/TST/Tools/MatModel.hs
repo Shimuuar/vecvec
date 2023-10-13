@@ -30,6 +30,7 @@ module TST.Tools.MatModel
   , X(..)
     -- ** ND-arrays
   , ArbitraryShape(..)
+  , Size2D(..)
   , genSize
     -- ** Matrices
   , Nonsingular(..)
@@ -42,8 +43,10 @@ module TST.Tools.MatModel
   , eqV
   , mdl
   , val
+  , (=~=)
   , ModelVec(..)
   , ModelMat(..)
+  , mkMat
     -- * Helpers
   , Pair(..)
   ) where
@@ -128,6 +131,13 @@ instance SmallScalar a => Arbitrary (X a) where
 class (Arbitrary a, HasShape a) => ArbitraryShape a where
   arbitraryShape :: (IsShape shape (NDim a)) => shape -> Gen a
 
+newtype Size2D = Size2D { getSize2D :: (Int,Int) }
+  deriving stock Show
+
+deriving via ModelSelf Size2D instance TestData t Size2D
+instance Arbitrary Size2D where
+  arbitrary = Size2D <$> ((,) <$> genSize <*> genSize)
+
 -- | Generate size for N-dimensional array
 genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape
 genSize = shapeFromCVec <$> FC.replicateM @n (choose (1,10))
@@ -182,6 +192,10 @@ mdl eqv f g = \m -> f (fromModel m) `eqv` g m
 val :: forall a b c r. (TestMatrix a)
     => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (a -> r)
 val eqv f g = \a -> f a `eqv` g (model TagMat a)
+
+(=~=) :: LiftTestEq TagMat a => a -> ModelM a -> P a
+(=~=) = equivalent TagMat
+infix 4 =~=
 
 -- | Tag for testing @vecvec@ routines
 data TagMat = TagMat
@@ -279,6 +293,9 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
 ----------------------------------------------------------------
 -- Model for general dense matrix
 ----------------------------------------------------------------
+
+mkMat :: [[a]] -> ModelMat a
+mkMat = ModelMat 0 0
 
 -- | Model for general dense matrices
 data ModelMat a = ModelMat

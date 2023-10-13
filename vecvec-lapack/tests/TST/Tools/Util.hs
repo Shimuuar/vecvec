@@ -13,20 +13,14 @@ module TST.Tools.Util
   , Epsilon(..)
   ) where
 
-import Data.List (intercalate)
 import Data.Typeable
 import Data.Monoid
-import Text.Show
 
 import Data.Vector           qualified as V
 import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 import Data.Vector.Primitive qualified as VP
 
-
-import Vecvec.LAPACK                       qualified as VV
-import Data.Complex
-import Vecvec.Classes
 
 -- | Pretty print name of type
 qualTypeName :: forall v. (Typeable v) => String
