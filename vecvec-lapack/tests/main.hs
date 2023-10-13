@@ -5,13 +5,15 @@ import qualified TST.Vector.Property
 import qualified TST.VectorSpace
 import qualified TST.Decomposition
 import qualified TST.LinSolve
+import qualified TST.MatDense
 
 main :: IO ()
 main = defaultMain $ testGroup "vecvec"
-  [ TST.MatMul.tests
+  [ TST.Vector.Property.tests
   , TST.Slice.tests
   , TST.VectorSpace.tests
+  , TST.MatDense.tests
+  , TST.MatMul.tests
   , TST.Decomposition.tests
-  , TST.Vector.Property.tests
   , TST.LinSolve.tests
   ]

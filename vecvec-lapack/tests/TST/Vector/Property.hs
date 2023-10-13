@@ -11,7 +11,6 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 module TST.Vector.Property (tests) where
 
-
 import TST.Vector.Boilerplater
 import TST.Vector.Utilities as Util hiding (limitUnfolds)
 
@@ -23,6 +22,7 @@ import           Data.Foldable               (foldrM)
 import           Data.Functor.Identity
 import           Data.List
 import qualified Data.List.NonEmpty          as DLE
+import           Data.Maybe                  (mapMaybe)
 import           Data.Semigroup              (Semigroup (..))
 import qualified Data.Traversable            as T (Traversable (..))
 import qualified Data.Vector.Fusion.Bundle   as S
@@ -38,14 +38,26 @@ import           Test.Tasty
 import           Test.Tasty.QuickCheck hiding (testProperties)
 
 import           Vecvec.LAPACK.Internal.Vector
-import           TST.Orphanage ()
-
+import           TST.Tools.Orphanage ()
+import           TST.Tools.Model
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
-type VanillaContext a   = ( Eq a , Show a, Arbitrary a, CoArbitrary a
-                          , TestData a, Model a ~ a, EqTest a ~ Property)
+type VanillaContext a   = ( Eq a, Show a, Arbitrary a, CoArbitrary a
+                          , LiftTestEq TagVector a
+                          , TestEquiv a
+                          , Model TagVector a ~ a
+                          , EqTest a ~ Property
+                          )
 type VectorContext  a v = ( Eq (v a), Show (v a), Arbitrary (v a), CoArbitrary (v a)
-                          , TestData (v a), Model (v a) ~ [a],  EqTest (v a) ~ Property, V.Vector v a)
+                          , LiftTestEq TagVector (v a)
+                          , TestEquiv (v a)
+                          , Model TagVector (v a) ~ [a]
+                          , EqTest (v a) ~ Property
+                          , V.Vector v a)
+
+eq :: LiftTestEq TagVector a => a -> Model TagVector a -> P a
+eq = equivalent TagVector
+infix 4 `eq`
 
 -- TODO: implement Vector equivalents of list functions for some of the commented out properties
 

@@ -19,6 +19,7 @@
 -- | Tests for matrix-vector and matrix-matrix multiplication.
 module TST.MatMul (tests) where
 
+import Data.Typeable
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
@@ -28,8 +29,8 @@ import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 
-import TST.Orphanage ()
-import TST.Model
+import TST.Tools.MatModel
+import TST.Tools.Util
 
 tests :: TestTree
 tests = testGroup "MatMul"
@@ -91,27 +92,24 @@ tests = testGroup "MatMul"
 -- Test for generalized matrix-vector multiplication.
 prop_matmul
   :: forall v1 v2 vR a.
-     ( IsModel v1
-     , IsModel v2
-     , IsModel vR
-     , MatMul (ModelRepr v1) (ModelRepr v2) (ModelRepr vR)
+     ( TestMatrix v1, TestMatrix v2, TestMatrix vR
+     , Eq vR, Show vR, Show (ModelM vR), Typeable v1, Typeable v2
+     , MatMul (ModelM v1) (ModelM v2) (ModelM vR)
      , MatMul v1 v2 vR
      , Arbitrary a, Show a
      )
-  => (a -> (ModelRepr v1, ModelRepr v2))
+  => (a -> (ModelM v1, ModelM v2))
   -> TestTree
 prop_matmul to_pair
   = testProperty (qualTypeName @v1 ++ " x " ++ qualTypeName @v2)
-  $ \(to_pair -> (mr1, mr2)) ->
-      let m1 = Model mr1    :: Model v1
-          m2 = Model mr2    :: Model v2
-          v1 = fromModel m1 :: v1
+  $ \(to_pair -> (m1, m2)) ->
+      let v1 = fromModel m1 :: v1
           v2 = fromModel m2 :: v2
-          m  = mr1 @@ mr2
-          v  = v1  @@ v2
+          m  = m1 @@ m2
+          v  = v1 @@ v2
       in id $ counterexample ("MODEL = " ++ show m)
             $ counterexample ("IMPL  = " ++ show v)
-            $ v == fromModel (Model m)
+            $ v == fromModel m
 
 
 

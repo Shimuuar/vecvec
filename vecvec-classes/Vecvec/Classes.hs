@@ -1,4 +1,8 @@
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DeriveFoldable             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -49,23 +53,23 @@ module Vecvec.Classes
 import Data.Coerce
 import Data.Int
 import Data.Word
+import Data.Functor.Classes
 import Data.Complex          (Complex(..))
 import Data.Complex          qualified as Complex
 
-import Data.Vector               qualified as V
-import Data.Vector.Unboxed       qualified as VU
-import Data.Vector.Storable      qualified as VS
-import Data.Vector.Primitive     qualified as VP
-import Data.Vector.Generic       qualified as VG
-import Data.Vector.Fusion.Bundle qualified as Bundle
-
-
+import Data.Vector                 qualified as V
+import Data.Vector.Unboxed         qualified as VU
+import Data.Vector.Storable        qualified as VS
+import Data.Vector.Primitive       qualified as VP
+import Data.Vector.Generic         qualified as VG
+import Data.Vector.Fusion.Bundle   qualified as Bundle
 import Data.Vector.Fixed           qualified as F
 import Data.Vector.Fixed.Cont      qualified as FC
 import Data.Vector.Fixed.Unboxed   qualified as FU
 import Data.Vector.Fixed.Boxed     qualified as FB
 import Data.Vector.Fixed.Storable  qualified as FS
 import Data.Vector.Fixed.Primitive qualified as FP
+import GHC.Generics                (Generic)
 
 import Vecvec.Classes.Via
 
@@ -199,13 +203,16 @@ infixl 7 @@
 
 -- | Newtype for passing matrix\/vector to '@@' as transposed.
 newtype Tr a = Tr { getTr :: a }
-  deriving stock   (Show, Eq, Ord)
+  deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
 -- | Newtype for passing matrix\/vector to '@@' as conjugated.
 newtype Conj a = Conj { getConj :: a }
-  deriving stock   (Show, Eq, Ord)
+  deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
+
+instance Eq1 Tr   where liftEq = coerce
+instance Eq1 Conj where liftEq = coerce
 
 
 ----------------------------------------------------------------
