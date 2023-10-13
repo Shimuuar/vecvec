@@ -141,7 +141,7 @@ instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (N
 -- | Generate nonsingular square matrix. In order to ensure
 --   nonsingularity we generate matrix with diagonal dominance
 genNonsingularMatrix
-  :: (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a)
+  :: (SmallScalar a, VV.LAPACKy a, Eq a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
   mdl <- arbitraryShape (sz,sz)
@@ -155,11 +155,7 @@ genNonsingularMatrix sz = do
 
 -- | Type class for models. That is data types which implements same
 -- operations in simpler way.
-class ( Typeable v
-      , Eq v
-      , Show v
-      , Show (Model v)
-      ) => IsModel v where
+class IsModel v where
   -- | Representation of a model. It may include unobservable
   --   information such as memory layout of vector or matrix
   type Model v :: Type
@@ -211,26 +207,26 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
 ----------------------------------------
 -- Instances for vector types
 
-instance (Storable a, Num a, Show a, Eq a, Typeable a) => IsModel (VV.Vec a) where
+instance (Storable a, Num a) => IsModel (VV.Vec a) where
   type Model (VV.Vec a) = ModelVec a
   fromModel (ModelVec stride xs)
     = slice ((0,End) `Strided` stride)
     $ VG.fromList
     $ (\n -> n : replicate (stride-1) 0) =<< xs
 
-instance (Typeable a, Show a, Eq a) => IsModel (V.Vector a) where
+instance IsModel (V.Vector a) where
   type Model (V.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec
 
-instance (Typeable a, Show a, Eq a, VU.Unbox a) => IsModel (VU.Vector a) where
+instance (VU.Unbox a) => IsModel (VU.Vector a) where
   type Model (VU.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec
 
-instance (Typeable a, Show a, Eq a, Storable a) => IsModel (VS.Vector a) where
+instance (Storable a) => IsModel (VS.Vector a) where
   type Model (VS.Vector a) = ModelVec a
   fromModel = VG.fromList . unModelVec
 
-instance (Typeable a, Show a, Eq a, Storable a, Num a) => IsModel (Matrix a) where
+instance (Storable a, Num a) => IsModel (Matrix a) where
   type Model (Matrix a) = ModelMat a
   fromModel m@ModelMat{unModelMat=mat, ..}
     = slice ((padRows,End), (padCols,End))

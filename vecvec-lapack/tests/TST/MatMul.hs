@@ -19,6 +19,7 @@
 -- | Tests for matrix-vector and matrix-matrix multiplication.
 module TST.MatMul (tests) where
 
+import Data.Typeable
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
@@ -91,9 +92,8 @@ tests = testGroup "MatMul"
 -- Test for generalized matrix-vector multiplication.
 prop_matmul
   :: forall v1 v2 vR a.
-     ( IsModel v1
-     , IsModel v2
-     , IsModel vR
+     ( IsModel v1, IsModel v2, IsModel vR
+     , Eq vR, Show vR, Show (Model vR), Typeable v1, Typeable v2
      , MatMul (Model v1) (Model v2) (Model vR)
      , MatMul v1 v2 vR
      , Arbitrary a, Show a
