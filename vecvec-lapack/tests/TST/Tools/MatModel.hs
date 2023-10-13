@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -31,16 +32,17 @@ module TST.Tools.MatModel
   , Nonsingular(..)
   , genNonsingularMatrix
     -- * Models
-  , IsModel(..)
-  , Pair(..)
+  , TestMatrix
+  , ModelM
+  , fromModel
   , ModelVec(..)
   , ModelMat(..)
     -- * Helpers
+  , Pair(..)
   ) where
 
 import Control.Monad
 import Data.Complex          (Complex(..))
-import Data.Kind             (Type)
 import Data.Function         (on)
 import Data.Typeable
 import Data.List             (transpose)
@@ -62,6 +64,7 @@ import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
+import TST.Tools.Model
 
 ----------------------------------------------------------------
 -- Scalar-related utils
@@ -146,31 +149,69 @@ genNonsingularMatrix
 genNonsingularMatrix sz = do
   mdl <- arbitraryShape (sz,sz)
   pure $  (2 * maxGenScacar * fromIntegral sz) *. Mat.eye sz
-      .+. fromModel mdl
+      .+. mdl
 
 
 ----------------------------------------------------------------
 -- Models
 ----------------------------------------------------------------
 
--- | Type class for models. That is data types which implements same
--- operations in simpler way.
-class IsModel v where
-  -- | Representation of a model. It may include unobservable
-  --   information such as memory layout of vector or matrix
-  type Model v :: Type
-  -- | Convert model to actual data type
-  fromModel :: Model v -> v
+-- | Tag for testing @vecvec@ routines
+data TagMat = TagMat
+
+type TestMatrix = TestData TagMat
+
+type ModelM a = Model TagMat a
+
+fromModel :: TestData TagMat a => Model TagMat a -> a
+fromModel = unmodel TagMat
 
 
-instance (NDim (Model a) ~ 2, IsModel a) => IsModel (Tr a) where
-  type Model (Tr a) = Tr (Model a)
-  fromModel (Tr a) = Tr $ fromModel a
+instance (Storable a, Num a) => TestData TagMat (VV.Vec a) where
+  type Model TagMat (VV.Vec a) = ModelVec a
+  unmodel _ (ModelVec stride xs)
+    = slice ((0,End) `Strided` stride)
+    $ VG.fromList
+    $ (\n -> n : replicate (stride-1) 0) =<< xs
+  model _ xs = ModelVec { modelVecStride = 1
+                        , unModelVec     = VG.toList xs
+                        }
 
-instance (NDim (Model a) ~ 2, IsModel a) => IsModel (Conj a) where
-  type Model (Conj a) = Conj (Model a)
-  fromModel (Conj a) = Conj $ fromModel a
+instance TestData TagMat (V.Vector a) where
+  type Model TagMat (V.Vector a) = ModelVec a
+  unmodel _ = VG.fromList . unModelVec
+  model _ xs = ModelVec { modelVecStride = 1
+                        , unModelVec     = VG.toList xs
+                        }
 
+instance (VU.Unbox a) => TestData TagMat (VU.Vector a) where
+  type Model TagMat (VU.Vector a) = ModelVec a
+  unmodel _ = VG.fromList . unModelVec
+  model _ xs = ModelVec { modelVecStride = 1
+                        , unModelVec     = VG.toList xs
+                        }
+
+instance (Storable a) => TestData TagMat (VS.Vector a) where
+  type Model TagMat (VS.Vector a) = ModelVec a
+  unmodel _ = VG.fromList . unModelVec
+  model _ xs = ModelVec { modelVecStride = 1
+                        , unModelVec     = VG.toList xs
+                        }
+
+instance (Storable a, Num a) => TestData TagMat (Matrix a) where
+  type Model TagMat (Matrix a) = ModelMat a
+  unmodel _ m@ModelMat{unModelMat=mat, ..}
+    = slice ((padRows,End), (padCols,End))
+    $ fromRowsFF
+    $ replicate padRows (replicate (nC + padCols) 0)
+   ++ map (replicate padCols 0 ++) mat
+    where
+      nC = nCols m
+  model _ m = ModelMat
+    { padRows    = 0
+    , padCols    = 0
+    , unModelMat = VG.toList <$> Mat.toRowList m
+    }
 
 ----------------------------------------------------------------
 -- Model for vectors
@@ -203,38 +244,6 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
   ModelVec _ xs <.> ModelVec _ ys = sum $ zipWithX (\x y -> conjugate x * y) xs ys
   magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
 
-
-----------------------------------------
--- Instances for vector types
-
-instance (Storable a, Num a) => IsModel (VV.Vec a) where
-  type Model (VV.Vec a) = ModelVec a
-  fromModel (ModelVec stride xs)
-    = slice ((0,End) `Strided` stride)
-    $ VG.fromList
-    $ (\n -> n : replicate (stride-1) 0) =<< xs
-
-instance IsModel (V.Vector a) where
-  type Model (V.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec
-
-instance (VU.Unbox a) => IsModel (VU.Vector a) where
-  type Model (VU.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec
-
-instance (Storable a) => IsModel (VS.Vector a) where
-  type Model (VS.Vector a) = ModelVec a
-  fromModel = VG.fromList . unModelVec
-
-instance (Storable a, Num a) => IsModel (Matrix a) where
-  type Model (Matrix a) = ModelMat a
-  fromModel m@ModelMat{unModelMat=mat, ..}
-    = slice ((padRows,End), (padCols,End))
-    $ fromRowsFF
-    $ replicate padRows (replicate (nC + padCols) 0)
-   ++ map (replicate padCols 0 ++) mat
-    where
-      nC = nCols m
 
 
 ----------------------------------------------------------------
@@ -352,10 +361,12 @@ instance (Eq a, SmallScalar a) => ArbitraryShape (ModelMat a) where
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)
 
-instance (SmallScalar a, Typeable a, Show a, Eq a, Storable a, Num a) => Arbitrary (Matrix a) where
+instance (SmallScalar a, Storable a, Num a, Eq a
+         ) => Arbitrary (Matrix a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (SmallScalar a, Typeable a, Show a, Eq a, Storable a, Num a) => ArbitraryShape (Matrix a) where
+instance (SmallScalar a, Storable a, Num a, Eq a
+         ) => ArbitraryShape (Matrix a) where
   arbitraryShape sz = fromModel <$> arbitraryShape sz
 
 

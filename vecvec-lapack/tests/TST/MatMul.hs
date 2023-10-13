@@ -92,13 +92,13 @@ tests = testGroup "MatMul"
 -- Test for generalized matrix-vector multiplication.
 prop_matmul
   :: forall v1 v2 vR a.
-     ( IsModel v1, IsModel v2, IsModel vR
-     , Eq vR, Show vR, Show (Model vR), Typeable v1, Typeable v2
-     , MatMul (Model v1) (Model v2) (Model vR)
+     ( TestMatrix v1, TestMatrix v2, TestMatrix vR
+     , Eq vR, Show vR, Show (ModelM vR), Typeable v1, Typeable v2
+     , MatMul (ModelM v1) (ModelM v2) (ModelM vR)
      , MatMul v1 v2 vR
      , Arbitrary a, Show a
      )
-  => (a -> (Model v1, Model v2))
+  => (a -> (ModelM v1, ModelM v2))
   -> TestTree
 prop_matmul to_pair
   = testProperty (qualTypeName @v1 ++ " x " ++ qualTypeName @v2)

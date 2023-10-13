@@ -64,7 +64,7 @@ prop_SVD_valid
   :: ( VV.LAPACKy a, Show a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
-  => Model (Matrix a)
+  => ModelM (Matrix a)
   -> Property
 prop_SVD_valid (fromModel -> mat)
   = counterexample ("mat   = \n" ++ show mat)
@@ -82,7 +82,7 @@ prop_SVD_unitarity
   :: ( VV.LAPACKy a, Show a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
-  => Model (Matrix a)
+  => ModelM (Matrix a)
   -> Property
 prop_SVD_unitarity (fromModel -> mat)
   = counterexample ("mat   = \n" ++ show mat)
@@ -95,4 +95,3 @@ prop_SVD_unitarity (fromModel -> mat)
     (u,_,v) = decomposeSVD mat
     deltaU  = (Conj u @@ u) .-. Mat.eye n
     deltaV  = (Conj v @@ v) .-. Mat.eye k
-  

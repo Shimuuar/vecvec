@@ -38,6 +38,7 @@ import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
 import Vecvec.LAPACK.FFI                   (S,D,C,Z)
 import TST.Tools.MatModel
+import TST.Tools.Model
 import TST.Tools.Util
 
 tests :: TestTree
@@ -65,9 +66,9 @@ tests = testGroup "VectorSpace instances"
 
 -- Tests for vector space implementation
 props_inner_space
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
-                 , Typeable v, Eq v, Show v, Show (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
+  :: forall v a. ( TestMatrix v, InnerSpace v, InnerSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Typeable v, Eq v, Show v, Show (ModelM v)
+                 , Scalar v ~ a, Scalar (ModelM v) ~ a
                  , Eq (R a), Show (R a), SmallScalar a, Show a, Eq a
                  )
   => TestTree
@@ -83,9 +84,9 @@ props_inner_space = testGroup (qualTypeName @v)
 
 -- Tests for vector space implementation
 props_vector_space
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
-                 , Typeable v, Eq v, Show v, Show (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
+  :: forall v a. ( TestMatrix v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Typeable v, Eq v, Show v, Show (ModelM v)
+                 , Scalar v ~ a, Scalar (ModelM v) ~ a
                  , SmallScalar a, Show a
                  )
   => TestTree
@@ -101,13 +102,13 @@ props_vector_space = testGroup (qualTypeName @v)
 
 -- Model evaluate addition in the same way as implementation
 prop_addition_correct
-  :: forall v. ( IsModel v, AdditiveSemigroup v, AdditiveSemigroup (Model v), ArbitraryShape (Model v)
-               , Eq v, Show v, Show (Model v)
+  :: forall v. ( TestMatrix v, AdditiveSemigroup v, AdditiveSemigroup (ModelM v), ArbitraryShape (ModelM v)
+               , Eq v, Show v, Show (ModelM v)
                )
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
-  $ \(Pair m1 m2 :: Pair (Model v)) ->
+  $ \(Pair m1 m2 :: Pair (ModelM v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           m  = m1 .+. m2
@@ -118,13 +119,13 @@ prop_addition_correct
 
 -- Model evaluate subtraction in the same way as implementation
 prop_subtraction_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v), ArbitraryShape (Model v)
-               , Eq v, Show (Model v)
+  :: forall v. ( TestMatrix v, AdditiveQuasigroup v, AdditiveQuasigroup (ModelM v), ArbitraryShape (ModelM v)
+               , Eq v, Show (ModelM v)
                )
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
-  $ \(Pair m1 m2 :: Pair (Model v)) ->
+  $ \(Pair m1 m2 :: Pair (ModelM v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           m  = m1 .-. m2
@@ -133,8 +134,8 @@ prop_subtraction_correct
 
 -- Model evaluate negation in the same way as implementation
 prop_negation_correct
-  :: forall v. ( IsModel v, AdditiveQuasigroup v, AdditiveQuasigroup (Model v), ArbitraryShape (Model v)
-               , Eq v, Show (Model v)
+  :: forall v. ( TestMatrix v, AdditiveQuasigroup v, AdditiveQuasigroup (ModelM v), ArbitraryShape (ModelM v)
+               , Eq v, Show (ModelM v)
                )
   => TestTree
 prop_negation_correct
@@ -146,9 +147,9 @@ prop_negation_correct
 
 -- Model evaluates multiplication by scalar on the left
 prop_lmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
-                 , Eq v, Show v, Show (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
+  :: forall v a. ( TestMatrix v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Eq v, Show v, Show (ModelM v)
+                 , Scalar v ~ a, Scalar (ModelM v) ~ a
                  , SmallScalar a, Show a
                  )
   => TestTree
@@ -164,9 +165,9 @@ prop_lmul_scalar
 
 -- Model evaluates multiplication by scalar on the right
 prop_rmul_scalar
-  :: forall v a. ( IsModel v, VectorSpace v, VectorSpace (Model v), ArbitraryShape (Model v)
-                 , Eq v, Show v, Show (Model v)
-                 , Scalar v ~ a, Scalar (Model v) ~ a
+  :: forall v a. ( TestMatrix v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Eq v, Show v, Show (ModelM v)
+                 , Scalar v ~ a, Scalar (ModelM v) ~ a
                  , SmallScalar a, Show a
                  )
   => TestTree
@@ -183,15 +184,15 @@ prop_rmul_scalar
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
-                 , Show (Model v)
+  :: forall v a. ( TestMatrix v, InnerSpace v, InnerSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Show (ModelM v)
                  , a ~ Scalar v
-                 , a ~ Scalar (Model v)
+                 , a ~ Scalar (ModelM v)
                  , Eq a)
   => TestTree
 prop_scalar_product
   = testProperty "Scalar product"
-  $ \(Pair m1 m2 :: Pair (Model v)) ->
+  $ \(Pair m1 m2 :: Pair (ModelM v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           rV = v1 <.> v2
@@ -200,10 +201,10 @@ prop_scalar_product
 
 -- Model evaluates magnitude in the same way
 prop_magnitude
-  :: forall v a. ( IsModel v, InnerSpace v, InnerSpace (Model v), ArbitraryShape (Model v)
-                 , Show (Model v)
+  :: forall v a. ( TestMatrix v, InnerSpace v, InnerSpace (ModelM v), ArbitraryShape (ModelM v)
+                 , Show (ModelM v)
                  , a ~ Scalar v
-                 , a ~ Scalar (Model v)
+                 , a ~ Scalar (ModelM v)
                  , Eq (R a), Show (R a))
   => TestTree
 prop_magnitude

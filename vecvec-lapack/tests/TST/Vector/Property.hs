@@ -43,9 +43,21 @@ import           TST.Tools.Model
 
 type CommonContext  a v = (VanillaContext a, VectorContext a v)
 type VanillaContext a   = ( Eq a, Show a, Arbitrary a, CoArbitrary a
-                          , LiftTestEq a, TestEquiv a, Model a ~ a, EqTest a ~ Property)
+                          , LiftTestEq TagVector a
+                          , TestEquiv a
+                          , Model TagVector a ~ a
+                          , EqTest a ~ Property
+                          )
 type VectorContext  a v = ( Eq (v a), Show (v a), Arbitrary (v a), CoArbitrary (v a)
-                          , LiftTestEq (v a), TestEquiv (v a), Model (v a) ~ [a], EqTest (v a) ~ Property, V.Vector v a)
+                          , LiftTestEq TagVector (v a)
+                          , TestEquiv (v a)
+                          , Model TagVector (v a) ~ [a]
+                          , EqTest (v a) ~ Property
+                          , V.Vector v a)
+
+eq :: LiftTestEq TagVector a => a -> Model TagVector a -> P a
+eq = equivalent TagVector
+infix 4 `eq`
 
 -- TODO: implement Vector equivalents of list functions for some of the commented out properties
 
