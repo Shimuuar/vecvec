@@ -107,7 +107,7 @@ prop_addition_correct
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
-  $ \(Pair m1 m2 :: Pair v) ->
+  $ \(Pair m1 m2 :: Pair (Model v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           m  = m1 .+. m2
@@ -124,7 +124,7 @@ prop_subtraction_correct
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
-  $ \(Pair m1 m2 :: Pair v) ->
+  $ \(Pair m1 m2 :: Pair (Model v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           m  = m1 .-. m2
@@ -191,7 +191,7 @@ prop_scalar_product
   => TestTree
 prop_scalar_product
   = testProperty "Scalar product"
-  $ \(Pair m1 m2 :: Pair v) ->
+  $ \(Pair m1 m2 :: Pair (Model v)) ->
       let v1 = fromModel m1 :: v
           v2 = fromModel m2 :: v
           rV = v1 <.> v2

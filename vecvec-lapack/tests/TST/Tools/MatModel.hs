@@ -306,11 +306,10 @@ defaultMulMV m v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
 ----------------------------------------------------------------
 
 -- | Pair of models with same size
-data Pair v = Pair (Model v) (Model v)
+data Pair v = Pair v v
+  deriving stock Show
 
-deriving stock instance Show (Model v) => Show (Pair v)
-
-instance (IsModel v, ArbitraryShape (Model v)) => Arbitrary (Pair v) where
+instance (ArbitraryShape v) => Arbitrary (Pair v) where
   arbitrary = do
     sz <- genSize @(FC.ContVec _ _)
     Pair <$> arbitraryShape sz <*> arbitraryShape sz
