@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -14,18 +15,45 @@ module TST.Tools.Util
 
 import Data.List (intercalate)
 import Data.Typeable
+import Data.Monoid
+import Text.Show
+
+import Data.Vector           qualified as V
+import Data.Vector.Unboxed   qualified as VU
+import Data.Vector.Storable  qualified as VS
+import Data.Vector.Primitive qualified as VP
+
+
+import Vecvec.LAPACK                       qualified as VV
+import Data.Complex
+import Vecvec.Classes
 
 -- | Pretty print name of type
 qualTypeName :: forall v. (Typeable v) => String
-qualTypeName = intercalate " "
-             $ tyConModule con <> "." <> tyConName con
-             : map showParam par
+qualTypeName = render False (getTy @v) ""
   where
-    tyV = typeRep (Proxy @v)
-    (con,par) = splitTyConApp tyV
-    showParam p = case show p of
-      s | ' ' `elem` s -> "("++s++")"
-        | otherwise    -> s
+    render _     (ty,[])
+      = renderCon ty
+    render paren (ty,param)
+      = showParen paren
+      $ renderCon ty
+      . appEndo (foldMap (\p -> Endo $ showChar ' ' . render True (splitTyConApp p)) param)
+    --
+    renderCon con
+      | con == conV  = showString "V.Vector"
+      | con == conVS = showString "VS.Vector"
+      | con == conVP = showString "VP.Vector"
+      | con == conVU = showString "VU.Vector"
+      | otherwise    = shows con
+    --
+    getTy :: forall a. Typeable a => (TyCon, [TypeRep])
+    getTy = splitTyConApp (typeRep (Proxy @a))
+    -- Special cases which where we want qualified names
+    (conV,_)  = getTy @V.Vector
+    (conVS,_) = getTy @VS.Vector
+    (conVP,_) = getTy @VP.Vector
+    (conVU,_) = getTy @VU.Vector
+
 
 -- | Variant of 'zipWith' which throws error when lists have different
 --   lengths
