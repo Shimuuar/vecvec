@@ -1,7 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -35,6 +38,10 @@ module TST.Tools.MatModel
   , TestMatrix
   , ModelM
   , fromModel
+  , eq
+  , eqV
+  , mdl
+  , val
   , ModelVec(..)
   , ModelMat(..)
     -- * Helpers
@@ -105,10 +112,13 @@ maxGenScacar = 10
 
 -- | Scalar which uses @SmallScalar@ for generation
 newtype X a = X a
-  deriving newtype Show
+  deriving newtype (Show, TestEquiv)
 
+deriving via ModelSelf (X a) instance TestData t (X a)
 instance SmallScalar a => Arbitrary (X a) where
   arbitrary = X <$> genScalar
+
+
 
 ----------------------------------------------------------------
 -- ND-arrays
@@ -147,14 +157,31 @@ genNonsingularMatrix
   :: (SmallScalar a, VV.LAPACKy a, Eq a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
-  mdl <- arbitraryShape (sz,sz)
+  mat <- arbitraryShape (sz,sz)
   pure $  (2 * maxGenScacar * fromIntegral sz) *. Mat.eye sz
-      .+. mdl
+      .+. mat
 
 
 ----------------------------------------------------------------
 -- Models
 ----------------------------------------------------------------
+
+eq :: (TestEquiv a, TestMatrix a) => a -> ModelM a -> Property
+eq a m = property $ equiv a (fromModel m)
+
+eqV :: (TestEquiv a, TestMatrix a, Show a, Show (ModelM a)) => a -> ModelM a -> Property
+eqV a m
+  = counterexample ("MODEL = " ++ show m)
+  $ counterexample ("IMPL  = " ++ show a)
+  $ property $ equiv a (fromModel m)
+
+mdl :: forall a b c r. (TestMatrix a)
+    => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (ModelM a -> r)
+mdl eqv f g = \m -> f (fromModel m) `eqv` g m
+
+val :: forall a b c r. (TestMatrix a)
+    => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (a -> r)
+val eqv f g = \a -> f a `eqv` g (model TagMat a)
 
 -- | Tag for testing @vecvec@ routines
 data TagMat = TagMat
@@ -212,6 +239,9 @@ instance (Storable a, Num a) => TestData TagMat (Matrix a) where
     , padCols    = 0
     , unModelMat = VG.toList <$> Mat.toRowList m
     }
+
+instance (Storable a, Eq a) => TestEquiv (Matrix a) where
+  equiv = (==)
 
 ----------------------------------------------------------------
 -- Model for vectors
@@ -316,7 +346,9 @@ defaultMulMV m v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
 
 -- | Pair of models with same size
 data Pair v = Pair v v
-  deriving stock Show
+  deriving stock    (Show,Functor)
+
+deriving via ModelFunctor Pair a instance TestData t a => TestData t (Pair a)
 
 instance (ArbitraryShape v) => Arbitrary (Pair v) where
   arbitrary = do

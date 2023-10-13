@@ -20,6 +20,9 @@ module TST.Tools.Model
   , P(..)
   , (===>)
   , equivalent
+    -- * Deriving and special instances
+  , ModelSelf(..)
+  , ModelFunctor(..)
     -- * Vector
   , TagVector(..)
   )  where
