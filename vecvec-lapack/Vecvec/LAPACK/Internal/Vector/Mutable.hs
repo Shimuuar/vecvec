@@ -64,6 +64,7 @@ import Vecvec.LAPACK.FFI             qualified as C
 import Vecvec.LAPACK.Utils
 
 import Vecvec.LAPACK.Internal.Compat
+import Debug.Trace
 
 
 ----------------------------------------------------------------
@@ -212,25 +213,59 @@ instance VS.Storable a => MVG.MVector MVec a where
                                   loop (i + 1)
       in loop 0
   {-# INLINE basicUnsafeMove #-}
-  basicUnsafeMove (MVec (VecRepr len 1 fpA)) (MVec (VecRepr _ 1 fpB))
-    = MVG.basicUnsafeMove (MVS.MVector len fpA) (MVS.MVector len fpB)
-  -- FIXME: We don't handle possible overlap
-  {- for test, which failed
-  basicUnsafeMove (MVec (VecRepr len incA fpA)) (MVec (VecRepr _ incB fpB))
-    = unsafePrimToPrim
-    $ unsafeWithForeignPtr fpA $ \pA ->
-      unsafeWithForeignPtr fpB $ \pB ->
-      let loop i | i >= len  = pure ()
-                 | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
-                                  loop (i + 1)
-      in loop 0
-      -}
+  --              target                        source
+  -- TODO "inc" --> stride
+  --      "A" -> target
+  --      "B" -> source
+  basicUnsafeMove (MVec (VecRepr len _    _))   _                           | len == 0                   = pure ()
   basicUnsafeMove (MVec (VecRepr _   incA fpA)) (MVec (VecRepr _ incB fpB)) | incA == incB && fpA == fpB = pure ()
-  basicUnsafeMove (MVec (VecRepr len _    _))   (MVec (VecRepr{}))          | len == 0                   = pure ()
-  basicUnsafeMove (MVec (VecRepr len incA fpA)) (MVec (VecRepr _ incB fpB))
+  basicUnsafeMove (MVec (VecRepr len 1    fpA)) (MVec (VecRepr _ 1 fpB))
+    = MVG.basicUnsafeMove (MVS.MVector len fpA) (MVS.MVector len fpB)
+  basicUnsafeMove (MVec (VecRepr len incTarget fpTarget)) (MVec (VecRepr _ incSource fpSource)) = do
     -- TODO 1: use memmove/memcopy for incA, incB = 1
     -- TODO 2: what to do if **same** start, but different incA/incB?
     -- TODO 3: overlapping when different fpA,fpB; incA,incB -- but elements still overlapping sometimes.
+    --
+    -- TODO use basicOverlaps
+    --
+    case incSource - incTarget of
+      0       -> if fpTarget < fpSource then move 0 len else move (len - 1) (-1)
+      incDiff ->
+        let diff = distancePtr (getPtr fpSource) (getPtr fpTarget)
+            fpTargetEnd = updPtr (\p -> advancePtr p (len*incTarget)) fpTarget
+        in
+        -- случай наложения...
+        case {-trace ("DIFF = " ++ show diff ++ ", incDiff = " ++ show incDiff) $ -} divMod diff incDiff of -- TODO заменить quotRem на просто quot
+          (intersectPosition, r)
+            | intersectPosition >= 0 && intersectPosition < len && (intersectPosition > 0 || r /= 0) -> do
+                -- first, from `intersectPosition` to left, then from `intersectPosition` to right
+                if fpTarget < fpSource then do
+                    move 0         (intersectPosition + 1)
+                    move (len - 1) intersectPosition
+                else do
+                    move intersectPosition (-1)
+                    move (intersectPosition + 1) len
+                pure ()
+          _
+            -- TODO
+            | fpTarget == fpSource -> if incTarget < incSource then move 0 len else move (len - 1) (-1)
+            | fpTarget < fpSource -> move 0         len
+            | otherwise           -> move (len - 1) (-1)
+   where
+    move from to =
+      let delta = if from < to then 1 else (-1)
+      in unsafePrimToPrim
+         $ unsafeWithForeignPtr fpSource $ \pSource ->
+           unsafeWithForeignPtr fpTarget $ \pTarget ->
+               let loop i | i == to = pure ()
+                          | otherwise = do pokeElemOff pTarget (i * incTarget) =<< peekElemOff pSource (i * incSource)
+                                           loop $ i + delta
+               in loop from
+  
+
+    {-
+    --
+    --
     --
     -- simple solution for overlapping: just check pointer positions.
     -- this is not effective, but just to check conception
@@ -247,6 +282,7 @@ instance VS.Storable a => MVG.MVector MVec a where
                      | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
                                       loop (i - 1)
           in loop len
+          -}
 
 
 ----------------------------------------------------------------

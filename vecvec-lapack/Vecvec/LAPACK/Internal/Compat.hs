@@ -1,14 +1,17 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE ExplicitForAll #-}
 -- |
 module Vecvec.LAPACK.Internal.Compat
   ( getPtr
   , updPtr
   , unsafeWithForeignPtr
+  , distancePtr
   ) where
 
 import Data.Primitive.Ptr    (Ptr(..))
 import Foreign.ForeignPtr
 import Foreign.Ptr
+import Foreign.Storable
 import GHC.ForeignPtr        (ForeignPtr(..))
 #if MIN_VERSION_base(4,15,0)
 import GHC.ForeignPtr        (unsafeWithForeignPtr)
@@ -33,3 +36,13 @@ updPtr f (ForeignPtr p c) = case f (Ptr p) of { Ptr q -> ForeignPtr q c }
 unsafeWithForeignPtr :: ForeignPtr a -> (Ptr a -> IO b) -> IO b
 unsafeWithForeignPtr = withForeignPtr
 #endif
+
+-- | Distance in elements between two pointers. Supplement for `advancePtr`.
+--
+distancePtr :: forall a . Storable a => Ptr a -> Ptr a -> Int
+-- distancePtr ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` (sizeOf (undefined :: a))
+distancePtr = distancePtr' undefined -- TODO WTF?? why ambigous??
+ where
+    distancePtr' :: Storable a => a -> Ptr a -> Ptr a -> Int
+    distancePtr' x ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` sizeOf x
+
