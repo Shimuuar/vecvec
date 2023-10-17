@@ -59,8 +59,14 @@ test-suite vecvec-lapack-tests
                     TST.MatMul
                     TST.MatDense
                     TST.Slice
-                    TST.Orphanage
-                    TST.Property
+                    TST.Tools.Model
+                    TST.Tools.MatModel
+                    TST.Tools.Orphanage
+                    TST.Tools.Util
+                    TST.Vector.Boilerplater
+                    TST.Vector.Property
+                    TST.Vector.Utilities
+                    TST.VectorSpace
                     TST.Memory
   default-extensions: FlexibleContexts
                       ImportQualifiedPost

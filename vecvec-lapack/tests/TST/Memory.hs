@@ -6,7 +6,7 @@ import           Data.Foldable                         (for_)
 import qualified Data.Vector.Generic                   as VG
 import qualified Data.Vector.Generic.Mutable           as MVG
 
-import           Vecvec.Classes.Slice
+import           Vecvec.Classes.NDArray                (Length (..), slice)
 import qualified Vecvec.LAPACK                         as VV
 import           Vecvec.LAPACK.Internal.Vector.Mutable (Strided (..))
 
