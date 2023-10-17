@@ -64,7 +64,6 @@ import Vecvec.LAPACK.FFI             qualified as C
 import Vecvec.LAPACK.Utils
 
 import Vecvec.LAPACK.Internal.Compat
-import Debug.Trace
 
 
 ----------------------------------------------------------------
@@ -213,76 +212,59 @@ instance VS.Storable a => MVG.MVector MVec a where
                                   loop (i + 1)
       in loop 0
   {-# INLINE basicUnsafeMove #-}
-  --              target                        source
-  -- TODO "inc" --> stride
-  --      "A" -> target
-  --      "B" -> source
-  basicUnsafeMove (MVec (VecRepr len _    _))   _                           | len == 0                   = pure ()
-  basicUnsafeMove (MVec (VecRepr _   incA fpA)) (MVec (VecRepr _ incB fpB)) | incA == incB && fpA == fpB = pure ()
-  basicUnsafeMove (MVec (VecRepr len 1    fpA)) (MVec (VecRepr _ 1 fpB))
-    = MVG.basicUnsafeMove (MVS.MVector len fpA) (MVS.MVector len fpB)
-  basicUnsafeMove (MVec (VecRepr len incTarget fpTarget)) (MVec (VecRepr _ incSource fpSource)) = do
-    -- TODO 1: use memmove/memcopy for incA, incB = 1
-    -- TODO 2: what to do if **same** start, but different incA/incB?
-    -- TODO 3: overlapping when different fpA,fpB; incA,incB -- but elements still overlapping sometimes.
+  basicUnsafeMove (MVec (VecRepr len _    _))                _
+    | len == 0 = pure ()
+  basicUnsafeMove (MVec (VecRepr _   strideTarget fpTarget)) (MVec (VecRepr _ strideSource fpSource))
+    | strideTarget == strideSource && fpTarget == fpSource = pure ()
+  basicUnsafeMove (MVec (VecRepr len 1            fpTarget)) (MVec (VecRepr _ 1            fpSource))
+    = MVG.basicUnsafeMove (MVS.MVector len fpTarget) (MVS.MVector len fpSource)
+  basicUnsafeMove (MVec (VecRepr len strideTarget fpTarget)) (MVec (VecRepr _ strideSource fpSource)) = do
     --
-    -- TODO use basicOverlaps
+    -- In the general case, vectors can intersect. Depending on the interposition of elements,
+    -- they should be copied either from the beginning to the end (target further than source)
+    -- or from the end to the beginning (source further than target).
+    -- In addition, in case of different stride one have to change the direction of copying.
+    -- Example:
+    -- carrier vector: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    -- source  vector: [         3, 4, 5, 6, 7]         (i.e., offset 3, stride 1)
+    -- target  vector: [   1,    3,    5,    7,   9]    (i.e., offset 1, stride 2)
+    -- So if one copy from left to rigth, the "7" will be erased too early:
+    --                 [   3,    4,    5,    6,   6 {- must be "7"! -} ]
+    -- And if one copy from right to left, the "3" will be erased:
+    --                 [   4,    4,    5,    6,   7]
+    -- Therefore, in this case one should copy elements from left to right to "5" and then
+    -- from right to left to "5":
+    --                     <---------- 5 --------->
+    --                 [   3,    4,    5,    6,   7 ]
+    -- To do this, we find `intersectPosition` index and copy relative to it in different directions.
     --
-    case incSource - incTarget of
-      0       -> if fpTarget < fpSource then move 0 len else move (len - 1) (-1)
-      incDiff ->
-        let diff = distancePtr (getPtr fpSource) (getPtr fpTarget)
-            fpTargetEnd = updPtr (\p -> advancePtr p (len*incTarget)) fpTarget
-        in
-        -- случай наложения...
-        case {-trace ("DIFF = " ++ show diff ++ ", incDiff = " ++ show incDiff) $ -} divMod diff incDiff of -- TODO заменить quotRem на просто quot
-          (intersectPosition, r)
-            | intersectPosition >= 0 && intersectPosition < len && (intersectPosition > 0 || r /= 0) -> do
-                -- first, from `intersectPosition` to left, then from `intersectPosition` to right
-                if fpTarget < fpSource then do
-                    move 0         (intersectPosition + 1)
-                    move (len - 1) intersectPosition
-                else do
-                    move intersectPosition (-1)
-                    move (intersectPosition + 1) len
-                pure ()
-          _
-            -- TODO
-            | fpTarget == fpSource -> if incTarget < incSource then move 0 len else move (len - 1) (-1)
-            | fpTarget < fpSource -> move 0         len
-            | otherwise           -> move (len - 1) (-1)
+    let strideDiff = strideSource - strideTarget
+    let diff = distancePtr (getPtr fpSource) (getPtr fpTarget)
+    let intersectPosition = diff `div` strideDiff
+    if diff /= 0 && strideDiff /= 0 && intersectPosition >= 0 && intersectPosition < len then do
+      if fpTarget < fpSource then do
+        copy 0         (intersectPosition + 1)
+        copy (len - 1) intersectPosition
+      else do
+        copy intersectPosition (-1)
+        copy (intersectPosition + 1) len
+    else
+      case () of
+        _ | fpTarget  < fpSource        -> copy 0         len
+          | fpTarget  > fpSource        -> copy (len - 1) (-1)
+          -- fpTarget == fpSource: note that we can skip copying matching elements
+          | strideTarget < strideSource -> copy 1 len
+          | otherwise                   -> copy (len - 1) 0
    where
-    move from to =
+    copy from to =
       let delta = if from < to then 1 else (-1)
       in unsafePrimToPrim
          $ unsafeWithForeignPtr fpSource $ \pSource ->
            unsafeWithForeignPtr fpTarget $ \pTarget ->
-               let loop i | i == to = pure ()
-                          | otherwise = do pokeElemOff pTarget (i * incTarget) =<< peekElemOff pSource (i * incSource)
+               let loop i | i == to   = pure ()
+                          | otherwise = do pokeElemOff pTarget (i * strideTarget) =<< peekElemOff pSource (i * strideSource)
                                            loop $ i + delta
                in loop from
-  
-
-    {-
-    --
-    --
-    --
-    -- simple solution for overlapping: just check pointer positions.
-    -- this is not effective, but just to check conception
-    = unsafePrimToPrim
-    $ unsafeWithForeignPtr fpA $ \pA ->
-      unsafeWithForeignPtr fpB $ \pB ->
-      if pA < pB then
-          let loop i | i >= len  = pure ()
-                     | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
-                                      loop (i + 1)
-          in loop 0
-      else
-          let loop i | i <= 0  = pure ()
-                     | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
-                                      loop (i - 1)
-          in loop len
-          -}
 
 
 ----------------------------------------------------------------
