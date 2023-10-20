@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE ExplicitForAll #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- |
 module Vecvec.LAPACK.Internal.Compat
   ( getPtr
@@ -40,9 +40,5 @@ unsafeWithForeignPtr = withForeignPtr
 -- | Distance in elements between two pointers. Supplement for `advancePtr`.
 --
 distancePtr :: forall a . Storable a => Ptr a -> Ptr a -> Int
--- distancePtr ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` (sizeOf (undefined :: a))
-distancePtr = distancePtr' undefined -- TODO WTF?? why ambigous??
- where
-    distancePtr' :: Storable a => a -> Ptr a -> Ptr a -> Int
-    distancePtr' x ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` sizeOf x
+distancePtr ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` sizeOf (undefined :: a)
 
