@@ -1,10 +1,9 @@
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -226,35 +225,33 @@ instance VS.Storable a => MVG.MVector MVec a where
     -- In addition, in case of different stride one have to change the direction of copying.
     -- Example:
     -- carrier vector: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    -- source  vector: [         3, 4, 5, 6, 7]         (i.e., offset 3, stride 1)
-    -- target  vector: [   1,    3,    5,    7,   9]    (i.e., offset 1, stride 2)
-    -- So if one copy from left to rigth, the "7" will be erased too early:
+    -- source  vector: [         3, 4, 5, 6, 7          ] (i.e., offset 3, stride 1)
+    -- target  vector: [   1,    3,    5,    7,   9     ] (i.e., offset 1, stride 2)
+    -- So if one copy from left to right, the "7" will be erased too early:
     --                 [   3,    4,    5,    6,   6 {- must be "7"! -} ]
     -- And if one copy from right to left, the "3" will be erased:
-    --                 [   4,    4,    5,    6,   7]
+    --                 [   4,    4,    5,    6,   7     ]
     -- Therefore, in this case one should copy elements from left to right to "5" and then
     -- from right to left to "5":
     --                     <---------- 5 --------->
-    --                 [   3,    4,    5,    6,   7 ]
+    --                 [   3,    4,    5,    6,   7     ]
     -- To do this, we find `intersectPosition` index and copy relative to it in different directions.
     --
     let strideDiff = strideSource - strideTarget
     let diff = distancePtr (getPtr fpSource) (getPtr fpTarget)
     let intersectPosition = diff `div` strideDiff
-    if diff /= 0 && strideDiff /= 0 && intersectPosition >= 0 && intersectPosition < len then do
-      if fpTarget < fpSource then do
-        copy 0         (intersectPosition + 1)
-        copy (len - 1) intersectPosition
-      else do
-        copy intersectPosition (-1)
-        copy (intersectPosition + 1) len
-    else
-      case () of
-        _ | fpTarget  < fpSource        -> copy 0         len
-          | fpTarget  > fpSource        -> copy (len - 1) (-1)
-          -- fpTarget == fpSource: note that we can skip copying matching elements
-          | strideTarget < strideSource -> copy 1 len
-          | otherwise                   -> copy (len - 1) 0
+    if | diff /= 0 && strideDiff /= 0 && intersectPosition >= 0 && intersectPosition < len ->
+        if fpTarget < fpSource then do
+             copy 0         (intersectPosition + 1)
+             copy (len - 1) intersectPosition
+        else do
+             copy intersectPosition       (-1)
+             copy (intersectPosition + 1) len
+       | fpTarget  < fpSource        -> copy 0         len
+       | fpTarget  > fpSource        -> copy (len - 1) (-1)
+       -- below fpTarget == fpSource, and note that we can skip copying elements with the same address
+       | strideTarget < strideSource -> copy 1         len
+       | otherwise                   -> copy (len - 1) 0
    where
     copy from to =
       let delta = if from < to then 1 else (-1)
