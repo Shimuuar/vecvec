@@ -8,7 +8,7 @@ import qualified Data.Vector.Generic.Mutable           as MVG
 
 import           Vecvec.Classes.NDArray                (Length (..), slice)
 import qualified Vecvec.LAPACK                         as VV
-import           Vecvec.LAPACK.Internal.Vector.Mutable (Strided (..))
+import           Vecvec.LAPACK.Internal.Vector.Mutable
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -18,42 +18,39 @@ tests :: TestTree
 tests = testGroup "memory"
   [ testGroup "basicUnsafeMove"
     [ testCase "miscellaneous intersections" $ do
-        let carrierLength   = 200
-        let sourceOffset    = 30
-        let carrierOriginal = [1..carrierLength]
+        let carrierLength = 200
+        let sourceOffset  = 30
         for_ [1..10] $ \sourceLength ->
           for_ [-5,-4..5] $ \sourceTargetOffset ->
             for_ [1..10] $ \sourceStride ->
               for_ [1..10] $ \targetStride -> do
-                let targetLength    = sourceLength
-                let (sourceOriginal :: [Int], carrierResult:: VV.Vec Int, targetResult :: VV.Vec Int) = runST $ do
-                      carrier          <- MVG.generateM carrierLength (pure . (carrierOriginal !!))
-                      let targetOffset =  sourceOffset + sourceTargetOffset
-                      let source       =  slice (Strided (sourceOffset, Length (sourceLength * sourceStride)) sourceStride) carrier
-                      let target       =  slice (Strided (targetOffset, Length (targetLength * targetStride)) targetStride) carrier
-                      sourceOriginal'  <- MVG.foldr' (:) [] source
-                      --
-                      MVG.basicUnsafeMove target source
-                      --
-                      target'  <- VG.unsafeFreeze target
-                      carrier' <- VG.unsafeFreeze carrier
-                      pure (sourceOriginal', carrier', target')
+                let targetLength = sourceLength
+                let targetOffset = sourceOffset + sourceTargetOffset
                 let caseNamePrefix =    "(sourceTargetOffset = " ++ show sourceTargetOffset ++ ", "
                                      ++ "sourceStride = " ++ show sourceStride ++ ", "
                                      ++ "targetStride = " ++ show targetStride ++ ") "
-                -- 1. check that carrier is not modified on non-target places
-                let initTargetIndex = sourceOffset + sourceTargetOffset
-                let modifiedIndexes = take targetLength [initTargetIndex, initTargetIndex + targetStride..]
-                assertBool
-                  (caseNamePrefix ++ "All carrier vector values (except modified in target vector) should be the same")
-                  (all (\(idx, orig, carr) -> orig == carr || idx `elem` modifiedIndexes)
-                       (zip3 [0..] carrierOriginal (VG.toList carrierResult))
-                  )
-                -- 2. check that target is a copy of the source
-                assertEqual
-                  (caseNamePrefix ++ "Target is a copy of the source")
-                  sourceOriginal
-                  (VG.toList targetResult)
+                -- According to specification of `move`,
+                -- "If the vectors do not overlap, then this is equivalent to copy.
+                -- Otherwise, the copying is performed as if the source vector were
+                -- copied to a temporary vector and then the temporary vector was
+                -- copied to the target vector."
+                -- So for the test, we compare the result after using `basicUnafeMove` and
+                -- after using the intermediate buffer for copying -- the results should match.
+                let (carrier1', carrier2', target1', target2' :: VV.Vec Int) = runST $ do
+                      carrier1    <- MVG.generateM carrierLength pure
+                      let source1 =  slice (Strided (sourceOffset, Length (sourceLength * sourceStride)) sourceStride) carrier1
+                      let target1 =  slice (Strided (targetOffset, Length (targetLength * targetStride)) targetStride) carrier1
+                      MVG.basicUnsafeMove target1 source1
+                      --
+                      carrier2    <- MVG.generateM carrierLength pure
+                      let source2 =  slice (Strided (sourceOffset, Length (sourceLength * sourceStride)) sourceStride) carrier2
+                      let target2 =  slice (Strided (targetOffset, Length (targetLength * targetStride)) targetStride) carrier2
+                      tmp <- MVG.clone source2
+                      MVG.basicUnsafeCopy target2 tmp
+                      --
+                      (,,,) <$> VG.unsafeFreeze target1 <*> VG.unsafeFreeze target2 <*> VG.unsafeFreeze carrier1 <*> VG.unsafeFreeze carrier2
+                assertEqual (caseNamePrefix ++  "Carrier vectors should be the same") carrier1' carrier2'
+                assertEqual (caseNamePrefix ++  "Target vectors should be the same")  target1'  target2'
       ]
   ]
 
