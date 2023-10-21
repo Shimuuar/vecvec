@@ -67,6 +67,7 @@ test-suite vecvec-lapack-tests
                     TST.Vector.Property
                     TST.Vector.Utilities
                     TST.VectorSpace
+                    TST.Memory
   default-extensions: FlexibleContexts
                       ImportQualifiedPost
                       RankNTypes
@@ -85,6 +86,7 @@ test-suite vecvec-lapack-tests
                     , random
                     , tasty            >= 1.2
                     , tasty-quickcheck >= 0.10
+                    , tasty-hunit
                     , template-haskell
                     , transformers
 

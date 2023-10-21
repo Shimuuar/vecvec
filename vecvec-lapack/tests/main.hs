@@ -6,6 +6,7 @@ import qualified TST.VectorSpace
 import qualified TST.Decomposition
 import qualified TST.LinSolve
 import qualified TST.MatDense
+import qualified TST.Memory
 
 main :: IO ()
 main = defaultMain $ testGroup "vecvec"
@@ -16,4 +17,5 @@ main = defaultMain $ testGroup "vecvec"
   , TST.MatMul.tests
   , TST.Decomposition.tests
   , TST.LinSolve.tests
+  , TST.Memory.tests
   ]

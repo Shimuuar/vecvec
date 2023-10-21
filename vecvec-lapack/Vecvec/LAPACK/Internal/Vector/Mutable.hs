@@ -1,10 +1,9 @@
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -212,17 +211,57 @@ instance VS.Storable a => MVG.MVector MVec a where
                                   loop (i + 1)
       in loop 0
   {-# INLINE basicUnsafeMove #-}
-  basicUnsafeMove (MVec (VecRepr len 1 fpA)) (MVec (VecRepr _ 1 fpB))
-    = MVG.basicUnsafeMove (MVS.MVector len fpA) (MVS.MVector len fpB)
-  -- FIXME: We don't handle possible overlap
-  basicUnsafeMove (MVec (VecRepr len incA fpA)) (MVec (VecRepr _ incB fpB))
-    = unsafePrimToPrim
-    $ unsafeWithForeignPtr fpA $ \pA ->
-      unsafeWithForeignPtr fpB $ \pB ->
-      let loop i | i >= len  = pure ()
-                 | otherwise = do pokeElemOff pA (i * incA) =<< peekElemOff pB (i * incB)
-                                  loop (i + 1)
-      in loop 0
+  basicUnsafeMove (MVec (VecRepr len _    _))                _
+    | len == 0 = pure ()
+  basicUnsafeMove (MVec (VecRepr _   strideTarget fpTarget)) (MVec (VecRepr _ strideSource fpSource))
+    | strideTarget == strideSource && fpTarget == fpSource = pure ()
+  basicUnsafeMove (MVec (VecRepr len 1            fpTarget)) (MVec (VecRepr _ 1            fpSource))
+    = MVG.basicUnsafeMove (MVS.MVector len fpTarget) (MVS.MVector len fpSource)
+  basicUnsafeMove (MVec (VecRepr len strideTarget fpTarget)) (MVec (VecRepr _ strideSource fpSource)) = do
+    --
+    -- In the general case, vectors can intersect. Depending on the interposition of elements,
+    -- they should be copied either from the beginning to the end (target further than source)
+    -- or from the end to the beginning (source further than target).
+    -- In addition, in case of different stride one have to change the direction of copying.
+    -- Example:
+    -- carrier vector: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    -- source  vector: [         3, 4, 5, 6, 7          ] (i.e., offset 3, stride 1)
+    -- target  vector: [   1,    3,    5,    7,   9     ] (i.e., offset 1, stride 2)
+    -- So if one copy from left to right, the "7" will be erased too early:
+    --                 [   3,    4,    5,    6,   6 {- must be "7"! -} ]
+    -- And if one copy from right to left, the "3" will be erased:
+    --                 [   4,    4,    5,    6,   7     ]
+    -- Therefore, in this case one should copy elements from left to right to "5" and then
+    -- from right to left to "5":
+    --                     <---------- 5 --------->
+    --                 [   3,    4,    5,    6,   7     ]
+    -- To do this, we find `intersectPosition` index and copy relative to it in different directions.
+    --
+    let strideDiff = strideSource - strideTarget
+    let diff = distancePtr (getPtr fpSource) (getPtr fpTarget)
+    let intersectPosition = diff `div` strideDiff
+    if | diff /= 0 && strideDiff /= 0 && intersectPosition >= 0 && intersectPosition < len ->
+        if fpTarget < fpSource then do
+             copy 0         (intersectPosition + 1)
+             copy (len - 1) intersectPosition
+        else do
+             copy intersectPosition       (-1)
+             copy (intersectPosition + 1) len
+       | fpTarget  < fpSource        -> copy 0         len
+       | fpTarget  > fpSource        -> copy (len - 1) (-1)
+       -- below fpTarget == fpSource, and note that we can skip copying elements with the same address
+       | strideTarget < strideSource -> copy 1         len
+       | otherwise                   -> copy (len - 1) 0
+   where
+    copy from to =
+      let delta = if from < to then 1 else (-1)
+      in unsafePrimToPrim
+         $ unsafeWithForeignPtr fpSource $ \pSource ->
+           unsafeWithForeignPtr fpTarget $ \pTarget ->
+               let loop i | i == to   = pure ()
+                          | otherwise = do pokeElemOff pTarget (i * strideTarget) =<< peekElemOff pSource (i * strideSource)
+                                           loop $ i + delta
+               in loop from
 
 
 ----------------------------------------------------------------
