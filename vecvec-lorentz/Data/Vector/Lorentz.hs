@@ -55,12 +55,14 @@ module Data.Vector.Lorentz (
 
 import Control.DeepSeq
 import Data.Coerce
+import Data.Proxy
 
 import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
 import qualified Data.Vector.Fixed      as F
 import qualified Data.Vector.Fixed.Cont as FC
 import Data.Vector.Fixed.Unboxed   (Vec)
 import GHC.TypeLits
+import GHC.Records
 
 import Vecvec.Classes
 import Vecvec.Classes.Convert
@@ -86,6 +88,29 @@ instance (VectorN v n a) => Vector (LorentzG v n) a where
   inspect (Lorentz v) f = F.inspect v f
 
 instance (VectorN v n a) => VectorN (LorentzG v) n a
+
+
+-- | Timelike component of vector.
+instance (VectorN v n a, 1 <= n) => HasField "energy" (LorentzG v n a) a where
+  getField = flip F.index (Proxy @0)
+  {-# INLINE getField #-}
+-- | Timelike component of vector.
+instance (VectorN v n a, 1 <= n) => HasField "t" (LorentzG v n a) a where
+  getField = flip F.index (Proxy @0)
+  {-# INLINE getField #-}
+-- | 1st spacelike component of vector.
+instance (VectorN v n a, 2 <= n) => HasField "x" (LorentzG v n a) a where
+  getField = flip F.index (Proxy @1)
+  {-# INLINE getField #-}
+-- | 2st spacelike component of vector.
+instance (VectorN v n a, 3 <= n) => HasField "y" (LorentzG v n a) a where
+  getField = flip F.index (Proxy @2)
+  {-# INLINE getField #-}
+-- | 3st spacelike component of vector.
+instance (VectorN v n a, 4 <= n) => HasField "z" (LorentzG v n a) a where
+  getField = flip F.index (Proxy @3)
+  {-# INLINE getField #-}
+
 
 -- | Lorentz vector which uses unboxed vector for storage
 type LorentzU = LorentzG Vec
