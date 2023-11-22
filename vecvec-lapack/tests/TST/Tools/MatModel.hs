@@ -37,18 +37,25 @@ module TST.Tools.MatModel
   , genNonsingularMatrix
     -- * Models
   , TestMatrix
+  , TestMatrix1
   , ModelM
+  , Model1M
+  , TagMat(..)
   , fromModel
   , eq
   , eqV
   , mdl
   , val
+
+  , eq1
+  , mdl1
   , (=~=)
   , ModelVec(..)
   , ModelMat(..)
   , mkMat
     -- * Helpers
   , Pair(..)
+  , Pair1(..)
   ) where
 
 import Control.Monad
@@ -164,7 +171,7 @@ instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (N
 -- | Generate nonsingular square matrix. In order to ensure
 --   nonsingularity we generate matrix with diagonal dominance
 genNonsingularMatrix
-  :: (SmallScalar a, VV.LAPACKy a, Eq a)
+  :: (SmallScalar a, VV.LAPACKy a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
   mat <- arbitraryShape (sz,sz)
@@ -178,6 +185,9 @@ genNonsingularMatrix sz = do
 
 eq :: (TestEquiv a, TestMatrix a) => a -> ModelM a -> Property
 eq a m = property $ equiv a (fromModel m)
+
+eq1 :: forall v a. (TestEquiv (v a), TestMatrix1 v a) => v a -> Model1M v a -> Property
+eq1 a m = property $ equiv a (liftUnmodel TagMat id m)
 
 eqV :: (TestEquiv a, TestMatrix a, Show a, Show (ModelM a)) => a -> ModelM a -> Property
 eqV a m
@@ -193,6 +203,11 @@ val :: forall a b c r. (TestMatrix a)
     => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (a -> r)
 val eqv f g = \a -> f a `eqv` g (model TagMat a)
 
+mdl1 :: forall v a b c r. (TestMatrix1 v a)
+     => (b -> c -> r) -> (v a -> b) -> (Model1M v a -> c) -> (Model1M v a -> r)
+mdl1 eqv f g = \m -> f (liftUnmodel TagMat id m) `eqv` g m
+
+
 (=~=) :: LiftTestEq TagMat a => a -> ModelM a -> P a
 (=~=) = equivalent TagMat
 infix 4 =~=
@@ -200,59 +215,94 @@ infix 4 =~=
 -- | Tag for testing @vecvec@ routines
 data TagMat = TagMat
 
-type TestMatrix = TestData TagMat
+type TestMatrix  = TestData TagMat
+type TestMatrix1 = TestData1 TagMat
 
 type ModelM a = Model TagMat a
+
+type Model1M v = Model1 TagMat v
 
 fromModel :: TestData TagMat a => Model TagMat a -> a
 fromModel = unmodel TagMat
 
 
-instance (Storable a, Num a) => TestData TagMat (VV.Vec a) where
-  type Model TagMat (VV.Vec a) = ModelVec a
-  unmodel _ (ModelVec stride xs)
+type instance Model1 TagMat VV.Vec    = ModelVec
+type instance Model1 TagMat V.Vector  = ModelVec
+type instance Model1 TagMat VS.Vector = ModelVec
+type instance Model1 TagMat VU.Vector = ModelVec
+
+instance (Storable a, Num a) => TestData1 TagMat VV.Vec a where
+  liftUnmodel _ f (ModelVec stride xs)
     = slice ((0,End) `Strided` stride)
     $ VG.fromList
-    $ (\n -> n : replicate (stride-1) 0) =<< xs
-  model _ xs = ModelVec { modelVecStride = 1
-                        , unModelVec     = VG.toList xs
-                        }
+    $ (\n -> n : replicate (stride-1) 0) =<< (f <$> xs)
+  liftModel _ f xs = ModelVec { modelVecStride = 1
+                              , unModelVec     = f <$> VG.toList xs
+                              }
+
+instance TestData1 TagMat V.Vector a where
+  liftUnmodel _ f  = VG.fromList . map f . unModelVec
+  liftModel _ f xs = ModelVec { modelVecStride = 1
+                              , unModelVec     = f <$> VG.toList xs
+                              }
+
+instance (VU.Unbox a) => TestData1 TagMat VU.Vector a where
+  liftUnmodel _ f  = VG.fromList . map f .unModelVec
+  liftModel _ f xs = ModelVec { modelVecStride = 1
+                              , unModelVec     = f <$> VG.toList xs
+                              }
+
+instance (Storable a) => TestData1 TagMat VS.Vector a where
+  liftUnmodel _ f  = VG.fromList . map f .unModelVec
+  liftModel _ f xs = ModelVec { modelVecStride = 1
+                              , unModelVec     = f <$> VG.toList xs
+                              }
+
+
+
+
+
+instance (Storable a, Num a) => TestData TagMat (VV.Vec a) where
+  type Model TagMat (VV.Vec a) = ModelVec a
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
 
 instance TestData TagMat (V.Vector a) where
   type Model TagMat (V.Vector a) = ModelVec a
-  unmodel _ = VG.fromList . unModelVec
-  model _ xs = ModelVec { modelVecStride = 1
-                        , unModelVec     = VG.toList xs
-                        }
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
 
 instance (VU.Unbox a) => TestData TagMat (VU.Vector a) where
   type Model TagMat (VU.Vector a) = ModelVec a
-  unmodel _ = VG.fromList . unModelVec
-  model _ xs = ModelVec { modelVecStride = 1
-                        , unModelVec     = VG.toList xs
-                        }
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
 
 instance (Storable a) => TestData TagMat (VS.Vector a) where
   type Model TagMat (VS.Vector a) = ModelVec a
-  unmodel _ = VG.fromList . unModelVec
-  model _ xs = ModelVec { modelVecStride = 1
-                        , unModelVec     = VG.toList xs
-                        }
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
 
-instance (Storable a, Num a) => TestData TagMat (Matrix a) where
-  type Model TagMat (Matrix a) = ModelMat a
-  unmodel _ m@ModelMat{unModelMat=mat, ..}
+
+type instance Model1 TagMat Matrix = ModelMat
+
+instance (Storable a, Num a) => TestData1 TagMat Matrix a where
+  liftUnmodel _ f m@ModelMat{unModelMat=mat, ..}
     = slice ((padRows,End), (padCols,End))
     $ fromRowsFF
     $ replicate padRows (replicate (nC + padCols) 0)
-   ++ map (replicate padCols 0 ++) mat
+   ++ map (replicate padCols 0 ++) ((fmap . fmap) f mat)
     where
       nC = nCols m
-  model _ m = ModelMat
+  liftModel _ f m = ModelMat
     { padRows    = 0
     , padCols    = 0
-    , unModelMat = VG.toList <$> Mat.toRowList m
+    , unModelMat = (fmap . fmap) f $ fmap VG.toList $ Mat.toRowList m
     }
+
+instance (Storable a, Num a) => TestData TagMat (Matrix a) where
+  type Model TagMat (Matrix a) = ModelMat a
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
 
 instance (Storable a, Eq a) => TestEquiv (Matrix a) where
   equiv = (==)
@@ -374,6 +424,20 @@ instance (ArbitraryShape v a) => Arbitrary (Pair (v a)) where
     sz <- genSize @(FC.ContVec _ _)
     Pair <$> arbitraryShape sz <*> arbitraryShape sz
 
+-- | Pair of models with same size
+data Pair1 v a = Pair1 (v a) (v a)
+  deriving stock (Show)
+
+type instance Model1 TagMat (Pair1 v) = Pair1 (Model1 TagMat v)
+instance TestData1 TagMat v a => TestData1 TagMat (Pair1 v) a where
+  liftModel   t f (Pair1 a b) = Pair1 (liftModel   t f a) (liftModel   t f b)
+  liftUnmodel t f (Pair1 a b) = Pair1 (liftUnmodel t f a) (liftUnmodel t f b)
+
+instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
+  arbitrary = do
+    sz <- genSize @(FC.ContVec _ _)
+    Pair1 <$> arbitraryShape sz <*> arbitraryShape sz
+
 
 ----------------------------------------------------------------
 -- Orphans & Arbitrary
@@ -405,18 +469,18 @@ instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
     guard (mat /= mat0)
     return mat
 
-instance (Eq a, SmallScalar a) => ArbitraryShape ModelMat a where
+instance (SmallScalar a) => ArbitraryShape ModelMat a where
   arbitraryShape (N2 m n)
      =  ModelMat
     <$> genOffset
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)
 
-instance (SmallScalar a, Storable a, Num a, Eq a
+instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (SmallScalar a, Storable a, Num a, Eq a
+instance (SmallScalar a, Storable a, Num a
          ) => ArbitraryShape Matrix a where
   arbitraryShape sz = fromModel <$> arbitraryShape sz
 
@@ -434,3 +498,23 @@ instance SmallScalar a => Arbitrary (ModelVec a) where
 
 instance SmallScalar a => ArbitraryShape ModelVec a where
   arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
+
+
+
+----------------------------------------
+-- Vecvec
+
+
+type instance Model1 TagMat (Tr   v) = Tr   (Model1 TagMat v)
+type instance Model1 TagMat (Conj v) = Conj (Model1 TagMat v)
+
+instance (TestData1 TagMat v a) => TestData1 TagMat (Tr v) a where
+  liftUnmodel t f (Tr v) = Tr $ liftUnmodel t f v
+  liftModel   t f (Tr v) = Tr $ liftModel   t f v
+
+instance (TestData1 TagMat v a) => TestData1 TagMat (Conj v) a where
+  liftUnmodel t f (Conj v) = Conj $ liftUnmodel t f v
+  liftModel   t f (Conj v) = Conj $ liftModel   t f v
+
+deriving newtype instance TestEquiv (v a) => TestEquiv (Tr   v a)
+deriving newtype instance TestEquiv (v a) => TestEquiv (Conj v a)
