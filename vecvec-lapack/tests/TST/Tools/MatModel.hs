@@ -42,12 +42,10 @@ module TST.Tools.MatModel
   , Model1M
   , TagMat(..)
   , fromModel
-  , eq
-  , eqV
-  , mdl
+  , plainEq
   , val
-
   , eq1
+  , eq1V
   , mdl1
   , (=~=)
   , ModelVec(..)
@@ -183,29 +181,44 @@ genNonsingularMatrix sz = do
 -- Models
 ----------------------------------------------------------------
 
-eq :: (TestEquiv a, TestMatrix a) => a -> ModelM a -> Property
-eq a m = property $ equiv a (fromModel m)
+-- | Compare two values using equivalence
+plainEq :: (TestEquiv a) => a -> a -> Property
+plainEq a b = property $ equiv a b
 
-eq1 :: forall v a. (TestEquiv (v a), TestMatrix1 v a) => v a -> Model1M v a -> Property
+-- | Compare value and its model using equivalence
+eq1 :: forall v a. (TestEquiv (v a), TestMatrix1 v a)
+    => v a         -- ^ Implementation
+    -> Model1M v a -- ^ Model
+    -> Property
 eq1 a m = property $ equiv a (liftUnmodel TagMat id m)
 
-eqV :: (TestEquiv a, TestMatrix a, Show a, Show (ModelM a)) => a -> ModelM a -> Property
-eqV a m
+-- | Verbose variant of 'eq1'
+eq1V :: forall v a. (TestEquiv (v a), TestMatrix1 v a, Show (v a), Show (Model1M v a))
+     => v a         -- ^ Implementation
+     -> Model1M v a -- ^ Model
+     -> Property
+eq1V a m
   = counterexample ("MODEL = " ++ show m)
   $ counterexample ("IMPL  = " ++ show a)
-  $ property $ equiv a (fromModel m)
+  $ property $ equiv a (liftUnmodel TagMat id m)
 
-mdl :: forall a b c r. (TestMatrix a)
-    => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (ModelM a -> r)
-mdl eqv f g = \m -> f (fromModel m) `eqv` g m
+-- | Create compare function where both implementation under test and
+--   model take same arguments
+val :: forall a impl model. (Arbitrary a, Show a)
+    => (impl -> model -> Property) -- ^ Rest of comparator
+    -> (a -> impl)                 -- ^ Implementation
+    -> (a -> model)                -- ^ Model
+    -> Property
+val eqv f g = property $ \a -> f a `eqv` g a
 
-val :: forall a b c r. (TestMatrix a)
-    => (b -> c -> r) -> (a -> b) -> (ModelM a -> c) -> (a -> r)
-val eqv f g = \a -> f a `eqv` g (model TagMat a)
-
-mdl1 :: forall v a b c r. (TestMatrix1 v a)
-     => (b -> c -> r) -> (v a -> b) -> (Model1M v a -> c) -> (Model1M v a -> r)
-mdl1 eqv f g = \m -> f (liftUnmodel TagMat id m) `eqv` g m
+-- | Create comparator for implementation and model where we use input
+--   for model to generate samples
+mdl1 :: forall v a impl model. (TestMatrix1 v a, Arbitrary (Model1M v a), Show (Model1M v a))
+     => (impl -> model -> Property) -- ^ Rest of the comparator
+     -> (v a -> impl)               -- ^ Implementation
+     -> (Model1M v a -> model)      -- ^ Model
+     -> Property
+mdl1 eqv f g = property $ \m -> f (liftUnmodel TagMat id m) `eqv` g m
 
 
 (=~=) :: LiftTestEq TagMat a => a -> ModelM a -> P a
@@ -508,11 +521,11 @@ instance SmallScalar a => ArbitraryShape ModelVec a where
 type instance Model1 TagMat (Tr   v) = Tr   (Model1 TagMat v)
 type instance Model1 TagMat (Conj v) = Conj (Model1 TagMat v)
 
-instance (TestData1 TagMat v a) => TestData1 TagMat (Tr v) a where
+instance (TestMatrix1 v a) => TestData1 TagMat (Tr v) a where
   liftUnmodel t f (Tr v) = Tr $ liftUnmodel t f v
   liftModel   t f (Tr v) = Tr $ liftModel   t f v
 
-instance (TestData1 TagMat v a) => TestData1 TagMat (Conj v) a where
+instance (TestMatrix1 v a) => TestData1 TagMat (Conj v) a where
   liftUnmodel t f (Conj v) = Conj $ liftUnmodel t f v
   liftModel   t f (Conj v) = Conj $ liftModel   t f v
 
