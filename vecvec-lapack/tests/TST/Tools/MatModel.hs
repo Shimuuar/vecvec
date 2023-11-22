@@ -128,8 +128,8 @@ instance SmallScalar a => Arbitrary (X a) where
 ----------------------------------------------------------------
 
 -- | Generate random NDarray with specified shape
-class (Arbitrary a, HasShape a) => ArbitraryShape a where
-  arbitraryShape :: (IsShape shape (NDim a)) => shape -> Gen a
+class (Arbitrary a, HasShape arr a) => ArbitraryShape arr a where
+  arbitraryShape :: (IsShape shape (NDim arr)) => shape -> Gen (arr a)
 
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
@@ -268,8 +268,9 @@ data ModelVec a = ModelVec
   }
   deriving stock (Show)
 
-instance HasShape (ModelVec a) where
-  type NDim (ModelVec a) = 1
+type instance NDim ModelVec = 1
+
+instance HasShape ModelVec a where
   shapeAsCVec = FC.mk1 . length . unModelVec
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
@@ -305,8 +306,9 @@ data ModelMat a = ModelMat
   }
   deriving stock (Show,Eq)
 
-instance HasShape (ModelMat a) where
-  type NDim (ModelMat a) = 2
+type instance NDim ModelMat = 2
+
+instance HasShape ModelMat a where
   shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
@@ -328,25 +330,25 @@ class IsModelMat m a where
 
 instance a ~ a' => IsModelMat (ModelMat a) a' where
   toModelMat = id
-instance a ~ a' => IsModelMat (Tr (ModelMat a)) a' where
+instance a ~ a' => IsModelMat (Tr ModelMat a) a' where
   toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
-instance (NormedScalar a, a ~ a') => IsModelMat (Conj (ModelMat a)) a' where
+instance (NormedScalar a, a ~ a') => IsModelMat (Conj ModelMat a) a' where
   toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
 
 
-instance (NormedScalar a) => MatMul       (ModelMat a)  (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Tr   ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Conj ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
-instance (NormedScalar a) => MatMul       (ModelMat a)        (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a))       (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul       (ModelMat a)  (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Tr   (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul       (ModelMat a)  (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj (ModelMat a)) (Conj (ModelMat a)) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul      (ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul      (ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
@@ -367,7 +369,7 @@ data Pair v = Pair v v
 
 deriving via ModelFunctor Pair a instance TestData t a => TestData t (Pair a)
 
-instance (ArbitraryShape v) => Arbitrary (Pair v) where
+instance (ArbitraryShape v a) => Arbitrary (Pair (v a)) where
   arbitrary = do
     sz <- genSize @(FC.ContVec _ _)
     Pair <$> arbitraryShape sz <*> arbitraryShape sz
@@ -377,16 +379,16 @@ instance (ArbitraryShape v) => Arbitrary (Pair v) where
 -- Orphans & Arbitrary
 ----------------------------------------------------------------
 
-instance (NDim a ~ 2, ArbitraryShape a) => Arbitrary (Tr a) where
+instance (NDim arr ~ 2, ArbitraryShape arr a) => Arbitrary (Tr arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (NDim a ~ 2, ArbitraryShape a) => Arbitrary (Conj a) where
+instance (NDim arr ~ 2, ArbitraryShape arr a) => Arbitrary (Conj arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Tr a) where
+instance (NDim arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
   arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
-instance (NDim a ~ 2, ArbitraryShape a) => ArbitraryShape (Conj a) where
+instance (NDim arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Conj arr) a where
   arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
 
 
@@ -403,7 +405,7 @@ instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
     guard (mat /= mat0)
     return mat
 
-instance (Eq a, SmallScalar a) => ArbitraryShape (ModelMat a) where
+instance (Eq a, SmallScalar a) => ArbitraryShape ModelMat a where
   arbitraryShape (N2 m n)
      =  ModelMat
     <$> genOffset
@@ -415,7 +417,7 @@ instance (SmallScalar a, Storable a, Num a, Eq a
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
 instance (SmallScalar a, Storable a, Num a, Eq a
-         ) => ArbitraryShape (Matrix a) where
+         ) => ArbitraryShape Matrix a where
   arbitraryShape sz = fromModel <$> arbitraryShape sz
 
 
@@ -430,5 +432,5 @@ instance SmallScalar a => Arbitrary (ModelVec a) where
     x  <- shrinkList (const []) xs
     return $ ModelVec n' x
 
-instance SmallScalar a => ArbitraryShape (ModelVec a) where
+instance SmallScalar a => ArbitraryShape ModelVec a where
   arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar

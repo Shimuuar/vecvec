@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -28,6 +29,7 @@ import Foreign.Storable
 import Foreign.Marshal.Array
 import Text.Read
 
+import Data.Vector.Fixed.Cont       qualified as FC
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic          qualified as VG
@@ -99,7 +101,20 @@ instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
 
 deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
 
-deriving via AsVector Vec a instance Storable a => HasShape (Vec a)
+type instance NDim Vec = 1
+
+instance Storable a => HasShape Vec a where
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
+
+instance Storable a => NDArray Vec a where
+  indexCVec       v (FC.ContVec cont) = v VG.!             (cont (FC.Fun id))
+  indexCVecMaybe  v (FC.ContVec cont) = v VG.!?            (cont (FC.Fun id))
+  unsafeIndexCVec v (FC.ContVec cont) = v `VG.unsafeIndex` (cont (FC.Fun id))
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+
 
 instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeFreeze #-}

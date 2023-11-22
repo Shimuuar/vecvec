@@ -269,8 +269,11 @@ instance (DVS.Storable a, TestEquiv a) => TestEquiv (VV.Vec a)     where equiv =
 ----------------------------------------
 -- Vecvec
 
-deriving via ModelFunctor Tr a instance TestData t a => TestData t (Tr a)
-deriving via ModelFunctor Tr a instance TestEquiv  a => TestEquiv  (Tr a)
+-- instance (TestData t (v a), v' a' ~ Model t (v a)) => TestData t (Tr v a) where
+--   type Model t (Tr v a) = Tr v' a'
 
-deriving via ModelFunctor Conj a instance TestData t a => TestData t (Conj a)
-deriving via ModelFunctor Conj a instance TestEquiv  a => TestEquiv  (Conj a)
+-- deriving via ModelFunctor Tr a instance TestData t a => TestData t (Tr a)
+-- deriving via ModelFunctor Tr a instance TestEquiv  a => TestEquiv  (Tr a)
+
+-- deriving via ModelFunctor Conj a instance TestData t a => TestData t (Conj a)
+-- deriving via ModelFunctor Conj a instance TestEquiv  a => TestEquiv  (Conj a)

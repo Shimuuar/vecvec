@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -51,13 +52,13 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 import Foreign.Marshal.Array
 
+import Data.Vector.Fixed.Cont       qualified as FC
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic.Mutable  qualified as MVG
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Via
 import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
 import Vecvec.LAPACK.Utils
@@ -138,7 +139,14 @@ fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
 --   vector.
 data Strided a = Strided a !Int
 
-deriving via AsMVector MVec s a instance Storable a => HasShape (MVec s a)
+
+type instance NDim (MVec s) = 1
+
+instance Storable a => HasShape (MVec s) a where
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
+
+
 
 instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
   {-# INLINE sliceMaybe #-}

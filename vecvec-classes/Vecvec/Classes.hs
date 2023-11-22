@@ -202,17 +202,19 @@ class ( VectorSpace a
 infixl 7 @@
 
 -- | Newtype for passing matrix\/vector to '@@' as transposed.
-newtype Tr a = Tr { getTr :: a }
+newtype Tr v a = Tr { getTr :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
 -- | Newtype for passing matrix\/vector to '@@' as conjugated.
-newtype Conj a = Conj { getConj :: a }
+newtype Conj v a = Conj { getConj :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
-instance Eq1 Tr   where liftEq = coerce
-instance Eq1 Conj where liftEq = coerce
+instance Eq1 v => Eq1 (Tr v) where
+  liftEq f (Tr a) (Tr b) = liftEq f a b
+instance Eq1 v => Eq1 (Conj v) where
+  liftEq f (Conj a) (Conj b) = liftEq f a b
 
 
 ----------------------------------------------------------------
@@ -448,6 +450,7 @@ instance RealFloat a => NormedScalar (Complex a) where
   conjugate = Complex.conjugate
   scalarNormSq (r1 :+ i1) = r1*r1 + i1*i1
   fromR x = x :+ 0
+
 
 ----------------------------------------------------------------
 -- zipWith which errors when vector have different length

@@ -18,7 +18,8 @@
 -- data layout in memory are made.
 module Vecvec.Classes.NDArray
   ( -- * Indexing
-    HasShape(..)
+    NDim
+  , HasShape(..)
   , shape
   , nCols
   , nRows
@@ -62,12 +63,11 @@ import Data.Vector.Fixed.Cont        (ContVec(..),runContVec,Fun(..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
 
-import Vecvec.Classes.Via
 import Vecvec.Classes
 
 
 ----------------------------------------------------------------
--- Indexing
+-- Generic type class for working with shapes
 ----------------------------------------------------------------
 
 -- | Data type which could represent shape of N-dimensional array.
@@ -91,28 +91,32 @@ instance (n ~ F.Dim v, F.Vector v Int, a ~ Int) => IsShape (v a) n where
   {-# INLINE shapeFromCVec #-}
 
 
+----------------------------------------------------------------
+-- ND-arrays
+----------------------------------------------------------------
+
+-- | Dimension of N-dimensional array: 1 for vectors, 2 for matrices, etc
+type family NDim (arr :: Type -> Type) :: Nat
+
 -- | Type class for N-dimensional arrays. It's superclass for
 --   'NDArray' since both immutable and mutable arrays could be
 --   instance.
-class F.Arity (NDim arr) => HasShape arr where
-  type NDim arr :: Nat
-  -- | Return shape of array. It return concrete type as shape. Use
-  --   'shape' which is polymorphic instead.
-  shapeAsCVec :: arr -> ContVec (NDim arr) Int
-
+class F.Arity (NDim arr) => HasShape arr a where
+  -- | Return shape of N-dimensional array as a tuple of @Int@s.
+  shapeAsCVec :: arr a -> ContVec (NDim arr) Int
 
 -- | Get shape of an array.
-shape :: (IsShape shape (NDim arr), HasShape arr) => arr -> shape
+shape :: (IsShape shape (NDim arr), HasShape arr a) => arr a -> shape
 shape = shapeFromCVec . shapeAsCVec
 {-# INLINE shape #-}
 
--- |
-nCols :: (NDim arr ~ 2, HasShape arr) => arr -> Int
+-- | Number of columns of two dimensional array (@k@, if size is @(n,k)@)
+nCols :: (NDim arr ~ 2, HasShape arr a) => arr a -> Int
 nCols v = runContVec (Fun $ \_ n -> n) (shapeAsCVec v)
 {-# INLINE nCols #-}
 
--- |
-nRows :: (NDim arr ~ 2, HasShape arr) => arr -> Int
+-- | Number of rows of two dimensional array (@n@, if size is @(n,k)@)
+nRows :: (NDim arr ~ 2, HasShape arr a) => arr a -> Int
 nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 {-# INLINE nRows #-}
 
@@ -120,15 +124,20 @@ pattern N1 :: IsShape shape 1 => Int -> shape
 pattern N1 i <- (runContVec (Fun id) . shapeToCVec @_ @1 -> i)
   where
     N1 i = shapeFromCVec (FC.mk1 i)
-{-# INLINE N1 #-}
+{-# INLINE   N1 #-}
 {-# COMPLETE N1 #-}
 
 pattern N2 :: IsShape shape 2 => Int -> Int -> shape
 pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j))
   where
     N2 i j = shapeFromCVec (FC.mk2 i j)
-{-# INLINE N2 #-}
+{-# INLINE   N2 #-}
 {-# COMPLETE N2 #-}
+
+
+----------------------------------------------------------------
+-- Shape of an array
+----------------------------------------------------------------
 
 -- | Type class for N-dimensional arrays where each dimension is
 --   zero-indexed. There's no restriction on actual representation
@@ -137,10 +146,9 @@ pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j)
 --   Method of this type class accept and return shape and index
 --   'ContVec' it's convenient and generic representation whic GHC can
 --   optimize well.
-class HasShape arr => NDArray arr where
-  type Elt arr :: Type
+class HasShape arr a => NDArray arr a where
   -- | /O(1)/ Use 'index' or '!' instead.
-  indexCVec :: arr -> ContVec (NDim arr) Int -> Elt arr
+  indexCVec :: arr a -> ContVec (NDim arr) Int -> a
   {-# INLINE indexCVec #-}
   indexCVec arr idx
     -- FIXME: Does GHC optimize this well? We call idx twice.
@@ -149,7 +157,7 @@ class HasShape arr => NDArray arr where
     where ok = FC.and
              $ FC.zipWith (\sz i -> i >= 0 && i < sz) (shapeAsCVec arr) idx
   -- | /O(1)/ Use 'indexMaybe' instead.
-  indexCVecMaybe :: arr -> ContVec (NDim arr) Int -> Maybe (Elt arr)
+  indexCVecMaybe :: arr a -> ContVec (NDim arr) Int -> Maybe a
   {-# INLINE indexCVecMaybe #-}
   indexCVecMaybe arr idx = do
     -- FIXME: Does GHC optimize this well? We call idx twice.
@@ -157,95 +165,123 @@ class HasShape arr => NDArray arr where
     Just $ unsafeIndexCVec arr idx
 
   -- | /O(1)/ Use 'unsafeIndex' instead.
-  unsafeIndexCVec :: arr -> ContVec (NDim arr) Int -> Elt arr
+  unsafeIndexCVec :: arr a -> ContVec (NDim arr) Int -> a
 
 
 -- | /O(1)/ Return element of an array at given index. Will throw
-index :: (NDArray arr, IsShape idx (NDim arr)) => arr -> idx -> Elt arr
+index :: (NDArray arr a, IsShape idx (NDim arr)) => arr a -> idx -> a
 index arr idx = indexCVec arr (shapeToCVec idx)
 {-# INLINE index #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw
-indexMaybe :: (NDArray arr, IsShape idx (NDim arr)) => arr -> idx -> Maybe (Elt arr)
+indexMaybe :: (NDArray arr a, IsShape idx (NDim arr)) => arr a -> idx -> Maybe a
 indexMaybe arr idx = indexCVecMaybe arr (shapeToCVec idx)
 {-# INLINE indexMaybe #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw
-(!) :: (NDArray arr, IsShape idx (NDim arr)) => arr -> idx -> Elt arr
+(!) :: (NDArray arr a, IsShape idx (NDim arr)) => arr a -> idx -> a
 (!) = index
 {-# INLINE (!) #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw
-(!?) :: (NDArray arr, IsShape idx (NDim arr)) => arr -> idx -> Maybe (Elt arr)
+(!?) :: (NDArray arr a, IsShape idx (NDim arr)) => arr a -> idx -> Maybe a
 (!?) = indexMaybe
 {-# INLINE (!?) #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw
-unsafeIndex :: (NDArray arr, IsShape idx (NDim arr)) => arr -> idx -> Elt arr
+unsafeIndex :: (NDArray arr a, IsShape idx (NDim arr)) => arr a -> idx -> a
 unsafeIndex arr idx = unsafeIndexCVec arr (shapeToCVec idx)
 {-# INLINE unsafeIndex #-}
 
 
-instance VG.Vector v a => HasShape (AsVector v a) where
-  type NDim (AsVector v a) = 1
-  shapeAsCVec (AsVector v) = FC.mk1 (VG.length v)
+
+type instance NDim V.Vector  = 1
+type instance NDim VS.Vector = 1
+type instance NDim VU.Vector = 1
+type instance NDim VP.Vector = 1
+
+type instance NDim (MV.MVector  s) = 1
+type instance NDim (MVS.MVector s) = 1
+type instance NDim (MVU.MVector s) = 1
+type instance NDim (MVP.MVector s) = 1
+
+instance HasShape V.Vector a where
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
+instance VS.Storable a => HasShape VS.Vector a where
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
+instance VU.Unbox a => HasShape VU.Vector a where
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
+instance VP.Prim a => HasShape VP.Vector a where
+  shapeAsCVec = FC.mk1 . VG.length
   {-# INLINE shapeAsCVec #-}
 
-instance VG.Vector v a => NDArray (AsVector v a) where
-  type Elt (AsVector v a) = a
-  indexCVec       (AsVector v) (ContVec cont) = v VG.!             (cont (Fun id))
-  indexCVecMaybe  (AsVector v) (ContVec cont) = v VG.!?            (cont (Fun id))
-  unsafeIndexCVec (AsVector v) (ContVec cont) = v `VG.unsafeIndex` (cont (Fun id))
+instance HasShape (MV.MVector s) a where
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
+instance VS.Storable a => HasShape (MVS.MVector s) a where
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
+instance VU.Unbox a => HasShape (MVU.MVector s) a where
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
+instance VP.Prim a => HasShape (MVP.MVector s) a where
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
+
+instance NDArray V.Vector a where
+  indexCVec       v (ContVec cont) = v VG.!             (cont (Fun id))
+  indexCVecMaybe  v (ContVec cont) = v VG.!?            (cont (Fun id))
+  unsafeIndexCVec v (ContVec cont) = v `VG.unsafeIndex` (cont (Fun id))
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+instance VS.Storable a => NDArray VS.Vector a where
+  indexCVec       v (ContVec cont) = v VG.!             (cont (Fun id))
+  indexCVecMaybe  v (ContVec cont) = v VG.!?            (cont (Fun id))
+  unsafeIndexCVec v (ContVec cont) = v `VG.unsafeIndex` (cont (Fun id))
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+instance VU.Unbox a => NDArray VU.Vector a where
+  indexCVec       v (ContVec cont) = v VG.!             (cont (Fun id))
+  indexCVecMaybe  v (ContVec cont) = v VG.!?            (cont (Fun id))
+  unsafeIndexCVec v (ContVec cont) = v `VG.unsafeIndex` (cont (Fun id))
+  {-# INLINE indexCVec       #-}
+  {-# INLINE indexCVecMaybe  #-}
+  {-# INLINE unsafeIndexCVec #-}
+instance VP.Prim a => NDArray VP.Vector a where
+  indexCVec       v (ContVec cont) = v VG.!             (cont (Fun id))
+  indexCVecMaybe  v (ContVec cont) = v VG.!?            (cont (Fun id))
+  unsafeIndexCVec v (ContVec cont) = v `VG.unsafeIndex` (cont (Fun id))
   {-# INLINE indexCVec       #-}
   {-# INLINE indexCVecMaybe  #-}
   {-# INLINE unsafeIndexCVec #-}
 
-
-instance MVG.MVector v a => HasShape (AsMVector v s a) where
-  type NDim (AsMVector v s a) = 1
-  shapeAsCVec (AsMVector v) = FC.mk1 (MVG.length v)
-  {-# INLINE shapeAsCVec #-}
-
-deriving via AsVector V.Vector  a instance HasShape (V.Vector a)
-deriving via AsVector VS.Vector a instance VS.Storable a => HasShape (VS.Vector a)
-deriving via AsVector VU.Vector a instance VU.Unbox    a => HasShape (VU.Vector a)
-deriving via AsVector VP.Vector a instance VP.Prim     a => HasShape (VP.Vector a)
-
-deriving via AsVector V.Vector  a instance NDArray (V.Vector a)
-deriving via AsVector VS.Vector a instance VS.Storable a => NDArray (VS.Vector a)
-deriving via AsVector VU.Vector a instance VU.Unbox    a => NDArray (VU.Vector a)
-deriving via AsVector VP.Vector a instance VP.Prim     a => NDArray (VP.Vector a)
-
-deriving via AsMVector MV.MVector  s a instance HasShape (MV.MVector s a)
-deriving via AsMVector MVS.MVector s a instance VS.Storable a => HasShape (MVS.MVector s a)
-deriving via AsMVector MVU.MVector s a instance VU.Unbox    a => HasShape (MVU.MVector s a)
-deriving via AsMVector MVP.MVector s a instance VP.Prim     a => HasShape (MVP.MVector s a)
+type instance NDim (Tr   v) = NDim v
+type instance NDim (Conj v) = NDim v
 
 
-instance (HasShape arr, NDim arr ~ 2) => HasShape (Tr arr) where
-  type NDim (Tr arr) = 2
+instance (HasShape arr a, NDim arr ~ 2) => HasShape (Tr arr) a where
   shapeAsCVec (Tr arr) = swapFC2 $ shapeAsCVec arr
   {-# INLINE shapeAsCVec #-}
+instance (HasShape arr a, NDim arr ~ 2) => HasShape (Conj arr) a where
+  shapeAsCVec (Conj arr) = swapFC2 $ shapeAsCVec arr
+  {-# INLINE shapeAsCVec #-}
 
-instance (NDArray arr, NDim arr ~ 2) => NDArray (Tr arr) where
-  type Elt (Tr arr) = Elt arr
+instance (NDArray arr a, NDim arr ~ 2) => NDArray (Tr arr) a where
   indexCVec       (Tr arr) = indexCVec       arr . swapFC2
   indexCVecMaybe  (Tr arr) = indexCVecMaybe  arr . swapFC2
   unsafeIndexCVec (Tr arr) = unsafeIndexCVec arr . swapFC2
   {-# INLINE indexCVec       #-}
   {-# INLINE indexCVecMaybe  #-}
   {-# INLINE unsafeIndexCVec #-}
-
-instance (HasShape arr, NDim arr ~ 2) => HasShape (Conj arr) where
-  type NDim (Conj arr) = 2
-  shapeAsCVec (Conj arr) = swapFC2 $ shapeAsCVec arr
-  {-# INLINE shapeAsCVec #-}
-
-instance (NDArray arr, NDim arr ~ 2, NormedScalar (Elt arr)) => NDArray (Conj arr) where
-  type Elt (Conj arr) = Elt arr
-  indexCVec       (Conj arr) = conjugate      . indexCVec       arr . swapFC2
-  indexCVecMaybe  (Conj arr) = fmap conjugate . indexCVecMaybe  arr . swapFC2
-  unsafeIndexCVec (Conj arr) = conjugate      . unsafeIndexCVec arr . swapFC2
+instance (NDArray arr a, NDim arr ~ 2) => NDArray (Conj arr) a where
+  indexCVec       (Conj arr) = indexCVec       arr . swapFC2
+  indexCVecMaybe  (Conj arr) = indexCVecMaybe  arr . swapFC2
+  unsafeIndexCVec (Conj arr) = unsafeIndexCVec arr . swapFC2
   {-# INLINE indexCVec       #-}
   {-# INLINE indexCVecMaybe  #-}
   {-# INLINE unsafeIndexCVec #-}
@@ -253,6 +289,7 @@ instance (NDArray arr, NDim arr ~ 2, NormedScalar (Elt arr)) => NDArray (Conj ar
 swapFC2 :: ContVec 2 a -> ContVec 2 a
 swapFC2 (ContVec cont) = ContVec $ \(Fun f) -> cont (Fun $ flip f)
 {-# INLINE swapFC2 #-}
+
 
 
 ----------------------------------------------------------------
@@ -317,8 +354,6 @@ instance (i ~ Int) => Slice1D (Range i) where
 
 
 
-
-
 -- | Semiopen range @a :.. b@
 data Range a = a :.. a
   deriving stock (Show,Eq,Ord,Generic)
@@ -330,7 +365,6 @@ data End = End
 -- | Use length of vector for a slice.
 newtype Length = Length { unLength :: Int }
   deriving stock (Show,Eq,Ord,Generic)
-
 
 
 
