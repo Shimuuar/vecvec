@@ -30,6 +30,7 @@ import Foreign.Marshal.Array
 import Text.Read
 
 import Data.Vector.Fixed.Cont       qualified as FC
+import Data.Vector.Fixed.Cont       (ContVec(..),Fun(..))
 import Data.Vector.Storable         qualified as VS
 import Data.Vector.Storable.Mutable qualified as MVS
 import Data.Vector.Generic          qualified as VG
@@ -39,6 +40,7 @@ import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
                                              ,blasDotc, blasScal, blasAxpy, clone
@@ -101,19 +103,18 @@ instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
 
 deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
 
-type instance NDim Vec = 1
+type instance Rank Vec = 1
 
 instance Storable a => HasShape Vec a where
-  shapeAsCVec = FC.mk1 . VG.length
-  {-# INLINE shapeAsCVec #-}
+  shapeAsCVec     = FC.mk1 . VG.length
+  basicRangeCheck = implVectorRangeCheck
+  {-# INLINE shapeAsCVec     #-}
+  {-# INLINE basicRangeCheck #-}
 
 instance Storable a => NDArray Vec a where
-  indexCVec       v (FC.ContVec cont) = v VG.!             (cont (FC.Fun id))
-  indexCVecMaybe  v (FC.ContVec cont) = v VG.!?            (cont (FC.Fun id))
-  unsafeIndexCVec v (FC.ContVec cont) = v `VG.unsafeIndex` (cont (FC.Fun id))
-  {-# INLINE indexCVec       #-}
-  {-# INLINE indexCVecMaybe  #-}
-  {-# INLINE unsafeIndexCVec #-}
+  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicReallyUnsafeIndex #-}
+instance Storable a => NDArrayD Vec a where
 
 
 instance VS.Storable a => VG.Vector Vec a where

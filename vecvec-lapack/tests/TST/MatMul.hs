@@ -120,7 +120,7 @@ newtype MM a b = MM { unMM :: (a,b) }
 instance (Show a, Show b) => Show (MM a b) where
   show (MM (a,b)) = show a ++ "\n" ++ show b
 
-instance (NDim m1 ~ 2, NDim m2 ~ 2, ArbitraryShape m1 a, ArbitraryShape m2 a) => Arbitrary (MM (m1 a) (m2 a)) where
+instance (Rank m1 ~ 2, Rank m2 ~ 2, ArbitraryShape m1 a, ArbitraryShape m2 a) => Arbitrary (MM (m1 a) (m2 a)) where
   arbitrary = do
     (n,k,m) <- genSize
     MM <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape (k,m))
@@ -131,7 +131,7 @@ newtype MV a b = MV { unMV :: (a,b) }
 instance (Show a, Show b) => Show (MV a b) where
   show (MV (a,b)) = show a ++ "\n" ++ show b
 
-instance (NDim m ~ 2, NDim v ~ 1, ArbitraryShape m a, ArbitraryShape v a) => Arbitrary (MV (m a) (v a)) where
+instance (Rank m ~ 2, Rank v ~ 1, ArbitraryShape m a, ArbitraryShape v a) => Arbitrary (MV (m a) (v a)) where
   arbitrary = do
     (n,k) <- genSize
     MV <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape k)

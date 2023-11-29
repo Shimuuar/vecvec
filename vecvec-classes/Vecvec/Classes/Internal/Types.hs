@@ -1,11 +1,6 @@
 -- |
--- Newtype for use with deriving via.
-module Vecvec.Classes.Via
-  ( AsNum(..)
-  , AsVector(..)
-  , AsMVector(..)
-  , AsFixedVec(..)
-  ) where
+module Vecvec.Classes.Internal.Types where
+
 
 -- | Derive instances for data types which already have 'Num'
 --   instance. It could be used to derive instances from

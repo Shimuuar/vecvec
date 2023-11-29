@@ -47,7 +47,6 @@ import Test.QuickCheck
 
 import Vecvec.LAPACK.Internal.Vector as VV
 import Vecvec.Classes.NDArray qualified as Slice
-import Vecvec.Classes
 
 ----------------------------------------------------------------
 -- Model API

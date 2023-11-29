@@ -68,6 +68,7 @@ import Prelude hiding (replicate,all,any)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
@@ -91,19 +92,25 @@ instance M.AsMInput s Matrix where
   {-# INLINE asMInput #-}
   asMInput = coerce
 
-type instance NDim Matrix = 2
+type instance Rank Matrix = 2
 
 instance HasShape Matrix a where
   shapeAsCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols
-  {-# INLINE shapeAsCVec #-}
+  -- FIXME: trick with Word!
+  basicRangeCheck (Matrix M.MView{..}) (N2 n k)
+    | (n `inRange` nrows) && (k `inRange` ncols) = IndexOK
+    | otherwise                                  = OutOfRange
+  {-# INLINE shapeAsCVec     #-}
+  {-# INLINE basicRangeCheck #-}
 
 instance Storable a => NDArray Matrix a where
-  {-# INLINE unsafeIndexCVec #-}
-  unsafeIndexCVec (Matrix M.MView{..}) (FC.ContVec cont) = cont $ FC.Fun $ \i j -> do
+  basicReallyUnsafeIndex (Matrix M.MView{..}) (FC.ContVec cont) = cont $ FC.Fun $ \i j -> do
     unsafeInlineIO
       $ unsafeWithForeignPtr buffer $ \p -> do
         peekElemOff p (i * leadingDim + j)
+  {-# INLINE basicReallyUnsafeIndex #-}
 
+instance Storable a => NDArrayD Matrix a 
 
 
 instance (Show a, Storable a) => Show (Matrix a) where
