@@ -43,22 +43,25 @@ import TST.Tools.Util
 
 tests :: TestTree
 tests = testGroup "VectorSpace instances"
-  [ props_inner_space @(VV.Vec S)
-  , props_inner_space @(VV.Vec D)
-  , props_inner_space @(VV.Vec C)
-  , props_inner_space @(VV.Vec Z)
+  [ props_inner_space @VV.Vec @S
+  , props_inner_space @VV.Vec @D
+  , props_inner_space @VV.Vec @C
+  , props_inner_space @VV.Vec @Z
     -- Matrix
-  , props_vector_space @(Matrix S)
-  , props_vector_space @(Matrix D)
-  , props_vector_space @(Matrix C)
-  , props_vector_space @(Matrix Z)
+  , props_vector_space @Matrix @S
+  , props_vector_space @Matrix @D
+  , props_vector_space @Matrix @C
+  , props_vector_space @Matrix @Z
     -- Vector instances
-  , props_inner_space @(V.Vector  Double)
-  , props_inner_space @(VU.Vector Double)
-  , props_inner_space @(VS.Vector Double)
+  , props_inner_space @V.Vector  @D
+  , props_inner_space @VU.Vector @D
+  , props_inner_space @VS.Vector @D
+  , props_inner_space @V.Vector  @Z
+  , props_inner_space @VU.Vector @Z
+  , props_inner_space @VS.Vector @Z
   ]
 
-  
+
 
 ----------------------------------------------------------------
 --
@@ -66,137 +69,157 @@ tests = testGroup "VectorSpace instances"
 
 -- Tests for vector space implementation
 props_inner_space
-  :: forall v a. ( TestMatrix v, TestMatrix a, TestMatrix (R a), TestEquiv v, TestEquiv a, TestEquiv (R a)
-                 , ArbitraryShape (ModelM v)
-                 , InnerSpace v, InnerSpace (ModelM v)
-                 , Typeable v, Show v, Show (ModelM v)
-                 , a ~ Scalar v
-                 , a ~ Scalar (ModelM v)
-                 , a ~ ModelM a
-                 , R a ~ ModelM (R a)
-                 , Show (R a), SmallScalar a, Show a
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a), TestEquiv a, TestEquiv (R a)
+                 , InnerSpace (v a)
+                 , InnerSpace (Model1M v a)
+                 , a ~ Scalar (v a)
+                 , a ~ Scalar (Model1M v a)
+                 , Show a
+                 , Typeable v, Typeable a
+                 , ArbitraryShape (Model1M v) a
+                 , Arbitrary      (Model1M v a)
+                 , SmallScalar    a
+                 , Show (Model1M v a)
                  )
   => TestTree
-props_inner_space = testGroup (qualTypeName @v)
-  [ prop_addition_correct    @v
-  , prop_subtraction_correct @v
-  , prop_negation_correct    @v
-  , prop_lmul_scalar         @v
-  , prop_rmul_scalar         @v
-  , prop_scalar_product      @v
-  , prop_magnitude           @v
+props_inner_space = testGroup (qualTypeName @v ++ " (" ++ qualTypeName @a ++ ")")
+  [ prop_addition_correct    @v @a
+  , prop_subtraction_correct @v @a
+  , prop_negation_correct    @v @a
+  , prop_lmul_scalar         @v @a
+  , prop_rmul_scalar         @v @a
+  , prop_scalar_product      @v @a
+  , prop_magnitude           @v @a
   ]
 
 -- Tests for vector space implementation
 props_vector_space
-  :: forall v a. ( TestMatrix v, TestEquiv v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
-                 , Typeable v, Show v, Show (ModelM v)
-                 , Scalar v ~ a, Scalar (ModelM v) ~ a
-                 , SmallScalar a, Show a
+  :: forall v a. ( TestMatrix1 v a
+                 , VectorSpace (v a)
+                 , VectorSpace (Model1M v a)
+                 , a ~ Scalar (v a)
+                 , a ~ Scalar (Model1M v a)
+                 , TestEquiv (v a)
+                 , SmallScalar a
+                 , Show a
+                 , Typeable v, Typeable a
+                 , ArbitraryShape (Model1M v) a
+                 , Arbitrary      (Model1M v a)
+                 , Show (Model1M v a)
                  )
   => TestTree
-props_vector_space = testGroup (qualTypeName @v)
-  [ prop_addition_correct    @v
-  , prop_subtraction_correct @v
-  , prop_negation_correct    @v
-  , prop_lmul_scalar         @v
-  , prop_rmul_scalar         @v
+props_vector_space = testGroup (qualTypeName @v ++ " (" ++ qualTypeName @a ++ ")")
+  [ prop_addition_correct    @v @a
+  , prop_subtraction_correct @v @a
+  , prop_negation_correct    @v @a
+  , prop_lmul_scalar         @v @a
+  , prop_rmul_scalar         @v @a
   ]
-
-
 
 -- Model evaluate addition in the same way as implementation
 prop_addition_correct
-  :: forall v. ( TestMatrix v, AdditiveSemigroup v, AdditiveSemigroup (ModelM v), ArbitraryShape (ModelM v)
-               , TestEquiv v, Show (ModelM v)
-               )
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a)
+                 , AdditiveSemigroup (v a), AdditiveSemigroup (Model1M v a)
+                 , ArbitraryShape (Model1M v) a
+                 , Show           (Model1M v a)
+                 )
   => TestTree
 prop_addition_correct
   = testProperty "Addition"
-  $ (mdl @(Pair v) $ eq @v)
-    (\(Pair v1 v2) -> v1 .+. v2)
-    (\(Pair v1 v2) -> v1 .+. v2)
+  $ (mdl1 $ eq1 @v @a)
+    (\(Pair1 v1 v2) -> v1 .+. v2)
+    (\(Pair1 v1 v2) -> v1 .+. v2)
 
 -- Model evaluate subtraction in the same way as implementation
 prop_subtraction_correct
-  :: forall v. ( TestMatrix v, TestEquiv v, AdditiveQuasigroup v, AdditiveQuasigroup (ModelM v), ArbitraryShape (ModelM v)
-               , Show (ModelM v)
-               )
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a)
+                 , AdditiveQuasigroup (v a), AdditiveQuasigroup (Model1M v a)
+                 , ArbitraryShape (Model1M v) a
+                 , Show           (Model1M v a)
+                 )
   => TestTree
 prop_subtraction_correct
   = testProperty "Subtraction"
-  $ (mdl $ eq @v)
-    (\(Pair v1 v2) -> v1 .-. v2)
-    (\(Pair v1 v2) -> v1 .-. v2)
+  $ (mdl1 $ eq1 @v @a)
+    (\(Pair1 v1 v2) -> v1 .-. v2)
+    (\(Pair1 v1 v2) -> v1 .-. v2)
 
 -- Model evaluate negation in the same way as implementation
 prop_negation_correct
-  :: forall v. ( TestMatrix v, AdditiveQuasigroup v, AdditiveQuasigroup (ModelM v), ArbitraryShape (ModelM v)
-               , TestEquiv v, Show (ModelM v)
-               )
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a)
+                 , AdditiveQuasigroup (v a), AdditiveQuasigroup (Model1M v a)
+                 , Arbitrary (Model1M v a)
+                 , Show      (Model1M v a)
+                 )
   => TestTree
 prop_negation_correct
   = testProperty "Negation"
-  $ (mdl $ eq @v)
+  $ (mdl1 $ eq1 @v @a)
     negateV
     negateV
 
 -- Model evaluates multiplication by scalar on the left
 prop_lmul_scalar
-  :: forall v a. ( TestMatrix v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
-                 , TestEquiv v, Show v, Show (ModelM v)
-                 , Scalar v ~ a, Scalar (ModelM v) ~ a
-                 , SmallScalar a, Show a
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a)
+                 , VectorSpace (v a), VectorSpace (Model1M v a)
+                 , a ~ Scalar (v a)
+                 , a ~ Scalar (Model1M v a)
+                 , Show a, Show (Model1M v a)
+                 , Arbitrary (Model1M v a)
+                 , SmallScalar a
                  )
   => TestTree
 prop_lmul_scalar
   = testProperty "Left scalar multiplication"
-  $ (val @(X a)  $  mdl @v  $  eqV)
+  $ (val @(X a)  $  mdl1 $ eq1 @v @a)
     (\(X a) v -> a *. v)
     (\(X a) v -> a *. v)
 
 -- Model evaluates multiplication by scalar on the right
 prop_rmul_scalar
-  :: forall v a. ( TestMatrix v, VectorSpace v, VectorSpace (ModelM v), ArbitraryShape (ModelM v)
-                 , TestEquiv v, Show v, Show (ModelM v)
-                 , Scalar v ~ a, Scalar (ModelM v) ~ a
-                 , SmallScalar a, Show a
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (v a)
+                 , VectorSpace (v a), VectorSpace (Model1M v a)
+                 , a ~ Scalar (v a)
+                 , a ~ Scalar (Model1M v a)
+                 , Show a, Show (Model1M v a)
+                 , Arbitrary (Model1M v a)
+                 , SmallScalar a
                  )
   => TestTree
 prop_rmul_scalar
   = testProperty "Right scalar multiplication"
-  $ (val @(X a)  $  mdl @v  $  eqV)
+  $ (val @(X a)  $  mdl1  $  eq1 @v @a)
     (\(X a) v -> v .* a)
     (\(X a) v -> v .* a)
 
 -- Model evaluates scalar product in the same way
 prop_scalar_product
-  :: forall v a. ( TestMatrix v, TestMatrix a, ArbitraryShape (ModelM v)
-                 , InnerSpace v, InnerSpace (ModelM v)
-                 , Show (ModelM v)
-                 , a ~ Scalar v
-                 , a ~ Scalar (ModelM v)
-                 , a ~ ModelM a 
-                 , TestEquiv a)
+  :: forall v a. ( TestMatrix1 v a, TestEquiv a
+                 , InnerSpace (v a), InnerSpace (Model1M v a)
+                 , a ~ Scalar (v a)
+                 , a ~ Scalar (Model1M v a)
+                 , ArbitraryShape (Model1M v) a
+                 , Show (Model1M v a)
+                 )
   => TestTree
 prop_scalar_product
   = testProperty "Scalar product"
-  $ (mdl @(Pair v)  $  eq)
-    (\(Pair v1 v2) -> v1 <.> v2)
-    (\(Pair v1 v2) -> v1 <.> v2)
- 
+  $ (mdl1 @(Pair1 v) @a  $  plainEq)
+    (\(Pair1 v1 v2) -> v1 <.> v2)
+    (\(Pair1 v1 v2) -> v1 <.> v2)
+
 -- Model evaluates magnitude in the same way
 prop_magnitude
-  :: forall v a. ( TestMatrix v, TestMatrix (R a), TestEquiv (R a), ArbitraryShape (ModelM v)
-                 , InnerSpace v, InnerSpace (ModelM v)
-                 , Show (ModelM v)
-                 , a ~ Scalar v
-                 , a ~ Scalar (ModelM v)
-                 , R a ~ ModelM (R a)
-                 , Show (R a))
+  :: forall v a. ( TestMatrix1 v a, TestEquiv (R a)
+                 , InnerSpace (v a), InnerSpace (Model1M v a)
+                 , Show (Model1M v a)
+                 , a   ~ Scalar (v a)
+                 , a   ~ Scalar (Model1M v a)
+                 , Arbitrary (Model1M v a)
+                 )
   => TestTree
 prop_magnitude
   = testProperty "Magnitude"
-  $ (mdl @v  $  eqV)
+  $ (mdl1 @v @a  $  plainEq @(R a))
      magnitudeSq
      magnitudeSq

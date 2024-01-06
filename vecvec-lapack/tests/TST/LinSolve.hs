@@ -124,7 +124,7 @@ class ArbitraryRHS rhs a where
   arbitraryRHS :: SmallScalar a => Int -> Gen (rhs a)
   checkLinEq   :: Matrix a -> rhs a -> rhs a -> Property
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a), Eq a
+instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
          ) => ArbitraryRHS Matrix a where
   arbitraryRHS sz = do
     n <- choose (1,4)

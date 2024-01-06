@@ -202,17 +202,19 @@ class ( VectorSpace a
 infixl 7 @@
 
 -- | Newtype for passing matrix\/vector to '@@' as transposed.
-newtype Tr a = Tr { getTr :: a }
+newtype Tr v a = Tr { getTr :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
 -- | Newtype for passing matrix\/vector to '@@' as conjugated.
-newtype Conj a = Conj { getConj :: a }
+newtype Conj v a = Conj { getConj :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
-instance Eq1 Tr   where liftEq = coerce
-instance Eq1 Conj where liftEq = coerce
+instance Eq1 v => Eq1 (Tr v) where
+  liftEq f (Tr a) (Tr b) = liftEq f a b
+instance Eq1 v => Eq1 (Conj v) where
+  liftEq f (Conj a) (Conj b) = liftEq f a b
 
 
 ----------------------------------------------------------------
@@ -431,57 +433,6 @@ deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          =
 deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, NormedScalar a) => InnerSpace         (F.ContVec n a)
 
 
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
-         ) => MatMul (Tr (FB.Vec n a)) (FB.Vec n b) a where
-  Tr v @@ u = F.sum $ F.zipWith (*) v u
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, FU.Unbox n a
-         ) => MatMul (Tr (FU.Vec n a)) (FU.Vec n b) a where
-  Tr v @@ u = F.sum $ F.zipWith (*) v u
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FS.Storable a
-         ) => MatMul (Tr (FS.Vec n a)) (FS.Vec n b) a where
-  Tr v @@ u = F.sum $ F.zipWith (*) v u
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FP.Prim a
-         ) => MatMul (Tr (FP.Vec n a)) (FP.Vec n b) a where
-  Tr v @@ u = F.sum $ F.zipWith (*) v u
-  {-# INLINE (@@) #-}
-
-instance (Num a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
-         ) => MatMul (Tr (F.ContVec n a)) (F.ContVec n b) a where
-  Tr v @@ u = F.sum $ F.zipWith (*) v u
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
-         ) => MatMul (Conj (FB.Vec n a)) (FB.Vec n b) a where
-  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, FU.Unbox n a
-         ) => MatMul (Conj (FU.Vec n a)) (FU.Vec n b) a where
-  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FS.Storable a
-         ) => MatMul (Conj (FS.Vec n a)) (FS.Vec n b) a where
-  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n, FP.Prim a
-         ) => MatMul (Conj (FP.Vec n a)) (FP.Vec n b) a where
-  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
-  {-# INLINE (@@) #-}
-
-instance (NormedScalar a, VectorSpace a, Scalar a ~ a, a ~ b, F.Arity n
-         ) => MatMul (Conj (F.ContVec n a)) (F.ContVec n b) a where
-  Conj v @@ u = F.sum $ F.zipWith (\a b -> conjugate a * b) v u
-  {-# INLINE (@@) #-}
-
-
 instance NormedScalar Float where
   type R Float = Float
   conjugate = id
@@ -499,6 +450,7 @@ instance RealFloat a => NormedScalar (Complex a) where
   conjugate = Complex.conjugate
   scalarNormSq (r1 :+ i1) = r1*r1 + i1*i1
   fromR x = x :+ 0
+
 
 ----------------------------------------------------------------
 -- zipWith which errors when vector have different length

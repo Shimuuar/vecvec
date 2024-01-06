@@ -13,6 +13,8 @@
 module TST.Tools.Model
   ( -- * Model-related classes
     TestData(..)
+  , Model1
+  , TestData1(..)
   , TestEquiv(..)
   , EqTest
   , LiftTestEq(..)
@@ -32,6 +34,7 @@ import Data.Bifunctor
 import Data.Coerce
 import Data.Complex
 import Data.Function
+import Data.Kind
 import Data.Functor.Identity
 import Data.Functor.Classes
 import Data.Vector           qualified as DV
@@ -56,6 +59,14 @@ class TestData t a where
   type Model t a
   model   :: t -> a -> Model t a
   unmodel :: t -> Model t a -> a
+
+type family Model1 t (v :: Type -> Type) :: Type -> Type
+
+-- | Analog of 'TestData' for @* -> *@ kinded types.
+class TestData1 t v a where
+  liftModel   :: t -> (a -> b) -> v a -> Model1 t v b
+  liftUnmodel :: t -> (b -> a) -> Model1 t v b -> v a
+
 
 -- | Equivalence relation between data types. It's same as 'Eq' except
 --   for treatment of NaNs.
@@ -264,13 +275,3 @@ instance (DVP.Prim a,     TestEquiv a) => TestEquiv (DVP.Vector a) where equiv =
 instance (DVS.Storable a, TestEquiv a) => TestEquiv (DVS.Vector a) where equiv = DVS.eqBy equiv
 instance (DVU.Unbox a,    TestEquiv a) => TestEquiv (DVU.Vector a) where equiv = DVU.eqBy equiv
 instance (DVS.Storable a, TestEquiv a) => TestEquiv (VV.Vec a)     where equiv = DVG.eqBy equiv
-
-
-----------------------------------------
--- Vecvec
-
-deriving via ModelFunctor Tr a instance TestData t a => TestData t (Tr a)
-deriving via ModelFunctor Tr a instance TestEquiv  a => TestEquiv  (Tr a)
-
-deriving via ModelFunctor Conj a instance TestData t a => TestData t (Conj a)
-deriving via ModelFunctor Conj a instance TestEquiv  a => TestEquiv  (Conj a)
