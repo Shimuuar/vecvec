@@ -18,14 +18,15 @@ jobs:
       matrix:
         include:
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.2.8"  }
-          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.6"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.4.7"  }
           - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.6.2"  }
+          - { cabal: "3.10", os: ubuntu-latest,  ghc: "9.8.1"  }
       fail-fast: false
     steps:
     # ----------------
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     # ----------------
-    - uses: haskell/actions/setup@v2
+    - uses: haskell-actions/setup@v2
       id: setup-haskell-cabal
       name: Setup Haskell
       with:
@@ -35,7 +36,7 @@ jobs:
     - name: "openblas"
       run:  "sudo apt-get install libopenblas-dev liblapack-dev liblapacke-dev"
     # ----------------
-    - uses: actions/cache@v1
+    - uses: actions/cache@v3
       name: Cache ~/.cabal/store
       with:
         path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
