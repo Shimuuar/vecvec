@@ -26,11 +26,11 @@ module Vecvec.Classes.NDArray
   , nCols
   , nRows
   , IsShape(..)
+  , inBounds
   , pattern N1
   , pattern N2
     -- ** Immutable arrays
   , NDArray(..)
-  , NDArrayD(..)
   , index
   , indexMaybe
   , (!)
@@ -45,7 +45,6 @@ module Vecvec.Classes.NDArray
   , Length(..)
     -- * Unsafe functions
   , unsafeIndex
-  , reallyUnsafeIndex
     -- * Default implementations
   , implSliceVector
   , implSliceMVector

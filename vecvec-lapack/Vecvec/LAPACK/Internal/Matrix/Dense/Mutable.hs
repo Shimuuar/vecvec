@@ -68,7 +68,6 @@ import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
 import Vecvec.Classes.NDMutable
-import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -123,28 +122,23 @@ deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMa
 type instance Rank (MMatrix s) = 2
 
 instance HasShape (MMatrix s) a where
-  shapeAsCVec     (MMatrix MView{..}) = FC.mk2 nrows ncols
-  basicRangeCheck (MMatrix MView{..}) (N2 n k)
-    | (n `inRange` nrows) && (k `inRange` ncols) = IndexOK
-    | otherwise                                  = OutOfRange
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec (MMatrix MView{..}) = FC.mk2 nrows ncols
+  {-# INLINE shapeAsCVec #-}
 
 instance Storable a => NDMutable MMatrix a where
-  basicReallyUnsafeReadArr (MMatrix MView{..}) (FC.ContVec idx)
+  basicUnsafeReadArr (MMatrix MView{..}) (FC.ContVec idx)
     = unsafePrimToPrim
     $ idx $ FC.Fun $ \i j ->
       unsafeWithForeignPtr buffer $ \p ->
         peekElemOff p (i * leadingDim + j)
-  basicReallyUnsafeWriteArr (MMatrix MView{..}) (FC.ContVec idx) a
+  basicUnsafeWriteArr (MMatrix MView{..}) (FC.ContVec idx) a
     = unsafePrimToPrim
     $ idx $ FC.Fun $ \i j ->
       unsafeWithForeignPtr buffer $ \p ->
         pokeElemOff p (i * leadingDim + j) a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 
-instance Storable a => NDMutableD MMatrix a where
 
 -- | Pattern which is used to check whether matrix is represented by
 --   contiguous vector

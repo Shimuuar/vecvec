@@ -1,19 +1,20 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE DerivingVia           #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DeriveGeneric          #-}
+{-# LANGUAGE DerivingStrategies     #-}
+{-# LANGUAGE DerivingVia            #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE ImportQualifiedPost    #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE PatternSynonyms        #-}
+{-# LANGUAGE QuantifiedConstraints  #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE ViewPatterns           #-}
 module Vecvec.Classes.Internal.ND 
   ( -- * ND-arrays
     -- ** Array shape
@@ -23,9 +24,10 @@ module Vecvec.Classes.Internal.ND
   , nCols
   , nRows
   , IsShape(..)
+  , inBounds
+  , inBoundsCVec
   , pattern N1
   , pattern N2
-  , RangeCheck(..)
     -- ** Slicing
   , Slice(..)
   , slice
@@ -35,17 +37,12 @@ module Vecvec.Classes.Internal.ND
   , Length(..)
     -- ** Mutable arrays
   , NDMutable(..)
-  , NDMutableD
-  , reallyUnsafeReadArr
   , unsafeReadArr
   , readArr
-  , reallyUnsafeWriteArr
   , unsafeWriteArr
   , writeArr
     -- ** Immutable arrays
   , NDArray(..)
-  , NDArrayD(..)
-  , reallyUnsafeIndex
   , unsafeIndex
   , index
   , indexMaybe
@@ -53,8 +50,6 @@ module Vecvec.Classes.Internal.ND
   , (!?)   
     -- * Default implementations
   , inRange
-  , implVectorRangeCheck
-  , implMVectorRangeCheck
   , implSliceVector
   , implSliceMVector
   ) where
@@ -74,7 +69,7 @@ import Data.Vector.Primitive         qualified as VP
 import Data.Vector.Primitive.Mutable qualified as MVP
 import Data.Vector.Fixed             qualified as F
 import Data.Vector.Fixed.Cont        qualified as FC
-import Data.Vector.Fixed.Cont        (ContVec(..),runContVec,Fun(..))
+import Data.Vector.Fixed.Cont        (Arity,ContVec(..),runContVec,Fun(..))
 import GHC.TypeLits
 import GHC.Generics
 
@@ -88,7 +83,7 @@ import Vecvec.Classes
 --   It's product of N @Int@s. There are two instances: one for Int
 --   which allows bare Int as shape and index for arrays and N-element
 --   arrays of @Int@s which include tuples.
-class IsShape shape (n :: Nat) where
+class IsShape shape (n :: Nat) | shape -> n where
   shapeToCVec   :: shape -> ContVec n Int
   shapeFromCVec :: ContVec n Int -> shape
 
@@ -104,6 +99,27 @@ instance (n ~ F.Dim v, F.Vector v Int, a ~ Int) => IsShape (v a) n where
   {-# INLINE shapeToCVec   #-}
   {-# INLINE shapeFromCVec #-}
 
+-- | Check that index is in bounds for a N-dimensional array.
+inBounds
+  :: (IsShape idx n, Arity n)
+  => idx -- ^ 0-based index
+  -> idx -- ^ Size of array
+  -> Bool
+{-# INLINE inBounds #-}
+inBounds idx size
+  = FC.and
+  $ FC.zipWith inRange (shapeToCVec idx) (shapeToCVec size)
+
+-- | Check that index is in bounds for a N-dimensional array.
+inBoundsCVec
+  :: (Arity n)
+  => ContVec n Int -- ^ 0-based index
+  -> ContVec n Int -- ^ Size of array
+  -> Bool
+{-# INLINE inBoundsCVec #-}
+inBoundsCVec idx size
+  = FC.and
+  $ FC.zipWith inRange idx size
 
 
 ----------------------------------------------------------------
@@ -185,25 +201,6 @@ newtype Length = Length { unLength :: Int }
 -- Generic ND-arrays
 ----------------------------------------------------------------
 
--- | Result of range check for arbitrary ND-arrays. It's quite
---   complicated since we want to support multiple representations of
---   arrays, including sparse where not all elements could be
---   accessed,
-data RangeCheck a
-  = IndexOK
-    -- ^ Index is in range and could be accessed  directly
-  | AnotherIndex a
-    -- ^ Another index should be used instead. This is for example
-    --   case for symmetric matrices where only elements on and above
-    --   diagonal could be referenced directly.
-  | OutOfRange
-    -- ^ Index is out of range
-  | SparseElement
-    -- ^ Index references sparse element of an array. Default value
-    --   (usually zero) should be returned.
-  deriving (Show,Eq,Generic)
-
-
 -- | Rank of N-dimensional array: 1 for vectors, 2 for matrices, etc.
 type family Rank (arr :: Type -> Type) :: Nat
 
@@ -216,9 +213,6 @@ class F.Arity (Rank arr) => HasShape arr a where
   --   @Int@s. 'ContVec' is used as tuple parametric in rank which
   --   is both parametric in length and optimized well by GHC.
   shapeAsCVec :: arr a -> ContVec (Rank arr) Int
-  -- | Check whether index is in range. This check must be done before
-  --   any unchecked access to array is performed.
-  basicRangeCheck :: arr a -> ContVec (Rank arr) Int -> RangeCheck (ContVec (Rank arr) Int)
 
 -- | Get shape of an array. Note that this function is polymorphic in
 --   its return type.
@@ -262,60 +256,35 @@ pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j)
 --   zero-indexed. There's no restriction on actual representation
 --   which could be dense or sparse.
 class (forall s. HasShape (arr s) a) => NDMutable arr a where
-  -- | /O(1)/ Read element of an array without performing any range
-  --   checks. Only generic way to check whether index is in range is
-  --   to call 'basicRangeCheck'.
+  -- | /O(1)/ Read element of an array at given index. Provided index
+  --   must be in bounds and function must return value in that
+  --   case. Otherwise behavior is undefined.
   --
-  -- **NOTE** Use 'reallyUnsafeReadArr' instead.
-  basicReallyUnsafeReadArr :: arr s a -> ContVec (Rank (arr s)) Int -> ST s a
-  -- | /O(1)/ Read element of an array. Should throw if element is out
-  --   of range. Note that successful read does not imply that it's
-  --   safe to write at same index for sparse matrices.
+  -- **NOTE** Use 'unsafeReadArr' instead.
+  basicUnsafeReadArr :: arr s a -> ContVec (Rank (arr s)) Int -> ST s a
+  -- | /O(1)/ Write element to an array at a given index. Provided
+  --   index must be in bounds and 'basicIsWritable' must return true
+  --   for it.
   --
-  -- **NOTE** default implementation does not handle 'OutOfRange'. It
-  -- must be defined manually for sparse arrays
-  --
-  -- **NOTE** Use 'readArr' instead.
-  basicReadArr :: arr s a -> ContVec (Rank (arr s)) Int -> ST s a
-  basicReadArr arr i = case basicRangeCheck arr i of
-    IndexOK         -> basicReallyUnsafeReadArr arr i
-    AnotherIndex i' -> basicReallyUnsafeReadArr arr i'
-    SparseElement   -> error "SparseElement is not handled"
-    OutOfRange      -> error "FIXME: OutOfRange"
-  -- | /O(1)/ Write element to an array without performing any range
-  --   checks. Only generic way to check whether index is in range is
-  --   to call 'basicRangeCheck'.
-  --
-  -- **NOTE** Use 'reallyUnsafeWriteArr' instead.
-  basicReallyUnsafeWriteArr :: arr s a -> ContVec (Rank (arr s)) Int -> a -> ST s ()
+  -- **NOTE** Use 'unsafeWriteArr' instead.
+  basicUnsafeWriteArr :: arr s a -> ContVec (Rank (arr s)) Int -> a -> ST s ()
+  -- | Check that index is backed by storage and writable. Index must
+  --   be in bounds.
+  basicIsWritable :: arr s a -> ContVec (Rank (arr s)) Int -> Bool
+  basicIsWritable _ _ = True
+  {-# INLINE basicIsWritable #-}
 
--- | Type class for dense N-dimensional arrays where each dimension is
---   zero-indexed. All values in range are backed by storage so naive
---   range check should suffice
-class (NDMutable arr a) => NDMutableD arr a where
-
-
--- | /O(1)/ Read element of an array without performing any range
---   checks. Only generic way to check whether index is in range is
---   to call 'basicRangeCheck'.
-reallyUnsafeReadArr
-  :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
-  => arr s a -- ^ Mutable array
-  -> idx     -- ^ Array index
-  -> m a
-{-# INLINE reallyUnsafeReadArr #-}
-reallyUnsafeReadArr arr i = stToPrim $ basicReallyUnsafeReadArr arr (shapeToCVec i)
 
 -- | /O(1)/ Read element of an array without performing any range
 --   checks. Only generic way to check whether index is in range is
 --   to call 'basicRangeCheck'.
 unsafeReadArr
-  :: (NDMutableD arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
+  :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
   => arr s a -- ^ Mutable array
   -> idx     -- ^ Array index
   -> m a
 {-# INLINE unsafeReadArr #-}
-unsafeReadArr arr i = stToPrim $ basicReallyUnsafeReadArr arr (shapeToCVec i)
+unsafeReadArr arr i = stToPrim $ basicUnsafeReadArr arr (shapeToCVec i)
 
 -- | /O(1)/ Read element of an array. Should throw if element is out
 --   of range. Note that successful read does not imply that it's
@@ -326,33 +295,23 @@ readArr
   -> idx     -- ^ Array index
   -> m a
 {-# INLINE readArr #-}
-readArr arr i = stToPrim $ basicReadArr arr (shapeToCVec i)
-
--- | /O(1)/ Write element to an array without performing any range
---   checks. Only generic way to check whether index is in range is
---   to call 'basicRangeCheck'.
-reallyUnsafeWriteArr
-  :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
-  => arr s a -- ^ Mutable array
-  -> idx     -- ^ Index 
-  -> a       -- ^ Value to write
-  -> m ()
-{-# INLINE reallyUnsafeWriteArr #-}
-reallyUnsafeWriteArr arr i a
-  = stToPrim $ basicReallyUnsafeWriteArr arr (shapeToCVec i) a
+readArr arr (shapeToCVec -> i)
+  | i `inBoundsCVec` sz = stToPrim $ basicUnsafeReadArr arr i
+  | otherwise           = error "Read out of bounds"
+  where
+    sz = shapeAsCVec arr
 
 -- | /O(1)/ Write element to an array without performing any range
 --   checks. Only generic way to check whether index is in range is
 --   to call 'basicRangeCheck'.
 unsafeWriteArr
-  :: (NDMutableD arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
+  :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
   => arr s a -- ^ Mutable array
   -> idx     -- ^ Index 
   -> a       -- ^ Value to write
   -> m ()
 {-# INLINE unsafeWriteArr #-}
-unsafeWriteArr arr i a
-  = stToPrim $ basicReallyUnsafeWriteArr arr (shapeToCVec i) a
+unsafeWriteArr arr i a = stToPrim $ basicUnsafeWriteArr arr (shapeToCVec i) a
 
 -- | /O(1)/ Write element to an array. Will throw exception is index
 --   is invalid. It could be because it's out of range or attempt to
@@ -364,11 +323,12 @@ writeArr
   -> a       -- ^ Value to write
   -> m ()
 {-# INLINE writeArr #-}
-writeArr arr (shapeToCVec -> i) a = case basicRangeCheck arr i of
-  IndexOK         -> stToPrim $ basicReallyUnsafeWriteArr arr i  a
-  AnotherIndex i' -> stToPrim $ basicReallyUnsafeWriteArr arr i' a
-  OutOfRange      -> error "OutOfRange"
-  SparseElement   -> error "Write to sparse"
+writeArr arr (shapeToCVec -> i) a
+  | not $ i `inBoundsCVec` sz   = error "OutOfRange"
+  | not $ basicIsWritable arr i = error "Invalid write"
+  | otherwise                   = stToPrim $ basicUnsafeWriteArr arr i a
+  where
+    sz = shapeAsCVec arr
 
 
 ----------------------------------------------------------------
@@ -379,71 +339,27 @@ writeArr arr (shapeToCVec -> i) a = case basicRangeCheck arr i of
 --   zero-indexed. There's no restriction on actual representation
 --   which could be dense or sparse.
 class HasShape arr a => NDArray arr a where
-  -- | /O(1)/ Index array without performing any range checks. Only
-  --   generic way to check whether index is in range is to call
-  --   'basicRangeCheck'.
-  --
-  -- **NOTE** Use 'reallyUnsafeIndex' instead.
-  basicReallyUnsafeIndex :: arr a -> ContVec (Rank arr) Int -> a
-  -- | /O(1)/ Index array and throw exception if index is out of
-  --   range.
-  --
-  --  **NOTE** Default implementation cannot handle 'SparseElement'
+  -- | /O(1)/ Index array. Provided index must be in bounds and
+  --   function must return value in that case. Otherwise behavior is
+  --   undefined.
   --
   --  **NOTE** use 'index' or '!' instead.
-  basicIndex :: arr a -> ContVec (Rank arr) Int -> a
-  basicIndex arr i = case basicRangeCheck arr i of
-    IndexOK         -> basicReallyUnsafeIndex arr i
-    AnotherIndex i' -> basicReallyUnsafeIndex arr i'
-    SparseElement   -> error "Vecvec.Classes.NDArray.basicIndex: Cannot handle SparseElement"
-    OutOfRange      -> error "FIXME: Out of range index"
-  {-# INLINE basicIndex #-}
-  -- | /O(1)/ Index array and return @Nothing@ if index is out of
-  --   range.
-  --
-  --  **NOTE** Default implementation cannot handle 'SparseElement'
-  --
-  --  **NOTE** use 'indexMaybe' or '!?' instead.
-  basicIndexMaybe :: arr a -> ContVec (Rank arr) Int -> Maybe a
-  basicIndexMaybe arr i = case basicRangeCheck arr i of
-    IndexOK         -> Just $ basicReallyUnsafeIndex arr i
-    AnotherIndex i' -> Just $ basicReallyUnsafeIndex arr i'
-    SparseElement   -> error "Vecvec.Classes.NDArray.basicIndexMaybe: Cannot handle SparseElement"
-    OutOfRange      -> Nothing
-  {-# INLINE basicIndexMaybe #-}
-
-
--- | Type class for dense N-dimensional arrays. It's same as
---   superclass but checking whether each element of index is in range
---   should be sufficient.
-class NDArray arr a => NDArrayD arr a where
-  -- | /O(1)/ Index array without performing any range checks.
-  --
-  -- **NOTE** Use 'unsafeIndex' instead.
   basicUnsafeIndex :: arr a -> ContVec (Rank arr) Int -> a
-  basicUnsafeIndex = basicReallyUnsafeIndex
-  {-# INLINE basicUnsafeIndex #-}
-
-
--- | /O(1)/ Index array without performing any range checks. This is
---   very unsafe function! Only general way to check whether index is
---   valid is to use 'basicRangeCheck'. Check that index is range
---   elementwise is not sufficient.
-reallyUnsafeIndex :: (NDArray arr a, IsShape idx (Rank arr)) => arr a -> idx -> a
-reallyUnsafeIndex arr = basicReallyUnsafeIndex arr . shapeToCVec
-{-# INLINE reallyUnsafeIndex #-}
 
 -- | /O(1)/ Index dense array without performing any range
 --   checks. Caller must ensure that index is in range elementwise.
-unsafeIndex :: (NDArrayD arr a, IsShape idx (Rank arr)) => arr a -> idx -> a
+unsafeIndex :: (NDArray arr a, IsShape idx (Rank arr)) => arr a -> idx -> a
 unsafeIndex arr = basicUnsafeIndex arr . shapeToCVec
 {-# INLINE unsafeIndex #-}
-
 
 -- | /O(1)/ Return element of an array at given index. Will throw if
 --   index is out of range.
 index :: (NDArray arr a, IsShape idx (Rank arr)) => arr a -> idx -> a
-index arr = basicIndex arr . shapeToCVec
+index arr (shapeToCVec -> i)
+  | i `inBoundsCVec` sz = basicUnsafeIndex arr i
+  | otherwise           = error "OutOfRange"
+  where
+    sz = shapeAsCVec arr
 {-# INLINE index #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw if
@@ -454,7 +370,11 @@ index arr = basicIndex arr . shapeToCVec
 
 -- | /O(1)/ Return element of an array at given index. Will throw
 indexMaybe :: (NDArray arr a, IsShape idx (Rank arr)) => arr a -> idx -> Maybe a
-indexMaybe arr = basicIndexMaybe arr . shapeToCVec
+indexMaybe arr (shapeToCVec -> i)
+  | i `inBoundsCVec` sz = Just $ basicUnsafeIndex arr i
+  | otherwise           = Nothing
+  where
+    sz = shapeAsCVec arr
 {-# INLINE indexMaybe #-}
 
 -- | /O(1)/ Return element of an array at given index. Will throw
@@ -479,125 +399,84 @@ type instance Rank (MVU.MVector s) = 1
 type instance Rank (MVP.MVector s) = 1
 
 instance HasShape V.Vector a where
-  shapeAsCVec     = FC.mk1 . VG.length
-  basicRangeCheck = implVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
 instance VS.Storable a => HasShape VS.Vector a where
-  shapeAsCVec     = FC.mk1 . VG.length
-  basicRangeCheck = implVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
 instance VU.Unbox a => HasShape VU.Vector a where
-  shapeAsCVec     = FC.mk1 . VG.length
-  basicRangeCheck = implVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
 instance VP.Prim a => HasShape VP.Vector a where
-  shapeAsCVec     = FC.mk1 . VG.length
-  basicRangeCheck = implVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
 
 instance HasShape (MV.MVector s) a where
-  shapeAsCVec     = FC.mk1 . MVG.length
-  basicRangeCheck = implMVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
 instance VS.Storable a => HasShape (MVS.MVector s) a where
-  shapeAsCVec     = FC.mk1 . MVG.length
-  basicRangeCheck = implMVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
 instance VU.Unbox a => HasShape (MVU.MVector s) a where
-  shapeAsCVec     = FC.mk1 . MVG.length
-  basicRangeCheck = implMVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
 instance VP.Prim a => HasShape (MVP.MVector s) a where
-  shapeAsCVec     = FC.mk1 . MVG.length
-  basicRangeCheck = implMVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
 
 type instance Rank (Tr   v) = Rank v
 type instance Rank (Conj v) = Rank v
 
 instance (HasShape arr a, Rank arr ~ 2) => HasShape (Tr arr) a where
-  shapeAsCVec     (Tr arr) = swapFC2 $ shapeAsCVec arr
-  basicRangeCheck (Tr arr) = basicRangeCheck arr . swapFC2
-  {-# INLINE basicRangeCheck #-}
-  {-# INLINE shapeAsCVec     #-}
+  shapeAsCVec (Tr arr) = swapFC2 $ shapeAsCVec arr
+  {-# INLINE shapeAsCVec #-}
 instance (HasShape arr a, Rank arr ~ 2) => HasShape (Conj arr) a where
-  shapeAsCVec     (Conj arr) = swapFC2 $ shapeAsCVec arr
-  basicRangeCheck (Conj arr) = basicRangeCheck arr . swapFC2
-  {-# INLINE basicRangeCheck #-}
-  {-# INLINE shapeAsCVec     #-}
+  shapeAsCVec (Conj arr) = swapFC2 $ shapeAsCVec arr
+  {-# INLINE shapeAsCVec #-}
 
 
 instance NDArray V.Vector a where
-  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
-  {-# INLINE basicReallyUnsafeIndex #-}
+  basicUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicUnsafeIndex #-}
 instance VS.Storable a => NDArray VS.Vector a where
-  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
-  {-# INLINE basicReallyUnsafeIndex #-}
+  basicUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicUnsafeIndex #-}
 instance VU.Unbox a => NDArray VU.Vector a where
-  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
-  {-# INLINE basicReallyUnsafeIndex #-}
+  basicUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicUnsafeIndex #-}
 instance VP.Prim a => NDArray VP.Vector a where
-  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
-  {-# INLINE basicReallyUnsafeIndex #-}
-
-instance ()              => NDArrayD V.Vector a
-instance (VS.Storable a) => NDArrayD VS.Vector a
-instance (VU.Unbox a)    => NDArrayD VU.Vector a
-instance (VP.Prim a)     => NDArrayD VP.Vector a
+  basicUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicUnsafeIndex #-}
 
 
 instance NDMutable MV.MVector a where
-  basicReallyUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
-  basicReallyUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
+  basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
+  basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 instance (VS.Storable a) => NDMutable MVS.MVector a where
-  basicReallyUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
-  basicReallyUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
+  basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
+  basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 instance (VU.Unbox a) => NDMutable MVU.MVector a where
-  basicReallyUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
-  basicReallyUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
+  basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
+  basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 instance (VP.Prim a) => NDMutable MVP.MVector a where
-  basicReallyUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
-  basicReallyUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
-
-instance ()              => NDMutableD MV.MVector a
-instance (VS.Storable a) => NDMutableD MVS.MVector a
-instance (VU.Unbox a)    => NDMutableD MVU.MVector a
-instance (VP.Prim a)     => NDMutableD MVP.MVector a
+  basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
+  basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 
 
 instance (NDArray arr a, Rank arr ~ 2) => NDArray (Tr arr) a where
-  basicReallyUnsafeIndex (Tr arr) = basicReallyUnsafeIndex arr . swapFC2
-  basicIndex             (Tr arr) = basicIndex             arr . swapFC2
-  basicIndexMaybe        (Tr arr) = basicIndexMaybe        arr . swapFC2
-  {-# INLINE basicReallyUnsafeIndex #-}
-  {-# INLINE basicIndex             #-}
-  {-# INLINE basicIndexMaybe        #-}
+  basicUnsafeIndex (Tr arr) = basicUnsafeIndex arr . swapFC2
+  {-# INLINE basicUnsafeIndex #-}
 instance (NDArray arr a, Rank arr ~ 2) => NDArray (Conj arr) a where
-  basicReallyUnsafeIndex (Conj arr) = basicReallyUnsafeIndex arr . swapFC2
-  basicIndex             (Conj arr) = basicIndex             arr . swapFC2
-  basicIndexMaybe        (Conj arr) = basicIndexMaybe        arr . swapFC2
-  {-# INLINE basicReallyUnsafeIndex #-}
-  {-# INLINE basicIndex             #-}
-  {-# INLINE basicIndexMaybe        #-}
-
-instance (NDArrayD arr a, Rank arr ~ 2) => NDArrayD (Tr   arr) a where
-instance (NDArrayD arr a, Rank arr ~ 2) => NDArrayD (Conj arr) a where
+  basicUnsafeIndex (Conj arr) = basicUnsafeIndex arr . swapFC2
+  {-# INLINE basicUnsafeIndex #-}
 
 
 instance (Slice1D idx) => Slice idx (V.Vector a) where
@@ -659,17 +538,17 @@ implSliceMVector idx vec = do
   (i,n) <- computeSlice1D (MVG.length vec) idx
   Just $ MVG.slice i n vec
 
-implMVectorRangeCheck :: (MVG.MVector v a) => v s a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
-{-# INLINE implMVectorRangeCheck #-}
-implMVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` MVG.length v of
-  True  -> IndexOK
-  False -> OutOfRange
+-- implMVectorRangeCheck :: (MVG.MVector v a) => v s a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
+-- {-# INLINE implMVectorRangeCheck #-}
+-- implMVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` MVG.length v of
+--   True  -> IndexOK
+--   False -> OutOfRange
 
-implVectorRangeCheck :: (VG.Vector v a) => v a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
-{-# INLINE implVectorRangeCheck #-}
-implVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` VG.length v of
-  True  -> IndexOK
-  False -> OutOfRange
+-- implVectorRangeCheck :: (VG.Vector v a) => v a -> ContVec 1 Int -> RangeCheck (ContVec 1 Int)
+-- {-# INLINE implVectorRangeCheck #-}
+-- implVectorRangeCheck v (ContVec idx) = idx $ Fun $ \i -> case i `inRange` VG.length v of
+--   True  -> IndexOK
+--   False -> OutOfRange
 
 -- | Function which uses trick with unsigned comparison to save one
 --   comparison when checking whether index in @[0,n)@ range.

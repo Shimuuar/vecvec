@@ -73,7 +73,6 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Deriving
 import Vecvec.LAPACK                      (Strided(..))
 import Vecvec.LAPACK                       qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
@@ -336,9 +335,6 @@ type instance Rank ModelVec = 1
 
 instance HasShape ModelVec a where
   shapeAsCVec = FC.mk1 . length . unModelVec
-  basicRangeCheck v (N1 i)
-    | i >= 0 && i < length (unModelVec v) = IndexOK
-    | otherwise                           = OutOfRange
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
   a .+. b = ModelVec 1 $ (zipWithX (+) `on` unModelVec) a b
@@ -377,9 +373,6 @@ type instance Rank ModelMat = 2
 
 instance HasShape ModelMat a where
   shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
-  basicRangeCheck m (N2 n k)
-    | n >= 0 && n < nRows m && k >= 0 && k < nCols m = IndexOK
-    | otherwise                                      = OutOfRange
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
   a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` unModelMat) a b

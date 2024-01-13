@@ -4,16 +4,14 @@
 -- Newtype for use with deriving via.
 module Vecvec.Classes.Deriving
   ( -- * Range checks
-    RangeCheck(..)
-  , inRange
+    inRange
+  , inBoundsCVec
     -- * Deriving via
   , AsNum(..)
   , AsVector(..)
   , AsMVector(..)
   , AsFixedVec(..)
     -- * Default implementations of methods
-  , implMVectorRangeCheck
-  , implVectorRangeCheck
   , implSliceVector
   , implSliceMVector
   ) where

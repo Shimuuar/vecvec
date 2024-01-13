@@ -40,7 +40,6 @@ import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
                                              ,blasDotc, blasScal, blasAxpy, clone
@@ -106,15 +105,12 @@ deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
 type instance Rank Vec = 1
 
 instance Storable a => HasShape Vec a where
-  shapeAsCVec     = FC.mk1 . VG.length
-  basicRangeCheck = implVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . VG.length
+  {-# INLINE shapeAsCVec #-}
 
 instance Storable a => NDArray Vec a where
-  basicReallyUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
-  {-# INLINE basicReallyUnsafeIndex #-}
-instance Storable a => NDArrayD Vec a where
+  basicUnsafeIndex v (ContVec cont) = VG.unsafeIndex v (cont (Fun id))
+  {-# INLINE basicUnsafeIndex #-}
 
 
 instance VS.Storable a => VG.Vector Vec a where

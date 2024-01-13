@@ -25,6 +25,7 @@ module Vecvec.Classes.NDMutable
   , nCols
   , nRows
   , IsShape(..)
+  , inBounds
   , pattern N1
   , pattern N2
     -- ** Slicing
@@ -36,11 +37,8 @@ module Vecvec.Classes.NDMutable
   , Length(..)
     -- ** Mutable arrays
   , NDMutable(..)
-  , NDMutableD
-  , reallyUnsafeReadArr
   , unsafeReadArr
   , readArr
-  , reallyUnsafeWriteArr
   , unsafeWriteArr
   , writeArr
   ) where

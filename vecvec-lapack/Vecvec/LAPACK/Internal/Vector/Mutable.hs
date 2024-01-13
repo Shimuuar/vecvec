@@ -115,12 +115,10 @@ instance s ~ s => AsInput s (MVS.MVector s') where
   asInput (MVS.MVector n buf) = pure (VecRepr n 1 buf)
 
 instance (Storable a) => NDMutable MVec a where
-  basicReallyUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
-  basicReallyUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
-  {-# INLINE basicReallyUnsafeReadArr  #-}
-  {-# INLINE basicReallyUnsafeWriteArr #-}
-
-instance (Storable a) => NDMutableD MVec a where
+  basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
+  basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 
 -- -- FIXME: We cannot define instance since we need Storable a for that
 -- instance AsInput s VS.Vector where
@@ -153,10 +151,8 @@ data Strided a = Strided a !Int
 type instance Rank (MVec s) = 1
 
 instance Storable a => HasShape (MVec s) a where
-  shapeAsCVec     = FC.mk1 . MVG.length
-  basicRangeCheck = implMVectorRangeCheck
-  {-# INLINE shapeAsCVec     #-}
-  {-# INLINE basicRangeCheck #-}
+  shapeAsCVec = FC.mk1 . MVG.length
+  {-# INLINE shapeAsCVec #-}
 
 
 instance (i ~ Int, Storable a) => Slice (i, Length) (MVec s a) where
