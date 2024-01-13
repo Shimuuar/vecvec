@@ -99,6 +99,23 @@ instance (n ~ F.Dim v, F.Vector v Int, a ~ Int) => IsShape (v a) n where
   {-# INLINE shapeToCVec   #-}
   {-# INLINE shapeFromCVec #-}
 
+-- | Patterns for matching on shape of arrays of rank-1.
+pattern N1 :: IsShape shape 1 => Int -> shape
+pattern N1 i <- (runContVec (Fun id) . shapeToCVec @_ @1 -> i)
+  where
+    N1 i = shapeFromCVec (FC.mk1 i)
+{-# INLINE   N1 #-}
+{-# COMPLETE N1 #-}
+
+-- | Patterns for matching on shape of arrays of rank-2.
+pattern N2 :: IsShape shape 2 => Int -> Int -> shape
+pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j))
+  where
+    N2 i j = shapeFromCVec (FC.mk2 i j)
+{-# INLINE   N2 #-}
+{-# COMPLETE N2 #-}
+
+
 -- | Check that index is in bounds for a N-dimensional array.
 inBounds
   :: (IsShape idx n, Arity n)
@@ -229,22 +246,6 @@ nCols v = runContVec (Fun $ \_ n -> n) (shapeAsCVec v)
 nRows :: (Rank arr ~ 2, HasShape arr a) => arr a -> Int
 nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 {-# INLINE nRows #-}
-
--- | Patterns for matching on shape of arrays of rank-1.
-pattern N1 :: IsShape shape 1 => Int -> shape
-pattern N1 i <- (runContVec (Fun id) . shapeToCVec @_ @1 -> i)
-  where
-    N1 i = shapeFromCVec (FC.mk1 i)
-{-# INLINE   N1 #-}
-{-# COMPLETE N1 #-}
-
--- | Patterns for matching on shape of arrays of rank-2.
-pattern N2 :: IsShape shape 2 => Int -> Int -> shape
-pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j))
-  where
-    N2 i j = shapeFromCVec (FC.mk2 i j)
-{-# INLINE   N2 #-}
-{-# COMPLETE N2 #-}
 
 
 
