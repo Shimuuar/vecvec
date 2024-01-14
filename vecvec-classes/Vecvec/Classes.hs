@@ -71,7 +71,9 @@ import Data.Vector.Fixed.Storable  qualified as FS
 import Data.Vector.Fixed.Primitive qualified as FP
 import GHC.Generics                (Generic)
 
-import Vecvec.Classes.Via
+import Vecvec.Classes.Internal.Types
+
+
 
 ----------------------------------------------------------------
 -- Additive group

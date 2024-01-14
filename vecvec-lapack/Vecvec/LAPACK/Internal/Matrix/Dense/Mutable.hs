@@ -42,8 +42,6 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , gdiagF
   , gdiag
     -- ** Access
-  , read
-  , write
   , getCol
   , getRow
     -- * BLAS wrappers
@@ -51,8 +49,6 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
   , unsafeBlasGemv
   , unsafeBlasGemm
     -- * Unsafe functions
-  , unsafeRead
-  , unsafeWrite
   , unsafeGetCol
   , unsafeGetRow
   ) where
@@ -71,6 +67,7 @@ import Foreign.Marshal.Array
 import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.NDMutable
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -122,11 +119,25 @@ newtype MMatrix s a = MMatrix (MView a)
 
 deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
 
-type instance NDim (MMatrix s) = 2
+type instance Rank (MMatrix s) = 2
 
 instance HasShape (MMatrix s) a where
   shapeAsCVec (MMatrix MView{..}) = FC.mk2 nrows ncols
   {-# INLINE shapeAsCVec #-}
+
+instance Storable a => NDMutable MMatrix a where
+  basicUnsafeReadArr (MMatrix MView{..}) (FC.ContVec idx)
+    = unsafePrimToPrim
+    $ idx $ FC.Fun $ \i j ->
+      unsafeWithForeignPtr buffer $ \p ->
+        peekElemOff p (i * leadingDim + j)
+  basicUnsafeWriteArr (MMatrix MView{..}) (FC.ContVec idx) a
+    = unsafePrimToPrim
+    $ idx $ FC.Fun $ \i j ->
+      unsafeWithForeignPtr buffer $ \p ->
+        pokeElemOff p (i * leadingDim + j) a
+  {-# INLINE basicUnsafeReadArr  #-}
+  {-# INLINE basicUnsafeWriteArr #-}
 
 
 -- | Pattern which is used to check whether matrix is represented by
@@ -156,28 +167,6 @@ unsafeGetCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
 unsafeGetCol (MMatrix MView{..}) i =
   MVec (VecRepr nrows leadingDim (updPtr (`advancePtr` i) buffer))
 
--- | Read value at given index
---
--- __UNSAFE__: this function does not any range checks.
-unsafeRead :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
-           => mat a -> (Int, Int) -> m a
-{-# INLINE unsafeRead #-}
-unsafeRead (asMInput @s -> MView{..}) (i,j)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr buffer $ \p -> do
-    peekElemOff p (i * leadingDim + j)
-
--- | Write value at given index.
---
--- __UNSAFE__: this function does not any range checks.
-unsafeWrite :: (Storable a, PrimMonad m, s ~ PrimState m)
-            => MMatrix s a -> (Int, Int) -> a -> m ()
-{-# INLINE unsafeWrite #-}
-unsafeWrite (MMatrix MView{..}) (i,j) a
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr buffer $ \p -> do
-    pokeElemOff p (i * leadingDim + j) a
-
 
 -- | Get nth row of matrix.
 getRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
@@ -190,24 +179,6 @@ getCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
 getCol m@(MMatrix MView{..}) i
   | i < 0 || i >= ncols = error "Out of range"
   | otherwise           = unsafeGetCol m i
-
--- | Read value at given index
-read :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
-     => mat a -> (Int, Int) -> m a
-{-# INLINE read #-}
-read m@(asMInput @s -> MView{..}) (i,j)
-  | i < 0 || i >= nrows = error "Out of range"
-  | j < 0 || i >= ncols = error "Out of range"
-  | otherwise           = unsafeRead m (i,j)
-
--- | Write value at given index.
-write :: (Storable a, PrimMonad m, s ~ PrimState m)
-      => MMatrix s a -> (Int, Int) -> a -> m ()
-{-# INLINE write #-}
-write m@(MMatrix MView{..}) (i,j) a
-  | i < 0 || i >= nrows = error "Out of range"
-  | j < 0 || i >= ncols = error "Out of range"
-  | otherwise           = unsafeWrite m (i,j) a
 
 
 ----------------------------------------------------------------
@@ -380,7 +351,7 @@ generate (n,k) fun = stToPrim $ do
   mat <- unsafeNew (n,k)
   loop0_ n $ \i ->
     loop0_ k $ \j ->
-      unsafeWrite mat (i,j) (fun i j)
+      unsafeWriteArr mat (i,j) (fun i j)
   pure mat
 
 -- | Fill matrix of given size using monadic function from indices to element.
@@ -392,7 +363,7 @@ generateM (n,k) fun = do
   mat <- unsafeNew (n,k)
   loop0_ n $ \i ->
     loop0_ k $ \j -> do
-      unsafeWrite mat (i,j) =<< fun i j
+      unsafeWriteArr mat (i,j) =<< fun i j
   pure mat
 
 
@@ -412,7 +383,7 @@ eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
     -> m (MMatrix s a)
 eye n = stToPrim $ do
   mat <- zeros (n,n)
-  loop0_ n $ \i -> unsafeWrite mat (i,i) 1
+  loop0_ n $ \i -> unsafeWriteArr mat (i,i) 1
   pure mat
 
 -- | Create diagonal matrix. Diagonal elements are stored in list-like
@@ -423,7 +394,7 @@ diagF :: (LAPACKy a, Foldable f, PrimMonad m, s ~ PrimState m)
 diagF xs = stToPrim $ do
   mat <- zeros (n,n)
   -- FIXME: is build/foldr fusion reliable here?
-  forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWrite mat (i,i) x
+  forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWriteArr mat (i,i) x
   pure mat
   where
     n = length xs
@@ -435,7 +406,7 @@ diag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
 {-# INLINE diag #-}
 diag xs = stToPrim $ do
   mat <- zeros (n,n)
-  VG.iforM_ xs $ \i x -> unsafeWrite mat (i,i) x
+  VG.iforM_ xs $ \i x -> unsafeWriteArr mat (i,i) x
   pure mat
   where
     n = VG.length xs
@@ -451,7 +422,7 @@ gdiagF (n,k) xs
   | otherwise     = stToPrim $ do
       mat <- zeros (n,k)
       -- FIXME: is build/foldr fusion reliable here?
-      forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWrite mat (i,i) x
+      forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWriteArr mat (i,i) x
       pure mat
   where
     len = length xs
@@ -466,7 +437,7 @@ gdiag (n,k) xs
   | len > min n k = error "Diagonal is too long"
   | otherwise     = stToPrim $ do
       mat <- zeros (n,k)
-      VG.iforM_ xs $ \i x -> unsafeWrite mat (i,i) x
+      VG.iforM_ xs $ \i x -> unsafeWriteArr mat (i,i) x
       pure mat
   where
     len = VG.length xs

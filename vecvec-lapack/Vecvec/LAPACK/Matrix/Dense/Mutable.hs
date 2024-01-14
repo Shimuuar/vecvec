@@ -26,8 +26,6 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , gdiagF
   , gdiag
     -- ** Access
-  , read
-  , write
   , getCol
   , getRow
     -- * BLAS wrappers
@@ -35,8 +33,6 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , unsafeBlasGemv
   , unsafeBlasGemm
     -- * Unsafe functions
-  , unsafeRead
-  , unsafeWrite
   , unsafeGetCol
   , unsafeGetRow
   ) where

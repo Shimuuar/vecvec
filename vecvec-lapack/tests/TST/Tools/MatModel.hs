@@ -134,7 +134,7 @@ instance SmallScalar a => Arbitrary (X a) where
 
 -- | Generate random NDarray with specified shape
 class (Arbitrary a, HasShape arr a) => ArbitraryShape arr a where
-  arbitraryShape :: (IsShape shape (NDim arr)) => shape -> Gen (arr a)
+  arbitraryShape :: (IsShape shape (Rank arr)) => shape -> Gen (arr a)
 
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
@@ -331,7 +331,7 @@ data ModelVec a = ModelVec
   }
   deriving stock (Show)
 
-type instance NDim ModelVec = 1
+type instance Rank ModelVec = 1
 
 instance HasShape ModelVec a where
   shapeAsCVec = FC.mk1 . length . unModelVec
@@ -369,7 +369,7 @@ data ModelMat a = ModelMat
   }
   deriving stock (Show,Eq)
 
-type instance NDim ModelMat = 2
+type instance Rank ModelMat = 2
 
 instance HasShape ModelMat a where
   shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
@@ -456,16 +456,16 @@ instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
 -- Orphans & Arbitrary
 ----------------------------------------------------------------
 
-instance (NDim arr ~ 2, ArbitraryShape arr a) => Arbitrary (Tr arr a) where
+instance (Rank arr ~ 2, ArbitraryShape arr a) => Arbitrary (Tr arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (NDim arr ~ 2, ArbitraryShape arr a) => Arbitrary (Conj arr a) where
+instance (Rank arr ~ 2, ArbitraryShape arr a) => Arbitrary (Conj arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (NDim arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
+instance (Rank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
   arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
-instance (NDim arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Conj arr) a where
+instance (Rank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Conj arr) a where
   arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
 
 

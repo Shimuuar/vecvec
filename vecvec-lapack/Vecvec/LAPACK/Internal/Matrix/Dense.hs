@@ -91,19 +91,18 @@ instance M.AsMInput s Matrix where
   {-# INLINE asMInput #-}
   asMInput = coerce
 
-type instance NDim Matrix = 2
+type instance Rank Matrix = 2
 
 instance HasShape Matrix a where
   shapeAsCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols
   {-# INLINE shapeAsCVec #-}
 
 instance Storable a => NDArray Matrix a where
-  {-# INLINE unsafeIndexCVec #-}
-  unsafeIndexCVec (Matrix M.MView{..}) (FC.ContVec cont) = cont $ FC.Fun $ \i j -> do
+  basicUnsafeIndex (Matrix M.MView{..}) (FC.ContVec cont) = cont $ FC.Fun $ \i j -> do
     unsafeInlineIO
       $ unsafeWithForeignPtr buffer $ \p -> do
         peekElemOff p (i * leadingDim + j)
-
+  {-# INLINE basicUnsafeIndex #-}
 
 
 instance (Show a, Storable a) => Show (Matrix a) where

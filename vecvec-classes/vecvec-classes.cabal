@@ -31,5 +31,9 @@ Library
     Vecvec.Classes
     Vecvec.Classes.Convert
     Vecvec.Classes.NDArray
+    Vecvec.Classes.NDMutable
     Vecvec.Classes.Util
-    Vecvec.Classes.Via
+    Vecvec.Classes.Deriving
+  Other-modules:
+    Vecvec.Classes.Internal.ND
+    Vecvec.Classes.Internal.Types
