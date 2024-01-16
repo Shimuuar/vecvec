@@ -68,6 +68,7 @@ import Prelude hiding (replicate,all,any)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
@@ -347,13 +348,13 @@ unsafeGetCol (Matrix M.MView{..}) i =
 
 getRow :: (Storable a) => Matrix a -> Int -> Vec a
 getRow m@(Matrix M.MView{..}) i
-  | i < 0 || i >= nrows = error "Out of range"
-  | otherwise           = unsafeGetRow m i 
+  | inRange i nrows = unsafeGetRow m i
+  | otherwise       = error "Out of range"
 
 getCol :: (Storable a) => Matrix a -> Int -> Vec a
 getCol m@(Matrix M.MView{..}) i
-  | i < 0 || i >= ncols = error "Out of range"
-  | otherwise           = unsafeGetCol m i 
+  | inRange i ncols = unsafeGetCol m i
+  | otherwise       = error "Out of range"
 
 toRowList :: (Storable a) => Matrix a -> [Vec a]
 toRowList m@(Matrix M.MView{..}) =

@@ -41,4 +41,3 @@ unsafeWithForeignPtr = withForeignPtr
 --
 distancePtr :: forall a . Storable a => Ptr a -> Ptr a -> Int
 distancePtr ptrFrom ptrTo = (ptrTo `minusPtr` ptrFrom) `div` sizeOf (undefined :: a)
-
