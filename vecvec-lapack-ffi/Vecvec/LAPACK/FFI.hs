@@ -154,18 +154,18 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- > y := α·tr(A)·x   + β·y
   -- > y := α·conj(A)·x + β·y
   gemv
-    :: CRepr MatrixLayout     -- ^ Matrix layout
-    -> CRepr MatrixTranspose  -- ^ Whether matrix should be transposed
-    -> CInt                   -- ^ Number of rows
-    -> CInt                   -- ^ Number of columns
-    -> a                      -- ^ Scalar @α@
-    -> Ptr a                  -- ^ Pointer to matrix data @A@
-    -> CInt                   -- ^ Leading dimension size
-    -> Ptr a                  -- ^ Buffer for vector @x@
-    -> CInt                   -- ^ Stride of vector @x@
-    -> a                      -- ^ Scalar β
-    -> Ptr a                  -- ^ Buffer for vector @y@
-    -> CInt                   -- ^ Stride for vector @y@
+    :: MatrixLayout    -- ^ Matrix layout
+    -> MatrixTranspose -- ^ Whether matrix should be transposed
+    -> CInt            -- ^ Number of rows
+    -> CInt            -- ^ Number of columns
+    -> a               -- ^ Scalar @α@
+    -> Ptr a           -- ^ Pointer to matrix data @A@
+    -> CInt            -- ^ Leading dimension size
+    -> Ptr a           -- ^ Buffer for vector @x@
+    -> CInt            -- ^ Stride of vector @x@
+    -> a               -- ^ Scalar β
+    -> Ptr a           -- ^ Buffer for vector @y@
+    -> CInt            -- ^ Stride for vector @y@
     -> IO ()
 
   -- | Matrix-matrix multiplication.
@@ -176,20 +176,20 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- * @op(B)@: k×n matrix
   -- * @C    @: m×n matrix
   gemm
-    :: CRepr MatrixLayout    -- ^ Matrix layout
-    -> CRepr MatrixTranspose -- ^ Operation applied to matrix @A@
-    -> CRepr MatrixTranspose -- ^ Operation applied to matrix @B@
-    -> CInt                  -- ^ @m@ — number of rows in A and C
-    -> CInt                  -- ^ @n@ — number of columns in B and C
-    -> CInt                  -- ^ @k@ — number of columns in A and rows in B
-    -> a                     -- ^ Scalar @α@
-    -> Ptr a                 -- ^ Buffer for matrix @A@
-    -> CInt                  -- ^ Leading dimension for @A@
-    -> Ptr a                 -- ^ Buffer for matrix @B@
-    -> CInt                  -- ^ Leading dimension for @B@
-    -> a                     -- ^ Scalar @β@
-    -> Ptr a                 -- ^ Buffer for matrix @C@
-    -> CInt                  -- ^ Leading dimension for @C@
+    :: MatrixLayout    -- ^ Matrix layout
+    -> MatrixTranspose -- ^ Operation applied to matrix @A@
+    -> MatrixTranspose -- ^ Operation applied to matrix @B@
+    -> CInt            -- ^ @m@ — number of rows in A and C
+    -> CInt            -- ^ @n@ — number of columns in B and C
+    -> CInt            -- ^ @k@ — number of columns in A and rows in B
+    -> a               -- ^ Scalar @α@
+    -> Ptr a           -- ^ Buffer for matrix @A@
+    -> CInt            -- ^ Leading dimension for @A@
+    -> Ptr a           -- ^ Buffer for matrix @B@
+    -> CInt            -- ^ Leading dimension for @B@
+    -> a               -- ^ Scalar @β@
+    -> Ptr a           -- ^ Buffer for matrix @C@
+    -> CInt            -- ^ Leading dimension for @C@
     -> IO ()
 
   -- | LAPACK driver routine for computing SVD decomposition
@@ -272,8 +272,10 @@ instance LAPACKy Float where
   dot  = s_dot
   dotc = s_dot
   nrm2 = s_nrm2
-  gemv = s_gemv
-  gemm = s_gemm
+  gemv layout op = s_gemv (toCEnum layout) (toCEnum op)
+  {-# INLINE gemv #-}
+  gemm layout opA opB = s_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
+  {-# INLINE gemm #-}
   -- LAPACK
   gesdd = c_sgesdd
   gesv  = c_sgesv
@@ -288,8 +290,10 @@ instance LAPACKy Double where
   dot  = d_dot
   dotc = d_dot
   nrm2 = d_nrm2
-  gemv = d_gemv
-  gemm = d_gemm
+  gemv layout op = d_gemv (toCEnum layout) (toCEnum op)
+  {-# INLINE gemv #-}
+  gemm layout opA opB = d_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
+  {-# INLINE gemm #-}
   -- LAPACK
   gesdd = c_dgesdd
   gesv  = c_dgesv
@@ -326,7 +330,7 @@ instance LAPACKy (Complex Float) where
     = alloca $ \p_α -> alloca $ \p_β -> do
         poke p_α α
         poke p_β β
-        c_gemv layout tr
+        c_gemv (toCEnum layout) (toCEnum tr)
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
   {-# INLINE gemm #-}
@@ -334,7 +338,7 @@ instance LAPACKy (Complex Float) where
     = alloca $ \p_α -> alloca $ \p_β -> do
         poke p_α α
         poke p_β β
-        c_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
+        c_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB) m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
   -- LAPACK
   gesdd = c_cgesdd
   gesv  = c_cgesv
@@ -371,7 +375,7 @@ instance LAPACKy (Complex Double) where
     = alloca $ \p_α -> alloca $ \p_β -> do
         poke p_α α
         poke p_β β
-        z_gemv layout tr
+        z_gemv (toCEnum layout) (toCEnum tr)
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
   {-# INLINE gemm #-}
@@ -379,7 +383,7 @@ instance LAPACKy (Complex Double) where
     = alloca $ \p_α -> alloca $ \p_β -> do
         poke p_α α
         poke p_β β
-        z_gemm layout opA opB m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
+        z_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB) m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
   -- LAPACK
   gesdd = c_zgesdd
   gesv  = c_zgesv

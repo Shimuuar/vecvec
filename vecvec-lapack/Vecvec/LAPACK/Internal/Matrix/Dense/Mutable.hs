@@ -467,7 +467,7 @@ unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fp
        id $ unsafeWithForeignPtr buffer $ \p_A ->
             unsafeWithForeignPtr fpX    $ \p_x ->
             unsafeWithForeignPtr fpY    $ \p_y ->
-              C.gemv (C.toCEnum C.RowMajor) (C.toCEnum tr)
+              C.gemv C.RowMajor tr
                 (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
                 p_x (fromIntegral incX)
                 β p_y (fromIntegral incY)
@@ -490,8 +490,7 @@ unsafeBlasGemm α trA (asMInput @s -> matA) trB (asMInput @s -> matB) β (MMatri
   $ unsafeWithForeignPtr (buffer matA) $ \p_A ->
     unsafeWithForeignPtr (buffer matB) $ \p_B ->
     unsafeWithForeignPtr (buffer matC) $ \p_C ->
-      C.gemm (C.toCEnum C.RowMajor)
-        (C.toCEnum trA) (C.toCEnum trB)
+      C.gemm C.RowMajor trA trB
         (fromIntegral $ if trA == C.NoTrans then nrows matA else ncols matA)
         (fromIntegral $ if trB == C.NoTrans then ncols matB else nrows matB)
         (fromIntegral $ if trB == C.NoTrans then nrows matB else ncols matB)
