@@ -37,6 +37,7 @@ module Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
   -- , toDense
     -- * Unsafe functions
   , unsafeCast
+  , unsafeBlasSymv
     -- * Internals
 
   ) where
@@ -59,7 +60,7 @@ import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable       hiding (clone)
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as MMat
-
+import Vecvec.LAPACK.FFI                           qualified as C
 
 
 ----------------------------------------------------------------
@@ -319,3 +320,31 @@ generateM n action = do
     a <- action i j
     reallyUnsafeWrite mat (i,j) a
   pure mat
+
+----------------------------------------------------------------
+-- BLAS wrappers
+----------------------------------------------------------------
+
+-- | General matrix-vector multiplication
+--
+-- > y := αAx + βy
+unsafeBlasSymv
+  :: forall a m mat vec s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsSymInput s mat, AsInput s vec)
+  => C.MatrixTranspose -- ^ Matrix transformation
+  -> a               -- ^ Scalar @α@
+  -> mat a           -- ^ Matrix @A@
+  -> vec a           -- ^ Vector @x@
+  -> a               -- ^ Scalar @β@
+  -> MVec s a        -- ^ Vector @y@
+  -> m ()
+{-# INLINE unsafeBlasSymv #-}
+unsafeBlasSymv tr α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY fpY))
+  = unsafePrimToPrim
+  $ do VecRepr _lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
+       id $ unsafeWithForeignPtr buffer $ \p_A ->
+            unsafeWithForeignPtr fpX    $ \p_x ->
+            unsafeWithForeignPtr fpY    $ \p_y ->
+              C.symv C.RowMajor C.UP
+                (fromIntegral size) α p_A (fromIntegral leadingDim)
+                p_x (fromIntegral incX)
+                β p_y (fromIntegral incY)
