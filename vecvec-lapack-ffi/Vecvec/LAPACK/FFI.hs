@@ -6,6 +6,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 -- |
@@ -20,6 +22,7 @@ module Vecvec.LAPACK.FFI
   , CEnum(..)
   , MatrixLayout(..)
   , MatrixTranspose(..)
+  , UpLo(..)
   ) where
 
 import Data.Complex
@@ -70,8 +73,25 @@ instance CEnum MatrixLayout where
     RowMajor -> c_BLAS_ROW_MAJOR
     ColMajor -> c_BLAS_COL_MAJOR
 
+data UpLo
+  = UP
+  | LO
+  deriving stock (Show,Eq)
+
+instance CEnum UpLo where
+  newtype CRepr UpLo = CUpLo CInt
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    UP -> c_UP
+    LO -> c_LO
+
+deriving newtype instance Storable (CRepr UpLo)
+deriving newtype instance Storable (CRepr MatrixLayout)
+
 foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
 foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CRepr MatrixLayout
+foreign import capi "cblas.h value CblasUpper"    c_UP             :: CRepr UpLo
+foreign import capi "cblas.h value CblasLower"    c_LO             :: CRepr UpLo
 
 
 -- | Whether matrix should be transposed, transposed and conjugater
@@ -167,6 +187,24 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> Ptr a           -- ^ Buffer for vector @y@
     -> CInt            -- ^ Stride for vector @y@
     -> IO ()
+
+  -- | Symmetric-vector multiplication. Compute one of:
+  --
+  -- > y := conj(α·A·x) + β·y
+  symv
+    :: MatrixLayout -- ^ Matrix layout
+    -> UpLo         -- ^ Whether upper or lower part of matrix should be referenced
+    -> CInt         -- ^ Size of matrix
+    -> a            -- ^ Scalar @α@
+    -> Ptr a        -- ^ Pointer to matrix data @A@
+    -> CInt         -- ^ Leading dimension size
+    -> Ptr a        -- ^ Buffer for vector @x@
+    -> CInt         -- ^ Stride of vector @x@
+    -> a            -- ^ Scalar β
+    -> Ptr a        -- ^ Buffer for vector @y@
+    -> CInt         -- ^ Stride for vector @y@
+    -> IO ()
+
 
   -- | Matrix-matrix multiplication.
   --
@@ -274,6 +312,8 @@ instance LAPACKy Float where
   nrm2 = s_nrm2
   gemv layout op = s_gemv (toCEnum layout) (toCEnum op)
   {-# INLINE gemv #-}
+  symv layout uplo = s_symv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE symv #-}
   gemm layout opA opB = s_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
   -- LAPACK
@@ -292,6 +332,8 @@ instance LAPACKy Double where
   nrm2 = d_nrm2
   gemv layout op = d_gemv (toCEnum layout) (toCEnum op)
   {-# INLINE gemv #-}
+  symv layout uplo = d_symv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE symv #-}
   gemm layout opA opB = d_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
   -- LAPACK
@@ -333,6 +375,28 @@ instance LAPACKy (Complex Float) where
         c_gemv (toCEnum layout) (toCEnum tr)
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
+  {-# INLINE symv #-}
+  symv layout uplo sz α p_A ldA p_x incX β p_y incY
+    = alloca $ \p_uplo   ->
+      alloca $ \p_sz     ->
+      alloca $ \p_α      ->
+      alloca $ \p_lda    ->
+      alloca $ \p_incX   ->
+      alloca $ \p_β      ->
+      alloca $ \p_incY   -> do
+        poke p_uplo $ case layout of
+          RowMajor -> case uplo of UP -> CUpLo 76 -- 'L'
+                                   LO -> CUpLo 85 -- 'U'
+          ColMajor -> case uplo of UP -> CUpLo 85 -- 'U'
+                                   LO -> CUpLo 76 -- 'L'
+        poke p_sz   sz
+        poke p_α    α
+        poke p_lda  ldA
+        poke p_incX incX
+        poke p_β    β
+        poke p_incY incY
+        c_symv p_uplo p_sz p_α p_A p_lda p_x p_incX p_β p_y p_incY
+
   {-# INLINE gemm #-}
   gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
     = alloca $ \p_α -> alloca $ \p_β -> do
@@ -378,6 +442,27 @@ instance LAPACKy (Complex Double) where
         z_gemv (toCEnum layout) (toCEnum tr)
           n_r n_c p_α p_A ldA
           p_x incX p_β p_y incY
+  {-# INLINE symv #-}
+  symv layout uplo sz α p_A ldA p_x incX β p_y incY
+    = alloca $ \p_uplo   ->
+      alloca $ \p_sz     ->
+      alloca $ \p_α      ->
+      alloca $ \p_lda    ->
+      alloca $ \p_incX   ->
+      alloca $ \p_β      ->
+      alloca $ \p_incY   -> do
+        poke p_uplo $ case layout of
+          RowMajor -> case uplo of UP -> CUpLo 76 -- 'L'
+                                   LO -> CUpLo 85 -- 'U'
+          ColMajor -> case uplo of UP -> CUpLo 85 -- 'U'
+                                   LO -> CUpLo 76 -- 'L'
+        poke p_sz   sz
+        poke p_α    α
+        poke p_lda  ldA
+        poke p_incX incX
+        poke p_β    β
+        poke p_incY incY
+        z_symv p_uplo p_sz p_α p_A p_lda p_x p_incX p_β p_y p_incY
   {-# INLINE gemm #-}
   gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
     = alloca $ \p_α -> alloca $ \p_β -> do
@@ -443,6 +528,53 @@ foreign import CCALL unsafe "cblas.h cblas_zgemv" z_gemv
   -> CInt -> CInt -> Ptr Z -> Ptr Z -> CInt
   -> ARR Z (Ptr Z -> ARR Z (IO ()))
 
+foreign import CCALL unsafe "cblas.h cblas_ssymv" s_symv
+  :: CRepr MatrixLayout
+  -> CRepr UpLo
+  -> CInt
+  -> Float -> Ptr Float -> CInt
+  -> Ptr Float -> CInt
+  -> Float
+  -> Ptr Float -> CInt
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
+  :: CRepr MatrixLayout
+  -> CRepr UpLo
+  -> CInt
+  -> Double -> Ptr Double -> CInt
+  -> Ptr Double -> CInt
+  -> Double
+  -> Ptr Double -> CInt
+  -> IO ()
+
+-- NOTE: there's no cblas wrapper for CSYMV and ZSYMV!
+--
+-- We have to call FORTRAN versions directly.
+foreign import ccall unsafe "csymv_" c_symv
+  :: Ptr (CRepr UpLo)    -- Upper/lower part should be referenced
+  -> Ptr CInt            -- Size of matrix/vector
+  -> Ptr (Complex Float) -- alpha
+  -> Ptr (Complex Float) -- Matrix buffer
+  -> Ptr CInt            -- LDA
+  -> Ptr (Complex Float) -- Vector buffer
+  -> Ptr CInt            -- Vector stride
+  -> Ptr (Complex Float) -- beta
+  -> Ptr (Complex Float) -- Output vector buffer
+  -> Ptr CInt            -- Output vector stride
+  -> IO ()
+
+foreign import ccall unsafe "zsymv_" z_symv
+  :: Ptr (CRepr UpLo)     -- Upper/lower part should be referenced
+  -> Ptr CInt             -- Size of matrix/vector
+  -> Ptr (Complex Double) -- alpha
+  -> Ptr (Complex Double) -- Matrix buffer
+  -> Ptr CInt             -- LDA
+  -> Ptr (Complex Double) -- Vector buffer
+  -> Ptr CInt             -- Vector stride
+  -> Ptr (Complex Double) -- beta
+  -> Ptr (Complex Double) -- Output vector buffer
+  -> Ptr CInt             -- Output vector stride
+  -> IO ()
 
 
 foreign import CCALL unsafe "cblas.h cblas_sgemm" s_gemm
