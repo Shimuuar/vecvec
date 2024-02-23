@@ -34,9 +34,10 @@ import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 
 import Vecvec.Classes
-import Vecvec.LAPACK                       qualified as VV
-import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
-import Vecvec.LAPACK.FFI                   (S,D,C,Z)
+import Vecvec.LAPACK                           qualified as VV
+import Vecvec.LAPACK.Internal.Matrix.Dense     (Matrix)
+import Vecvec.LAPACK.Internal.Matrix.Symmetric (Symmetric)
+import Vecvec.LAPACK.FFI                       (S,D,C,Z)
 import TST.Tools.MatModel
 import TST.Tools.Model
 import TST.Tools.Util
@@ -52,6 +53,11 @@ tests = testGroup "VectorSpace instances"
   , props_vector_space @Matrix @D
   , props_vector_space @Matrix @C
   , props_vector_space @Matrix @Z
+    -- Symmetric
+  , props_vector_space @Symmetric @S
+  , props_vector_space @Symmetric @D
+  , props_vector_space @Symmetric @C
+  , props_vector_space @Symmetric @Z
     -- Vector instances
   , props_inner_space @V.Vector  @D
   , props_inner_space @VU.Vector @D
