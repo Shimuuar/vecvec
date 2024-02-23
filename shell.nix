@@ -13,7 +13,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     openblasCompat
     lapack
-    pkgs_hask
+#    pkgs_hask
   ];
   shellHook = ''
     export LD_LIBRARY_PATH=${pkgs.openblasCompat}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH

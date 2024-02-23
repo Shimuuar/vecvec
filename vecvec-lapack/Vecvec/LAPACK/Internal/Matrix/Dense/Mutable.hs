@@ -51,6 +51,7 @@ module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
     -- * Unsafe functions
   , unsafeGetCol
   , unsafeGetRow
+  , unsafeCast
   ) where
 
 import Control.Monad           (foldM)
@@ -68,6 +69,7 @@ import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDArray
 import Vecvec.Classes.NDMutable
+import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -140,6 +142,9 @@ instance Storable a => NDMutable MMatrix a where
   {-# INLINE basicUnsafeWriteArr #-}
 
 
+unsafeCast :: MMatrix s a -> MMatrix s' a
+unsafeCast = coerce
+
 -- | Pattern which is used to check whether matrix is represented by
 --   contiguous vector
 pattern AsMVec :: MVec s a -> MMatrix s a
@@ -171,14 +176,14 @@ unsafeGetCol (MMatrix MView{..}) i =
 -- | Get nth row of matrix.
 getRow :: (Storable a) => MMatrix s a -> Int -> MVec s a
 getRow m@(MMatrix MView{..}) i
-  | i < 0 || i >= nrows = error "Out of range"
-  | otherwise           = unsafeGetRow m i
+  | inRange i nrows = unsafeGetRow m i
+  | otherwise       = error "Out of range"
 
 -- | Get nth column of matrix.
 getCol :: (Storable a) => MMatrix s a -> Int -> MVec s a
 getCol m@(MMatrix MView{..}) i
-  | i < 0 || i >= ncols = error "Out of range"
-  | otherwise           = unsafeGetCol m i
+  | inRange i ncols = unsafeGetCol m i
+  | otherwise       = error "Out of range"
 
 
 ----------------------------------------------------------------

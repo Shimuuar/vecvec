@@ -25,9 +25,10 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                       qualified as VV
-import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix)
-import Vecvec.LAPACK.FFI                   (S,D,C,Z)
+import Vecvec.LAPACK                           qualified as VV
+import Vecvec.LAPACK.Internal.Matrix.Dense     (Matrix)
+import Vecvec.LAPACK.Internal.Matrix.Symmetric (Symmetric)
+import Vecvec.LAPACK.FFI                       (S,D,C,Z)
 
 import TST.Tools.MatModel
 import TST.Tools.Model                     (TestData1(..))
@@ -48,6 +49,15 @@ tests = testGroup "MatMul"
   , prop_matmul @(Conj Matrix) @VV.Vec @D unMV
   , prop_matmul @(Conj Matrix) @VV.Vec @C unMV
   , prop_matmul @(Conj Matrix) @VV.Vec @Z unMV
+  -- Symmetric-vector
+  , prop_matmul @Symmetric        @VV.Vec @S unMV1
+  , prop_matmul @Symmetric        @VV.Vec @D unMV1
+  , prop_matmul @Symmetric        @VV.Vec @C unMV1
+  , prop_matmul @Symmetric        @VV.Vec @Z unMV1
+  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @S unMV1
+  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @D unMV1
+  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @C unMV1
+  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @Z unMV1
     -- Matrix-matrix
     -- 1.
   , prop_matmul @Matrix        @Matrix @S unMM
@@ -120,7 +130,13 @@ newtype MM a b = MM { unMM :: (a,b) }
 instance (Show a, Show b) => Show (MM a b) where
   show (MM (a,b)) = show a ++ "\n" ++ show b
 
-instance (Rank m1 ~ 2, Rank m2 ~ 2, ArbitraryShape m1 a, ArbitraryShape m2 a) => Arbitrary (MM (m1 a) (m2 a)) where
+instance ( Rank m1 ~ 2
+         , Rank m2 ~ 2
+         , CreationRank m1 ~ 2
+         , CreationRank m2 ~ 2
+         , ArbitraryShape m1 a
+         , ArbitraryShape m2 a
+         ) => Arbitrary (MM (m1 a) (m2 a)) where
   arbitrary = do
     (n,k,m) <- genSize
     MM <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape (k,m))
@@ -131,7 +147,30 @@ newtype MV a b = MV { unMV :: (a,b) }
 instance (Show a, Show b) => Show (MV a b) where
   show (MV (a,b)) = show a ++ "\n" ++ show b
 
-instance (Rank m ~ 2, Rank v ~ 1, ArbitraryShape m a, ArbitraryShape v a) => Arbitrary (MV (m a) (v a)) where
+instance ( Rank m ~ 2
+         , Rank v ~ 1
+         , CreationRank m ~ 2
+         , CreationRank v ~ 1
+         , ArbitraryShape m a
+         , ArbitraryShape v a
+         ) => Arbitrary (MV (m a) (v a)) where
   arbitrary = do
     (n,k) <- genSize
     MV <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape k)
+
+-- | Generate matrix and vector with correct size for multiplication
+newtype MV1 a b = MV1 { unMV1 :: (a,b) }
+
+instance (Show a, Show b) => Show (MV1 a b) where
+  show (MV1 (a,b)) = show a ++ "\n" ++ show b
+
+instance ( Rank m ~ 2
+         , Rank v ~ 1
+         , CreationRank m ~ 1
+         , CreationRank v ~ 1
+         , ArbitraryShape m a
+         , ArbitraryShape v a
+         ) => Arbitrary (MV1 (m a) (v a)) where
+  arbitrary = do
+    n <- genSize @Int
+    MV1 <$> ((,) <$> arbitraryShape n <*> arbitraryShape n)

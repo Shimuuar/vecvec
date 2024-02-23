@@ -50,6 +50,7 @@ module TST.Tools.MatModel
   , (=~=)
   , ModelVec(..)
   , ModelMat(..)
+  , ModelSym(..)
   , mkMat
     -- * Helpers
   , Pair(..)
@@ -64,6 +65,7 @@ import Data.List             (transpose)
 import Foreign.Storable      (Storable)
 import Linear.Matrix         ((!*), (!*!))
 import Test.Tasty.QuickCheck
+import GHC.TypeLits          (Nat)
 
 import Data.Vector.Fixed.Cont qualified as FC
 import Data.Vector.Generic    qualified as VG
@@ -73,10 +75,12 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                      (Strided(..))
-import Vecvec.LAPACK                       qualified as VV
-import Vecvec.LAPACK.Internal.Matrix.Dense (Matrix, fromRowsFF)
-import Vecvec.LAPACK.Internal.Matrix.Dense qualified as Mat
+import Vecvec.LAPACK                           (Strided(..))
+import Vecvec.LAPACK                           qualified as VV
+import Vecvec.LAPACK.Internal.Matrix.Dense     (Matrix, fromRowsFF)
+import Vecvec.LAPACK.Internal.Matrix.Dense     qualified as Mat
+import Vecvec.LAPACK.Internal.Matrix.Symmetric (Symmetric)
+import Vecvec.LAPACK.Internal.Matrix.Symmetric qualified as Sym
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
 import TST.Tools.Model
@@ -133,8 +137,10 @@ instance SmallScalar a => Arbitrary (X a) where
 ----------------------------------------------------------------
 
 -- | Generate random NDarray with specified shape
-class (Arbitrary a, HasShape arr a) => ArbitraryShape arr a where
-  arbitraryShape :: (IsShape shape (Rank arr)) => shape -> Gen (arr a)
+class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
+  type CreationRank arr :: Nat
+  type CreationRank arr = Rank arr
+  arbitraryShape :: (IsShape shape (CreationRank arr)) => shape -> Gen (arr a)
 
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
@@ -320,6 +326,30 @@ instance (Storable a, Num a) => TestData TagMat (Matrix a) where
 instance (Storable a, Eq a) => TestEquiv (Matrix a) where
   equiv = (==)
 
+
+type instance Model1 TagMat Symmetric = ModelSym
+
+instance (Storable a{-, Num a-}) => TestData1 TagMat Symmetric a where
+  liftModel _ f m = ModelSym
+    { pad = 0
+    , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n]]
+                   | i <- [0 .. n-1]
+                   ]
+    } where (n,_) = shape m
+  -- FIXME: add padding
+  liftUnmodel _ f (ModelSym _pad xs)
+    = Sym.fromRowsFF
+    $ (fmap . fmap) f xs
+
+instance (Storable a, Num a) => TestData TagMat (Symmetric a) where
+  type Model TagMat (Symmetric a) = ModelSym a
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
+
+instance (Storable a, Eq a) => TestEquiv (Symmetric a) where
+  equiv = (==)
+
+
 ----------------------------------------------------------------
 -- Model for vectors
 ----------------------------------------------------------------
@@ -384,7 +414,32 @@ instance Num a => AdditiveQuasigroup (ModelMat a) where
 instance Num a => VectorSpace (ModelMat a) where
   type Scalar (ModelMat a) = a
   a *. ModelMat _ _ xs = ModelMat 0 0 $ (fmap . fmap) (a*) xs
-  ModelMat _ _ xs .* a = ModelMat 0 0 $ (fmap . fmap) (*a) xs
+  (.*) = flip (*.)
+
+
+-- | Model for symmetric matrix
+data ModelSym a = ModelSym
+  { pad        :: !Int  -- ^ Padding
+  , unModelSym :: [[a]] -- ^ Rows above diagonal
+  }
+  deriving stock (Show, Eq)
+
+type instance Rank ModelSym = 2
+
+instance HasShape ModelSym a where
+  shapeAsCVec ModelSym{unModelSym=mat} = let n = length mat in FC.mk2 n n
+
+instance Num a => AdditiveSemigroup (ModelSym a) where
+  a .+. b = ModelSym 0 $ ((zipWithX . zipWithX) (+) `on` unModelSym) a b
+
+instance Num a => AdditiveQuasigroup (ModelSym a) where
+  a .-. b = ModelSym 0 $ ((zipWithX . zipWithX) (-) `on` unModelSym) a b
+  negateV = ModelSym 0 . ((map . map) negate) . unModelSym
+
+instance Num a => VectorSpace (ModelSym a) where
+  type Scalar (ModelSym a) = a
+  a *. ModelSym _ xs = ModelSym 0 $ (fmap . fmap) (a*) xs
+  ModelSym _ xs .* a = ModelSym 0 $ (fmap . fmap) (*a) xs
 
 
 -- | Data types which could be converted to matrix model
@@ -398,6 +453,13 @@ instance a ~ a' => IsModelMat (Tr ModelMat a) a' where
 instance (NormedScalar a, a ~ a') => IsModelMat (Conj ModelMat a) a' where
   toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
 
+instance (a ~ a') => IsModelMat (ModelSym a) a' where
+  toModelMat (ModelSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
+    sym     = zipWith row [0..] xs
+    row n _ =[ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
+
+instance (a ~ a') => IsModelMat (Tr ModelSym a) a' where
+  toModelMat (Tr m) = toModelMat m
 
 instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
@@ -412,6 +474,8 @@ instance (NormedScalar a) => MatMul (Conj ModelMat a) (Tr   ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+
+instance (NormedScalar a) => MatMul (ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
@@ -456,16 +520,19 @@ instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
 -- Orphans & Arbitrary
 ----------------------------------------------------------------
 
-instance (Rank arr ~ 2, ArbitraryShape arr a) => Arbitrary (Tr arr a) where
+instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+         ) => Arbitrary (Tr arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (Rank arr ~ 2, ArbitraryShape arr a) => Arbitrary (Conj arr a) where
+instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+         ) => Arbitrary (Conj arr a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (Rank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
+instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
   arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
-instance (Rank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Conj arr) a where
+instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+         ) => ArbitraryShape (Conj arr) a where
   arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
 
 
@@ -488,6 +555,18 @@ instance (SmallScalar a) => ArbitraryShape ModelMat a where
     <$> genOffset
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)
+
+instance (SmallScalar a) => Arbitrary (ModelSym a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  
+instance (SmallScalar a) => ArbitraryShape ModelSym a where
+  type CreationRank ModelSym = 1
+  arbitraryShape (N1 n)
+    =  ModelSym
+   <$> genOffset
+   <*> sequence [ sequence [genScalar | _ <- [i .. n-1]]
+                | i <- [0 .. n-1]
+                ]
 
 instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
