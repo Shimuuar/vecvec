@@ -444,21 +444,21 @@ instance Num a => VectorSpace (ModelSym a) where
 
 -- | Data types which could be converted to matrix model
 class IsModelMat m a where
-  toModelMat :: m -> ModelMat a
+  toModelMat :: m a -> ModelMat a
 
-instance a ~ a' => IsModelMat (ModelMat a) a' where
+instance IsModelMat ModelMat a where
   toModelMat = id
-instance a ~ a' => IsModelMat (Tr ModelMat a) a' where
+instance IsModelMat (Tr ModelMat) a where
   toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
-instance (NormedScalar a, a ~ a') => IsModelMat (Conj ModelMat a) a' where
+instance (NormedScalar a) => IsModelMat (Conj ModelMat) a where
   toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
 
-instance (a ~ a') => IsModelMat (ModelSym a) a' where
+instance IsModelMat ModelSym a where
   toModelMat (ModelSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
     sym     = zipWith row [0..] xs
-    row n _ =[ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
+    row n _ = [ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
 
-instance (a ~ a') => IsModelMat (Tr ModelSym a) a' where
+instance IsModelMat (Tr ModelSym) a where
   toModelMat (Tr m) = toModelMat m
 
 instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
@@ -478,11 +478,11 @@ instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul (ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
 -- Default model implementation of matrix-matrix multiplication
-defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
+defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
 defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
 
 -- Default model implementation of matrix-vector multiplication
-defaultMulMV :: (Num a, IsModelMat m a) => m -> ModelVec a -> ModelVec a
+defaultMulMV :: (Num a, IsModelMat m a) => m a -> ModelVec a -> ModelVec a
 defaultMulMV m v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
 
 
