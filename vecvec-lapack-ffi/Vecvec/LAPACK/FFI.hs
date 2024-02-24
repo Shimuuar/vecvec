@@ -23,6 +23,7 @@ module Vecvec.LAPACK.FFI
   , MatrixLayout(..)
   , MatrixTranspose(..)
   , UpLo(..)
+  , Side(..)
   ) where
 
 import Data.Complex
@@ -73,6 +74,8 @@ instance CEnum MatrixLayout where
     RowMajor -> c_BLAS_ROW_MAJOR
     ColMajor -> c_BLAS_COL_MAJOR
 
+-- | Whether upper or lower part of symmetric\/hermitian matrix is
+--   referenced.
 data UpLo
   = UP
   | LO
@@ -85,14 +88,30 @@ instance CEnum UpLo where
     UP -> c_UP
     LO -> c_LO
 
+-- | Which side i
+data Side
+  = LeftSide
+  | RightSide
+  deriving stock (Show,Eq)
+
+instance CEnum Side where
+  newtype CRepr Side = CSide CInt
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    LeftSide  -> c_LEFT
+    RightSide -> c_RIGHT
+
+
 deriving newtype instance Storable (CRepr UpLo)
 deriving newtype instance Storable (CRepr MatrixLayout)
+deriving newtype instance Storable (CRepr Side)
 
 foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
 foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CRepr MatrixLayout
 foreign import capi "cblas.h value CblasUpper"    c_UP             :: CRepr UpLo
 foreign import capi "cblas.h value CblasLower"    c_LO             :: CRepr UpLo
-
+foreign import capi "cblas.h value CblasLeft"     c_LEFT           :: CRepr Side
+foreign import capi "cblas.h value CblasRight"    c_RIGHT          :: CRepr Side
 
 -- | Whether matrix should be transposed, transposed and conjugater
 data MatrixTranspose
@@ -230,6 +249,29 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> CInt            -- ^ Leading dimension for @C@
     -> IO ()
 
+  -- | Multiplication of symmetric and general matrix. It evaluates one of:
+  --
+  -- > C := α·A·B + β·C   -- LeftSide
+  -- > C := α·B·A + β·C   -- RightSide
+  --
+  -- Where @A@ is symmetric matrix and @B@ and @C@ are general n×m
+  -- matrices.
+  symm
+    :: MatrixLayout -- ^ Layout of matrix
+    -> Side         -- ^ On which side symmetric matrix go
+    -> UpLo         -- ^ Which part of symmetric matrix is referenced
+    -> CInt         -- ^ @M@ number of rows of matrix @C@
+    -> CInt         -- ^ @N@ number of columns of matrix @C@
+    -> a            -- ^ @α@ constant
+    -> Ptr a        -- ^ Buffer for matrix @A@
+    -> CInt         -- ^ Leading dimension for @A@
+    -> Ptr a        -- ^ Buffer for matrix @B@
+    -> CInt         -- ^ Leading dimension for @B@
+    -> a            -- ^ @β@ constant
+    -> Ptr a        -- ^ Buffer for matrix @C@
+    -> CInt         -- ^ Leading dimension for @C@
+    -> IO ()
+
   -- | LAPACK driver routine for computing SVD decomposition
   --   \(A=U\Sigma{}V^T\).
   gesdd
@@ -316,6 +358,8 @@ instance LAPACKy Float where
   {-# INLINE symv #-}
   gemm layout opA opB = s_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
+  symm layout side uplo = s_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+  {-# INLINE symm #-}
   -- LAPACK
   gesdd = c_sgesdd
   gesv  = c_sgesv
@@ -336,6 +380,8 @@ instance LAPACKy Double where
   {-# INLINE symv #-}
   gemm layout opA opB = d_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
+  symm layout side uplo = d_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+  {-# INLINE symm #-}
   -- LAPACK
   gesdd = c_dgesdd
   gesv  = c_dgesv
@@ -403,6 +449,13 @@ instance LAPACKy (Complex Float) where
         poke p_α α
         poke p_β β
         c_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB) m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
+  {-# INLINE symm #-}
+  symm layout side uplo m n α bufA lda bufB ldb β bufC ldC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        c_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+          m n p_α bufA lda bufB ldb p_β bufC ldC
   -- LAPACK
   gesdd = c_cgesdd
   gesv  = c_cgesv
@@ -469,7 +522,13 @@ instance LAPACKy (Complex Double) where
         poke p_α α
         poke p_β β
         z_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB) m n k p_α bufA ldaA bufB ldaB p_β bufC ldaC
-  -- LAPACK
+  {-# INLINE symm #-}
+  symm layout side uplo m n α bufA lda bufB ldb β bufC ldC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        z_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+          m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
   gesdd = c_zgesdd
   gesv  = c_zgesv
   getri = c_zgetri
@@ -629,6 +688,70 @@ foreign import CCALL unsafe "cblas.h cblas_zgemm" z_gemm
   -> Ptr Z
   -> Ptr Z -> CInt
   -> IO ()
+
+
+foreign import CCALL unsafe "cblas.h cblas_ssymm" s_symm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> CInt      -- M
+  -> CInt      -- N
+  -> Float     -- alpha
+  -> Ptr Float -- A
+  -> CInt      -- lda
+  -> Ptr Float -- B
+  -> CInt      -- ldb
+  -> Float     -- beta
+  -> Ptr Float -- C
+  -> CInt      -- ldc
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_dsymm" d_symm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> CInt       -- M
+  -> CInt       -- N
+  -> Double     -- alpha
+  -> Ptr Double -- A
+  -> CInt       -- lda
+  -> Ptr Double -- B
+  -> CInt       -- ldb
+  -> Double     -- beta
+  -> Ptr Double -- C
+  -> CInt       -- ldc
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_csymm" c_symm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> CInt                -- M
+  -> CInt                -- N
+  -> Ptr (Complex Float) -- alpha
+  -> Ptr (Complex Float) -- A
+  -> CInt                -- lda
+  -> Ptr (Complex Float) -- B
+  -> CInt                -- ldb
+  -> Ptr (Complex Float) -- beta
+  -> Ptr (Complex Float) -- C
+  -> CInt                -- ldc
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_zsymm" z_symm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> CInt                 -- M
+  -> CInt                 -- N
+  -> Ptr (Complex Double) -- alpha
+  -> Ptr (Complex Double) -- A
+  -> CInt                 -- lda
+  -> Ptr (Complex Double) -- B
+  -> CInt                 -- ldb
+  -> Ptr (Complex Double) -- beta
+  -> Ptr (Complex Double) -- C
+  -> CInt                 -- ldc
+  -> IO ()
+
+
 
 
 ----------------------------------------------------------------
