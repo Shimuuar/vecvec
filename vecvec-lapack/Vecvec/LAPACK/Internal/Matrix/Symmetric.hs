@@ -18,6 +18,7 @@ module Vecvec.LAPACK.Internal.Matrix.Symmetric
   , unsafeFreeze
   , freeze
   , thaw
+  , toDense
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
@@ -42,6 +43,7 @@ import Vecvec.Classes
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable     qualified as MMat
 import Vecvec.LAPACK.Internal.Matrix.Dense             qualified as Mat
+import Vecvec.LAPACK.Internal.Matrix.Dense             (Matrix)
 import Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable qualified as MSym
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
@@ -233,8 +235,41 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Vec a') (Vec a) where
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
     vecY <- MVG.new (nRows mat)
-    MSym.unsafeBlasSymv C.NoTrans 1 mat vecX 0 vecY
+    MSym.unsafeBlasSymv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
 instance (C.LAPACKy a, a ~ a') => MatMul (Tr Symmetric a) (Vec a') (Vec a) where
   Tr m @@ v = m @@ v
+
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Matrix a') (Matrix a) where
+  matA @@ matB
+    | nCols matA /= n = error "matrix size mismatch"
+    | otherwise       = unsafePerformIO $ do
+        matC <- MMat.new (n,k)
+        MSym.unsafeBlasSymmL 1 matA matB 0 matC
+        Mat.unsafeFreeze matC
+    where
+      (n,k) = shape matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Symmetric a') (Matrix a) where
+  matB @@ matA
+    | nCols matA /= n = error "matrix size mismatch"
+    | otherwise       = unsafePerformIO $ do
+        matC <- MMat.new (k,n)
+        MSym.unsafeBlasSymmR 1 matB matA 0 matC
+        Mat.unsafeFreeze matC
+    where
+      (k,n) = shape matB
+
+instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Symmetric a') (Matrix a) where
+  matA @@ matB
+    | n /= nCols matB = error "matrix size mismatch"
+    | otherwise       = unsafePerformIO $ do
+        matC  <- MMat.new (n,n)
+        MSym.unsafeBlasSymmL 1 matA (toDense matB) 0 matC
+        Mat.unsafeFreeze matC
+    where
+      n = nCols matA
+
+

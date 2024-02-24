@@ -140,7 +140,13 @@ instance SmallScalar a => Arbitrary (X a) where
 class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
   type CreationRank arr :: Nat
   type CreationRank arr = Rank arr
+  -- | Generate array with given shape
   arbitraryShape :: (IsShape shape (CreationRank arr)) => shape -> Gen (arr a)
+  -- | Generate matrix with given number of columns
+  arbitraryNCols :: Int -> Gen (arr a)
+  -- | Generate matrix with given number of rows
+  arbitraryNRows :: Int -> Gen (arr a)
+
 
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
@@ -444,21 +450,21 @@ instance Num a => VectorSpace (ModelSym a) where
 
 -- | Data types which could be converted to matrix model
 class IsModelMat m a where
-  toModelMat :: m -> ModelMat a
+  toModelMat :: m a -> ModelMat a
 
-instance a ~ a' => IsModelMat (ModelMat a) a' where
+instance IsModelMat ModelMat a where
   toModelMat = id
-instance a ~ a' => IsModelMat (Tr ModelMat a) a' where
+instance IsModelMat (Tr ModelMat) a where
   toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
-instance (NormedScalar a, a ~ a') => IsModelMat (Conj ModelMat a) a' where
+instance (NormedScalar a) => IsModelMat (Conj ModelMat) a where
   toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
 
-instance (a ~ a') => IsModelMat (ModelSym a) a' where
+instance IsModelMat ModelSym a where
   toModelMat (ModelSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
     sym     = zipWith row [0..] xs
-    row n _ =[ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
+    row n _ = [ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
 
-instance (a ~ a') => IsModelMat (Tr ModelSym a) a' where
+instance IsModelMat (Tr ModelSym) a where
   toModelMat (Tr m) = toModelMat m
 
 instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
@@ -475,14 +481,19 @@ instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 
-instance (NormedScalar a) => MatMul (ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Tr ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+
+instance (NormedScalar a) => MatMul (ModelSym a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelMat a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelSym a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
 
 -- Default model implementation of matrix-matrix multiplication
-defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 -> m2 -> ModelMat a
+defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
 defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
 
 -- Default model implementation of matrix-vector multiplication
-defaultMulMV :: (Num a, IsModelMat m a) => m -> ModelVec a -> ModelVec a
+defaultMulMV :: (Num a, IsModelMat m a) => m a -> ModelVec a -> ModelVec a
 defaultMulMV m v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
 
 
@@ -520,20 +531,49 @@ instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
 -- Orphans & Arbitrary
 ----------------------------------------------------------------
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+class FC.Arity n => TransposeShape n where
+  transposeShape :: FC.ContVec n a -> FC.ContVec n a
+
+instance TransposeShape 1 where
+  transposeShape = id
+  {-# INLINE transposeShape #-}
+instance TransposeShape 2 where
+  transposeShape (FC.ContVec cont) = FC.ContVec $ \(FC.Fun f) -> cont (FC.Fun $ flip f)
+  {-# INLINE transposeShape #-}
+
+
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => Arbitrary (Tr arr a) where
-  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => Arbitrary (Conj arr a) where
-  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
-  arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
+         ) => ArbitraryShape (Tr arr) a where
+  type CreationRank (Tr arr) = CreationRank arr
+  arbitraryShape = fmap Tr . arbitraryShape . transposeShape . shapeToCVec
+  arbitraryNCols = fmap Tr . arbitraryNRows
+  arbitraryNRows = fmap Tr . arbitraryNCols
+
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => ArbitraryShape (Conj arr) a where
-  arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
+  type CreationRank (Conj arr) = CreationRank arr
+  arbitraryShape = fmap Conj . arbitraryShape . transposeShape . shapeToCVec
+  arbitraryNCols = fmap Conj . arbitraryNRows
+  arbitraryNRows = fmap Conj . arbitraryNCols
+
+
 
 
 ----------------------------------------
@@ -555,6 +595,10 @@ instance (SmallScalar a) => ArbitraryShape ModelMat a where
     <$> genOffset
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)
+  arbitraryNRows n = do k <- genSize
+                        arbitraryShape (n,k)
+  arbitraryNCols k = do n <- genSize
+                        arbitraryShape (n,k)
 
 instance (SmallScalar a) => Arbitrary (ModelSym a) where
   arbitrary = arbitraryShape =<< genSize @Int
@@ -567,6 +611,8 @@ instance (SmallScalar a) => ArbitraryShape ModelSym a where
    <*> sequence [ sequence [genScalar | _ <- [i .. n-1]]
                 | i <- [0 .. n-1]
                 ]
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = arbitraryShape
 
 instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
@@ -574,8 +620,9 @@ instance (SmallScalar a, Storable a, Num a
 
 instance (SmallScalar a, Storable a, Num a
          ) => ArbitraryShape Matrix a where
-  arbitraryShape sz = fromModel <$> arbitraryShape sz
-
+  arbitraryShape = fmap fromModel . arbitraryShape
+  arbitraryNCols = fmap fromModel . arbitraryNCols
+  arbitraryNRows = fmap fromModel . arbitraryNRows
 
 ----------------------------------------
 -- Vectors
@@ -590,7 +637,8 @@ instance SmallScalar a => Arbitrary (ModelVec a) where
 
 instance SmallScalar a => ArbitraryShape ModelVec a where
   arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
-
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = error "arbitraryNCols is not defined for ModelVec"
 
 
 ----------------------------------------

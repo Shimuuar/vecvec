@@ -24,7 +24,6 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
-import Vecvec.Classes.NDArray
 import Vecvec.LAPACK                           qualified as VV
 import Vecvec.LAPACK.Internal.Matrix.Dense     (Matrix)
 import Vecvec.LAPACK.Internal.Matrix.Symmetric (Symmetric)
@@ -35,85 +34,103 @@ import TST.Tools.Model                     (TestData1(..))
 import TST.Tools.Util
 
 tests :: TestTree
-tests = testGroup "MatMul" 
+tests = testGroup "MatMul"
   [ -- Matrix-vector
-    prop_matmul @Matrix        @VV.Vec @S unMV
-  , prop_matmul @Matrix        @VV.Vec @D unMV
-  , prop_matmul @Matrix        @VV.Vec @C unMV
-  , prop_matmul @Matrix        @VV.Vec @Z unMV
-  , prop_matmul @(Tr Matrix)   @VV.Vec @S unMV
-  , prop_matmul @(Tr Matrix)   @VV.Vec @D unMV
-  , prop_matmul @(Tr Matrix)   @VV.Vec @C unMV
-  , prop_matmul @(Tr Matrix)   @VV.Vec @Z unMV
-  , prop_matmul @(Conj Matrix) @VV.Vec @S unMV
-  , prop_matmul @(Conj Matrix) @VV.Vec @D unMV
-  , prop_matmul @(Conj Matrix) @VV.Vec @C unMV
-  , prop_matmul @(Conj Matrix) @VV.Vec @Z unMV
+    prop_matmul @Matrix        @VV.Vec @S
+  , prop_matmul @Matrix        @VV.Vec @D
+  , prop_matmul @Matrix        @VV.Vec @C
+  , prop_matmul @Matrix        @VV.Vec @Z
+  , prop_matmul @(Tr Matrix)   @VV.Vec @S
+  , prop_matmul @(Tr Matrix)   @VV.Vec @D
+  , prop_matmul @(Tr Matrix)   @VV.Vec @C
+  , prop_matmul @(Tr Matrix)   @VV.Vec @Z
+  , prop_matmul @(Conj Matrix) @VV.Vec @S
+  , prop_matmul @(Conj Matrix) @VV.Vec @D
+  , prop_matmul @(Conj Matrix) @VV.Vec @C
+  , prop_matmul @(Conj Matrix) @VV.Vec @Z
   -- Symmetric-vector
-  , prop_matmul @Symmetric        @VV.Vec @S unMV1
-  , prop_matmul @Symmetric        @VV.Vec @D unMV1
-  , prop_matmul @Symmetric        @VV.Vec @C unMV1
-  , prop_matmul @Symmetric        @VV.Vec @Z unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @S unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @D unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @C unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @Z unMV1
+  , prop_matmul @Symmetric        @VV.Vec @S
+  , prop_matmul @Symmetric        @VV.Vec @D
+  , prop_matmul @Symmetric        @VV.Vec @C
+  , prop_matmul @Symmetric        @VV.Vec @Z
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @S
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @D
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @C
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @Z
     -- Matrix-matrix
     -- 1.
-  , prop_matmul @Matrix        @Matrix @S unMM
-  , prop_matmul @Matrix        @Matrix @D unMM
-  , prop_matmul @Matrix        @Matrix @C unMM
-  , prop_matmul @Matrix        @Matrix @Z unMM
-  , prop_matmul @(Tr Matrix)   @Matrix @S unMM
-  , prop_matmul @(Tr Matrix)   @Matrix @D unMM
-  , prop_matmul @(Tr Matrix)   @Matrix @C unMM
-  , prop_matmul @(Tr Matrix)   @Matrix @Z unMM
-  , prop_matmul @(Conj Matrix) @Matrix @S unMM
-  , prop_matmul @(Conj Matrix) @Matrix @D unMM
-  , prop_matmul @(Conj Matrix) @Matrix @C unMM
-  , prop_matmul @(Conj Matrix) @Matrix @Z unMM
+  , prop_matmul @Matrix        @Matrix @S
+  , prop_matmul @Matrix        @Matrix @D
+  , prop_matmul @Matrix        @Matrix @C
+  , prop_matmul @Matrix        @Matrix @Z
+  , prop_matmul @(Tr Matrix)   @Matrix @S
+  , prop_matmul @(Tr Matrix)   @Matrix @D
+  , prop_matmul @(Tr Matrix)   @Matrix @C
+  , prop_matmul @(Tr Matrix)   @Matrix @Z
+  , prop_matmul @(Conj Matrix) @Matrix @S
+  , prop_matmul @(Conj Matrix) @Matrix @D
+  , prop_matmul @(Conj Matrix) @Matrix @C
+  , prop_matmul @(Conj Matrix) @Matrix @Z
     -- 2.
-  , prop_matmul @Matrix        @(Tr Matrix) @S unMM
-  , prop_matmul @Matrix        @(Tr Matrix) @D unMM
-  , prop_matmul @Matrix        @(Tr Matrix) @C unMM
-  , prop_matmul @Matrix        @(Tr Matrix) @Z unMM
-  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @S unMM
-  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @D unMM
-  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @C unMM
-  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @Z unMM
-  , prop_matmul @(Conj Matrix) @(Tr Matrix) @S unMM
-  , prop_matmul @(Conj Matrix) @(Tr Matrix) @D unMM
-  , prop_matmul @(Conj Matrix) @(Tr Matrix) @C unMM
-  , prop_matmul @(Conj Matrix) @(Tr Matrix) @Z unMM
+  , prop_matmul @Matrix        @(Tr Matrix) @S
+  , prop_matmul @Matrix        @(Tr Matrix) @D
+  , prop_matmul @Matrix        @(Tr Matrix) @C
+  , prop_matmul @Matrix        @(Tr Matrix) @Z
+  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @S
+  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @D
+  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @C
+  , prop_matmul @(Tr Matrix)   @(Tr Matrix) @Z
+  , prop_matmul @(Conj Matrix) @(Tr Matrix) @S
+  , prop_matmul @(Conj Matrix) @(Tr Matrix) @D
+  , prop_matmul @(Conj Matrix) @(Tr Matrix) @C
+  , prop_matmul @(Conj Matrix) @(Tr Matrix) @Z
     -- 3.
-  , prop_matmul @Matrix        @(Conj Matrix) @S unMM
-  , prop_matmul @Matrix        @(Conj Matrix) @D unMM
-  , prop_matmul @Matrix        @(Conj Matrix) @C unMM
-  , prop_matmul @Matrix        @(Conj Matrix) @Z unMM
-  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @S unMM
-  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @D unMM
-  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @C unMM
-  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @Z unMM
-  , prop_matmul @(Conj Matrix) @(Conj Matrix) @S unMM
-  , prop_matmul @(Conj Matrix) @(Conj Matrix) @D unMM
-  , prop_matmul @(Conj Matrix) @(Conj Matrix) @C unMM
-  , prop_matmul @(Conj Matrix) @(Conj Matrix) @Z unMM
+  , prop_matmul @Matrix        @(Conj Matrix) @S
+  , prop_matmul @Matrix        @(Conj Matrix) @D
+  , prop_matmul @Matrix        @(Conj Matrix) @C
+  , prop_matmul @Matrix        @(Conj Matrix) @Z
+  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @S
+  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @D
+  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @C
+  , prop_matmul @(Tr Matrix)   @(Conj Matrix) @Z
+  , prop_matmul @(Conj Matrix) @(Conj Matrix) @S
+  , prop_matmul @(Conj Matrix) @(Conj Matrix) @D
+  , prop_matmul @(Conj Matrix) @(Conj Matrix) @C
+  , prop_matmul @(Conj Matrix) @(Conj Matrix) @Z
+    -- Symmetric-dense
+  , prop_matmul @Matrix    @Symmetric @S
+  , prop_matmul @Matrix    @Symmetric @D
+  , prop_matmul @Matrix    @Symmetric @C
+  , prop_matmul @Matrix    @Symmetric @Z
+  , prop_matmul @Symmetric @Matrix    @S
+  , prop_matmul @Symmetric @Matrix    @D
+  , prop_matmul @Symmetric @Matrix    @C
+  , prop_matmul @Symmetric @Matrix    @Z
+  , prop_matmul @Symmetric @Symmetric @S
+  , prop_matmul @Symmetric @Symmetric @D
+  , prop_matmul @Symmetric @Symmetric @C
+  , prop_matmul @Symmetric @Symmetric @Z
   ]
 
 -- Test for generalized matrix-vector multiplication.
 prop_matmul
-  :: forall v1 v2 a vR p.
+  :: forall v1 v2 a vR.
      ( TestMatrix1 v1 a, TestMatrix1 v2 a, TestMatrix1 vR a
      , MatMul (Model1M v1 a) (Model1M v2 a) (Model1M vR a)
      , MatMul (v1 a)         (v2 a)         (vR a)
      , Typeable v1, Typeable v2, Typeable a
-     , Eq (vR a), Show (vR a), Show (Model1M vR a), Show p, Arbitrary p
+     , Eq   (vR a)
+     , Show (vR a)
+     , Show (Model1M v1 a)
+     , Show (Model1M v2 a)
+     , Show (Model1M vR a)
+     , ArbitraryShape (Model1M v1) a
+     , ArbitraryShape (Model1M v2) a
      )
-  => (p -> (Model1M v1 a, Model1M v2 a))
-  -> TestTree
-prop_matmul to_pair
+  => TestTree
+prop_matmul
   = testProperty (qualTypeName @v1 ++ " x " ++ qualTypeName @v2 ++ " / " ++ qualTypeName @a)
-  $ \(to_pair -> (m1, m2)) ->
+  $ \(MM (m1 :: Model1M v1 a) (m2 :: Model1M v2 a)) ->
       let v1 = liftUnmodel TagMat id m1 :: v1 a
           v2 = liftUnmodel TagMat id m2 :: v2 a
           m  = m1 @@ m2
@@ -125,52 +142,14 @@ prop_matmul to_pair
 
 
 -- | Generate matrices with correct size for multiplication
-newtype MM a b = MM { unMM :: (a,b) }
+data MM a b = MM a b
 
 instance (Show a, Show b) => Show (MM a b) where
-  show (MM (a,b)) = show a ++ "\n" ++ show b
+  show (MM a b) = show a ++ "\n" ++ show b
 
-instance ( Rank m1 ~ 2
-         , Rank m2 ~ 2
-         , CreationRank m1 ~ 2
-         , CreationRank m2 ~ 2
-         , ArbitraryShape m1 a
+instance ( ArbitraryShape m1 a
          , ArbitraryShape m2 a
          ) => Arbitrary (MM (m1 a) (m2 a)) where
   arbitrary = do
-    (n,k,m) <- genSize
-    MM <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape (k,m))
-
--- | Generate matrix and vector with correct size for multiplication
-newtype MV a b = MV { unMV :: (a,b) }
-
-instance (Show a, Show b) => Show (MV a b) where
-  show (MV (a,b)) = show a ++ "\n" ++ show b
-
-instance ( Rank m ~ 2
-         , Rank v ~ 1
-         , CreationRank m ~ 2
-         , CreationRank v ~ 1
-         , ArbitraryShape m a
-         , ArbitraryShape v a
-         ) => Arbitrary (MV (m a) (v a)) where
-  arbitrary = do
-    (n,k) <- genSize
-    MV <$> ((,) <$> arbitraryShape (n,k) <*> arbitraryShape k)
-
--- | Generate matrix and vector with correct size for multiplication
-newtype MV1 a b = MV1 { unMV1 :: (a,b) }
-
-instance (Show a, Show b) => Show (MV1 a b) where
-  show (MV1 (a,b)) = show a ++ "\n" ++ show b
-
-instance ( Rank m ~ 2
-         , Rank v ~ 1
-         , CreationRank m ~ 1
-         , CreationRank v ~ 1
-         , ArbitraryShape m a
-         , ArbitraryShape v a
-         ) => Arbitrary (MV1 (m a) (v a)) where
-  arbitrary = do
-    n <- genSize @Int
-    MV1 <$> ((,) <$> arbitraryShape n <*> arbitraryShape n)
+    k <- genSize
+    MM <$> arbitraryNCols k <*> arbitraryNRows k

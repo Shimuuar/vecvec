@@ -37,6 +37,8 @@ Library
     Vecvec.LAPACK.Vector.Mutable
     Vecvec.LAPACK.Matrix.Dense
     Vecvec.LAPACK.Matrix.Dense.Mutable
+    Vecvec.LAPACK.Matrix.Symmetric
+    Vecvec.LAPACK.Matrix.Symmetric.Mutable
     Vecvec.LAPACK.LinAlg
     Vecvec.LAPACK.Utils
     --
