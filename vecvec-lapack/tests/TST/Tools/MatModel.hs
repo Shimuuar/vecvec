@@ -140,7 +140,13 @@ instance SmallScalar a => Arbitrary (X a) where
 class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
   type CreationRank arr :: Nat
   type CreationRank arr = Rank arr
+  -- | Generate array with given shape
   arbitraryShape :: (IsShape shape (CreationRank arr)) => shape -> Gen (arr a)
+  -- | Generate matrix with given number of columns
+  arbitraryNCols :: Int -> Gen (arr a)
+  -- | Generate matrix with given number of rows
+  arbitraryNRows :: Int -> Gen (arr a)
+
 
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
@@ -551,6 +557,8 @@ instance ( Rank arr ~ 2
          ) => ArbitraryShape (Tr arr) a where
   type CreationRank (Tr arr) = CreationRank arr
   arbitraryShape = fmap Tr . arbitraryShape . transposeShape . shapeToCVec
+  arbitraryNCols = fmap Tr . arbitraryNRows
+  arbitraryNRows = fmap Tr . arbitraryNCols
 
 instance ( Rank arr ~ 2
          , TransposeShape (CreationRank arr)
@@ -558,6 +566,9 @@ instance ( Rank arr ~ 2
          ) => ArbitraryShape (Conj arr) a where
   type CreationRank (Conj arr) = CreationRank arr
   arbitraryShape = fmap Conj . arbitraryShape . transposeShape . shapeToCVec
+  arbitraryNCols = fmap Conj . arbitraryNRows
+  arbitraryNRows = fmap Conj . arbitraryNCols
+
 
 
 
@@ -580,6 +591,10 @@ instance (SmallScalar a) => ArbitraryShape ModelMat a where
     <$> genOffset
     <*> genOffset
     <*> replicateM m (replicateM n genScalar)
+  arbitraryNRows n = do k <- genSize
+                        arbitraryShape (n,k)
+  arbitraryNCols k = do n <- genSize
+                        arbitraryShape (n,k)
 
 instance (SmallScalar a) => Arbitrary (ModelSym a) where
   arbitrary = arbitraryShape =<< genSize @Int
@@ -592,6 +607,8 @@ instance (SmallScalar a) => ArbitraryShape ModelSym a where
    <*> sequence [ sequence [genScalar | _ <- [i .. n-1]]
                 | i <- [0 .. n-1]
                 ]
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = arbitraryShape
 
 instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
@@ -599,8 +616,9 @@ instance (SmallScalar a, Storable a, Num a
 
 instance (SmallScalar a, Storable a, Num a
          ) => ArbitraryShape Matrix a where
-  arbitraryShape sz = fromModel <$> arbitraryShape sz
-
+  arbitraryShape = fmap fromModel . arbitraryShape
+  arbitraryNCols = fmap fromModel . arbitraryNCols
+  arbitraryNRows = fmap fromModel . arbitraryNRows
 
 ----------------------------------------
 -- Vectors
@@ -615,7 +633,8 @@ instance SmallScalar a => Arbitrary (ModelVec a) where
 
 instance SmallScalar a => ArbitraryShape ModelVec a where
   arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
-
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = error "arbitraryNCols is not defined for ModelVec"
 
 
 ----------------------------------------
