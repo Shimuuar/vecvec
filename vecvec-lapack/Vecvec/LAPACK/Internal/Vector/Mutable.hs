@@ -293,7 +293,7 @@ clone vecIn
        unsafeWithForeignPtr fp $ \p -> do
          vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
          unsafeWithForeignPtr fp' $ \p' -> do
-           C.copy (fromIntegral len) p (fromIntegral inc) p' (fromIntegral inc')
+           C.copy (C.toB len) p (C.toB inc) p' (C.toB inc')
          return $ coerce vecOut
 
 
@@ -323,8 +323,8 @@ unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = unsafePrimToPrim $ do
   VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
-       C.axpy (fromIntegral lenX) a pX (fromIntegral incX)
-                                    pY (fromIntegral incY)
+       C.axpy (C.toB lenX) a pX (C.toB incX)
+                             pY (C.toB incY)
 
 -- | Multiply vector by scalar in place
 --
@@ -337,7 +337,7 @@ blasScal
 blasScal a (MVec (VecRepr lenX incX fpX))
   = unsafePrimToPrim
   $ unsafeWithForeignPtr fpX $ \pX ->
-    C.scal (fromIntegral lenX) a pX (fromIntegral incX)
+    C.scal (C.toB lenX) a pX (C.toB incX)
 
 
 
@@ -367,7 +367,7 @@ unsafeBlasDotu vecX vecY = unsafePrimToPrim $ do
   VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
-       C.dot (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+       C.dot (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute scalar product of two vectors. First vector is complex
 --   conjugated. See 'blasDotc' for variant without conjugation.
@@ -395,7 +395,7 @@ unsafeBlasDotc vecX vecY = unsafePrimToPrim $ do
   VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
   id $ unsafeWithForeignPtr fpX $ \pX ->
        unsafeWithForeignPtr fpY $ \pY ->
-       C.dotc (fromIntegral lenX) pX (fromIntegral incX) pY (fromIntegral incY)
+       C.dotc (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute euclidean norm or vector:
 --
@@ -408,4 +408,4 @@ blasNrm2 vec
   = unsafePrimToPrim
   $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vec
        unsafeWithForeignPtr fpX $ \pX ->
-         C.nrm2 (fromIntegral lenX) pX (fromIntegral incX)
+         C.nrm2 (C.toB lenX) pX (C.toB incX)

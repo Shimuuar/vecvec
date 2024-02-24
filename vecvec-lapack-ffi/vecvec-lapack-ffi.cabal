@@ -14,6 +14,7 @@ Category:       Data
 Build-Type:     Simple
 extra-source-files:
   ChangeLog.md
+  cbits/blastest.c
 
 source-repository head
   type:     git
@@ -22,6 +23,7 @@ source-repository head
 Library
   Ghc-options:          -Wall
   Default-Language:     Haskell2010
+  c-sources:            cbits/blastest.c
   Build-Depends:        base             >=4.12 && <5
                       , primitive        >=0.7
                       , vecvec-classes
