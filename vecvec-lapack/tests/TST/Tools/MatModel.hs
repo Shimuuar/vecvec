@@ -475,7 +475,8 @@ instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 
-instance (NormedScalar a) => MatMul (ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Tr ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
@@ -520,20 +521,44 @@ instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
 -- Orphans & Arbitrary
 ----------------------------------------------------------------
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+class FC.Arity n => TransposeShape n where
+  transposeShape :: FC.ContVec n a -> FC.ContVec n a
+
+instance TransposeShape 1 where
+  transposeShape = id
+  {-# INLINE transposeShape #-}
+instance TransposeShape 2 where
+  transposeShape (FC.ContVec cont) = FC.ContVec $ \(FC.Fun f) -> cont (FC.Fun $ flip f)
+  {-# INLINE transposeShape #-}
+
+
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => Arbitrary (Tr arr a) where
-  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => Arbitrary (Conj arr a) where
-  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a) => ArbitraryShape (Tr arr) a where
-  arbitraryShape (N2 n k) = Tr <$> arbitraryShape (k,n)
 
-instance (Rank arr ~ 2, CreationRank arr ~ 2, ArbitraryShape arr a
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
+         ) => ArbitraryShape (Tr arr) a where
+  type CreationRank (Tr arr) = CreationRank arr
+  arbitraryShape = fmap Tr . arbitraryShape . transposeShape . shapeToCVec
+
+instance ( Rank arr ~ 2
+         , TransposeShape (CreationRank arr)
+         , ArbitraryShape arr a
          ) => ArbitraryShape (Conj arr) a where
-  arbitraryShape (N2 n k) = Conj <$> arbitraryShape (k,n)
+  type CreationRank (Conj arr) = CreationRank arr
+  arbitraryShape = fmap Conj . arbitraryShape . transposeShape . shapeToCVec
+
 
 
 ----------------------------------------

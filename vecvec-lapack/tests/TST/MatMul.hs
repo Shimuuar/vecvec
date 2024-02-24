@@ -54,10 +54,10 @@ tests = testGroup "MatMul"
   , prop_matmul @Symmetric        @VV.Vec @D unMV1
   , prop_matmul @Symmetric        @VV.Vec @C unMV1
   , prop_matmul @Symmetric        @VV.Vec @Z unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @S unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @D unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @C unMV1
-  -- , prop_matmul @(Tr Symmetric)   @VV.Vec @Z unMV1
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @S unMV1
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @D unMV1
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @C unMV1
+  , prop_matmul @(Tr Symmetric)   @VV.Vec @Z unMV1
     -- Matrix-matrix
     -- 1.
   , prop_matmul @Matrix        @Matrix @S unMM
