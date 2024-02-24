@@ -484,6 +484,10 @@ instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul (   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 instance (NormedScalar a) => MatMul (Tr ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
+instance (NormedScalar a) => MatMul (ModelSym a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelMat a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelSym a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
+
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
 defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)

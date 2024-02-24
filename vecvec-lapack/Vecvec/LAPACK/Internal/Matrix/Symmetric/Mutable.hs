@@ -2,11 +2,13 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE OverloadedRecordDot        #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -33,12 +35,13 @@ module Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
   , replicateM
   , generate
   , generateM
-    -- ** Conversion
-  -- , toDense
     -- * Unsafe functions
   , unsafeCast
+  , unsafeToDense
+    -- ** BLAS wrappers
   , unsafeBlasSymv
-    -- * Internals
+  , unsafeBlasSymmL
+  , unsafeBlasSymmR
   ) where
 
 import Control.Monad.Primitive
@@ -59,6 +62,7 @@ import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable       hiding (clone)
 import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as MMat
+import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable (MMatrix(..), MView(..), AsMInput(..))
 import Vecvec.LAPACK.FFI                           qualified as C
 
 
@@ -100,6 +104,7 @@ instance s ~ s' => AsSymInput s (MSymmetric s') where
   {-# INLINE asSymInput #-}
   asSymInput = coerce
 
+
 ----------------------------------------------------------------
 --
 ----------------------------------------------------------------
@@ -128,21 +133,21 @@ unsafeCast :: MSymmetric s a -> MSymmetric s' a
 unsafeCast = coerce
 {-# INLINE unsafeCast #-}
 
--- -- | Convert matrix to dense matrix. Resulting matrix will share
--- --   underlying buffer with symmetric matrix. All function that modify
--- --   symmetric matrix will only element on diagonal and above unless
--- --   noted otherwise.
--- toDense
---   :: forall a m s. (Storable a, PrimMonad m, s ~ PrimState m)
---   => MSymmetric s a -> m (MMat.MMatrix s a)
--- toDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
---   internalSymmetrize view
---   pure $ MMat.unsafeCast $ MMat.MMatrix MMat.MView
---     { nrows      = size
---     , ncols      = size
---     , leadingDim = leadingDim
---     , buffer     = buffer
---     }
+-- | Convert matrix to dense matrix. Resulting matrix will share
+--   underlying buffer with symmetric matrix. All function that modify
+--   symmetric matrix will only element on diagonal and above unless
+--   noted otherwise.
+unsafeToDense
+  :: forall a m s. (Storable a, PrimMonad m, s ~ PrimState m)
+  => MSymmetric s a -> m (MMatrix s a)
+unsafeToDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
+  symmetrizeMSymView view
+  pure $ MMat.unsafeCast $ MMatrix MView
+    { nrows      = size
+    , ncols      = size
+    , leadingDim = leadingDim
+    , buffer     = buffer
+    }
 
 
  
@@ -324,7 +329,7 @@ generateM n action = do
 -- BLAS wrappers
 ----------------------------------------------------------------
 
--- | General matrix-vector multiplication
+-- | matrix-vector multiplication by symmetric matrix
 --
 -- > y := αAx + βy
 unsafeBlasSymv
@@ -346,3 +351,55 @@ unsafeBlasSymv α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY 
                 (fromIntegral size) α p_A (fromIntegral leadingDim)
                 p_x (fromIntegral incX)
                 β p_y (fromIntegral incY)
+
+-- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the left
+--
+-- > C := αAB + βC
+unsafeBlasSymmL
+  :: forall a m matA matB s.
+     ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
+     , AsSymInput s matA, AsMInput s matB
+     )
+  => a               -- ^ Scalar @α@
+  -> matA a          -- ^ Matrix @A@
+  -> matB a          -- ^ Matrix @a@
+  -> a               -- ^ Scalar @β@
+  -> MMatrix s a     -- ^ Vector @y@
+  -> m ()
+{-# INLINE unsafeBlasSymmL #-}
+unsafeBlasSymmL α (asSymInput @s -> matA) (asMInput @s -> matB) β (asMInput @s -> matC)
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr matA.buffer $ \p_A ->
+    unsafeWithForeignPtr matB.buffer $ \p_B ->
+    unsafeWithForeignPtr matC.buffer $ \p_C -> do
+      C.symm C.RowMajor C.LeftSide C.UP
+        (fromIntegral matC.nrows) (fromIntegral matC.ncols)
+        α p_A (fromIntegral matA.leadingDim)
+          p_B (fromIntegral matB.leadingDim)
+        β p_C (fromIntegral matC.leadingDim)
+
+-- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the right
+--
+-- > C := αBA + βC
+unsafeBlasSymmR
+  :: forall a m matA matB s.
+     ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
+     , AsSymInput s matA, AsMInput s matB
+     )
+  => a               -- ^ Scalar @α@
+  -> matB a          -- ^ Matrix @a@
+  -> matA a          -- ^ Matrix @A@
+  -> a               -- ^ Scalar @β@
+  -> MMatrix s a     -- ^ Vector @y@
+  -> m ()
+{-# INLINE unsafeBlasSymmR #-}
+unsafeBlasSymmR α (asMInput @s -> matB) (asSymInput @s -> matA) β (asMInput @s -> matC)
+  = unsafePrimToPrim
+  $ unsafeWithForeignPtr matA.buffer $ \p_A ->
+    unsafeWithForeignPtr matB.buffer $ \p_B ->
+    unsafeWithForeignPtr matC.buffer $ \p_C -> do
+      C.symm C.RowMajor C.RightSide C.UP
+        (fromIntegral matC.nrows) (fromIntegral matC.ncols)
+        α p_A (fromIntegral matA.leadingDim)
+          p_B (fromIntegral matB.leadingDim)
+        β p_C (fromIntegral matC.leadingDim)

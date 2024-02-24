@@ -97,6 +97,19 @@ tests = testGroup "MatMul"
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @D
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @C
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @Z
+    -- Symmetric-dense
+  , prop_matmul @Matrix    @Symmetric @S
+  , prop_matmul @Matrix    @Symmetric @D
+  , prop_matmul @Matrix    @Symmetric @C
+  , prop_matmul @Matrix    @Symmetric @Z
+  , prop_matmul @Symmetric @Matrix    @S
+  , prop_matmul @Symmetric @Matrix    @D
+  , prop_matmul @Symmetric @Matrix    @C
+  , prop_matmul @Symmetric @Matrix    @Z
+  , prop_matmul @Symmetric @Symmetric @S
+  , prop_matmul @Symmetric @Symmetric @D
+  , prop_matmul @Symmetric @Symmetric @C
+  , prop_matmul @Symmetric @Symmetric @Z
   ]
 
 -- Test for generalized matrix-vector multiplication.
