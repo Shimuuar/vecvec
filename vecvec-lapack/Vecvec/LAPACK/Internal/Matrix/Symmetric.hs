@@ -233,7 +233,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Vec a') (Vec a) where
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
     vecY <- MVG.new (nRows mat)
-    MSym.unsafeBlasSymv C.NoTrans 1 mat vecX 0 vecY
+    MSym.unsafeBlasSymv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
 instance (C.LAPACKy a, a ~ a') => MatMul (Tr Symmetric a) (Vec a') (Vec a) where

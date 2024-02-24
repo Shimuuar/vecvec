@@ -39,7 +39,6 @@ module Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
   , unsafeCast
   , unsafeBlasSymv
     -- * Internals
-
   ) where
 
 import Control.Monad.Primitive
@@ -330,15 +329,14 @@ generateM n action = do
 -- > y := αAx + βy
 unsafeBlasSymv
   :: forall a m mat vec s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsSymInput s mat, AsInput s vec)
-  => C.MatrixTranspose -- ^ Matrix transformation
-  -> a               -- ^ Scalar @α@
+  => a               -- ^ Scalar @α@
   -> mat a           -- ^ Matrix @A@
   -> vec a           -- ^ Vector @x@
   -> a               -- ^ Scalar @β@
   -> MVec s a        -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasSymv #-}
-unsafeBlasSymv tr α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY fpY))
+unsafeBlasSymv α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY fpY))
   = unsafePrimToPrim
   $ do VecRepr _lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
        id $ unsafeWithForeignPtr buffer $ \p_A ->
