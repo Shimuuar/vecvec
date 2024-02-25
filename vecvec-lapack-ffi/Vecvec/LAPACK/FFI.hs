@@ -18,6 +18,10 @@ module Vecvec.LAPACK.FFI
   , D
   , C
   , Z
+  , BLASInt(..)
+  , toB
+  , LAPACKInt(..)
+  , toL
     -- * Enumeration wrappers
   , CEnum(..)
   , MatrixLayout(..)
@@ -39,6 +43,21 @@ import Vecvec.Classes           (NormedScalar(..))
 -- is slightly faster while capi allows to check
 #define CCALL capi
 
+-- | Integer type used by BLAS
+newtype BLASInt = BLASInt CInt
+  deriving newtype Storable
+
+-- | Integer type used by LAPACK
+newtype LAPACKInt = LAPACKInt CInt
+  deriving newtype Storable
+
+-- FIXME: We should really trap overflows. But...
+
+toB :: Int -> BLASInt
+toB = BLASInt . fromIntegral
+
+toL :: Int -> LAPACKInt
+toL = LAPACKInt . fromIntegral
 
 ----------------------------------------------------------------
 -- Type synonyms
@@ -49,7 +68,7 @@ type D = Double
 type C = Complex Float
 type Z = Complex Double
 
-type ARR a r = Ptr a -> CInt -> r
+type ARR a r = Ptr a -> BLASInt -> r
 
 ----------------------------------------------------------------
 -- Enumerations
@@ -155,36 +174,36 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- | Computes a vector-scalar product and adds the result to a vector.
   --
   -- > y := a*x + y
-  axpy :: CInt      -- ^ Number of elements
+  axpy :: BLASInt   -- ^ Number of elements
        -> a         -- ^ Scalar @a@
        -> Ptr a     -- ^ [in] array @x@
-       -> CInt      -- ^ increment for elements of @x@
+       -> BLASInt   -- ^ increment for elements of @x@
        -> Ptr a     -- ^ [in,out] array @y@
-       -> CInt      -- ^ increment for elements of @y@
+       -> BLASInt   -- ^ increment for elements of @y@
        -> IO ()
 
-  copy :: CInt
-       -> Ptr a -> CInt -- ^ Source vector
-       -> Ptr a -> CInt -- ^ Target vector
+  copy :: BLASInt
+       -> Ptr a -> BLASInt -- ^ Source vector
+       -> Ptr a -> BLASInt -- ^ Target vector
        -> IO ()
 
-  scal :: CInt
-       -> a             -- ^ Constant to scale vector
-       -> Ptr a -> CInt -- ^ Vector to modify
+  scal :: BLASInt
+       -> a                -- ^ Constant to scale vector
+       -> Ptr a -> BLASInt -- ^ Vector to modify
        -> IO ()
 
-  dot  :: CInt
-       -> Ptr a -> CInt
-       -> Ptr a -> CInt
+  dot  :: BLASInt
+       -> Ptr a -> BLASInt
+       -> Ptr a -> BLASInt
        -> IO a
 
-  dotc :: CInt
-       -> Ptr a -> CInt
-       -> Ptr a -> CInt
+  dotc :: BLASInt
+       -> Ptr a -> BLASInt
+       -> Ptr a -> BLASInt
        -> IO a
 
-  nrm2 :: CInt
-       -> Ptr a -> CInt
+  nrm2 :: BLASInt
+       -> Ptr a -> BLASInt
        -> IO (R a)
 
   -- | Matrix-vector multiplication. Compute one of:
@@ -195,16 +214,16 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   gemv
     :: MatrixLayout    -- ^ Matrix layout
     -> MatrixTranspose -- ^ Whether matrix should be transposed
-    -> CInt            -- ^ Number of rows
-    -> CInt            -- ^ Number of columns
+    -> BLASInt         -- ^ Number of rows
+    -> BLASInt         -- ^ Number of columns
     -> a               -- ^ Scalar @α@
     -> Ptr a           -- ^ Pointer to matrix data @A@
-    -> CInt            -- ^ Leading dimension size
+    -> BLASInt         -- ^ Leading dimension size
     -> Ptr a           -- ^ Buffer for vector @x@
-    -> CInt            -- ^ Stride of vector @x@
+    -> BLASInt         -- ^ Stride of vector @x@
     -> a               -- ^ Scalar β
     -> Ptr a           -- ^ Buffer for vector @y@
-    -> CInt            -- ^ Stride for vector @y@
+    -> BLASInt         -- ^ Stride for vector @y@
     -> IO ()
 
   -- | Symmetric-vector multiplication. Compute one of:
@@ -213,15 +232,15 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   symv
     :: MatrixLayout -- ^ Matrix layout
     -> UpLo         -- ^ Whether upper or lower part of matrix should be referenced
-    -> CInt         -- ^ Size of matrix
+    -> BLASInt      -- ^ Size of matrix
     -> a            -- ^ Scalar @α@
     -> Ptr a        -- ^ Pointer to matrix data @A@
-    -> CInt         -- ^ Leading dimension size
+    -> BLASInt      -- ^ Leading dimension size
     -> Ptr a        -- ^ Buffer for vector @x@
-    -> CInt         -- ^ Stride of vector @x@
+    -> BLASInt      -- ^ Stride of vector @x@
     -> a            -- ^ Scalar β
     -> Ptr a        -- ^ Buffer for vector @y@
-    -> CInt         -- ^ Stride for vector @y@
+    -> BLASInt      -- ^ Stride for vector @y@
     -> IO ()
 
 
@@ -236,17 +255,17 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     :: MatrixLayout    -- ^ Matrix layout
     -> MatrixTranspose -- ^ Operation applied to matrix @A@
     -> MatrixTranspose -- ^ Operation applied to matrix @B@
-    -> CInt            -- ^ @m@ — number of rows in A and C
-    -> CInt            -- ^ @n@ — number of columns in B and C
-    -> CInt            -- ^ @k@ — number of columns in A and rows in B
+    -> BLASInt         -- ^ @m@ — number of rows in A and C
+    -> BLASInt         -- ^ @n@ — number of columns in B and C
+    -> BLASInt         -- ^ @k@ — number of columns in A and rows in B
     -> a               -- ^ Scalar @α@
     -> Ptr a           -- ^ Buffer for matrix @A@
-    -> CInt            -- ^ Leading dimension for @A@
+    -> BLASInt         -- ^ Leading dimension for @A@
     -> Ptr a           -- ^ Buffer for matrix @B@
-    -> CInt            -- ^ Leading dimension for @B@
+    -> BLASInt         -- ^ Leading dimension for @B@
     -> a               -- ^ Scalar @β@
     -> Ptr a           -- ^ Buffer for matrix @C@
-    -> CInt            -- ^ Leading dimension for @C@
+    -> BLASInt         -- ^ Leading dimension for @C@
     -> IO ()
 
   -- | Multiplication of symmetric and general matrix. It evaluates one of:
@@ -260,16 +279,16 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     :: MatrixLayout -- ^ Layout of matrix
     -> Side         -- ^ On which side symmetric matrix go
     -> UpLo         -- ^ Which part of symmetric matrix is referenced
-    -> CInt         -- ^ @M@ number of rows of matrix @C@
-    -> CInt         -- ^ @N@ number of columns of matrix @C@
+    -> BLASInt      -- ^ @M@ number of rows of matrix @C@
+    -> BLASInt      -- ^ @N@ number of columns of matrix @C@
     -> a            -- ^ @α@ constant
     -> Ptr a        -- ^ Buffer for matrix @A@
-    -> CInt         -- ^ Leading dimension for @A@
+    -> BLASInt      -- ^ Leading dimension for @A@
     -> Ptr a        -- ^ Buffer for matrix @B@
-    -> CInt         -- ^ Leading dimension for @B@
+    -> BLASInt      -- ^ Leading dimension for @B@
     -> a            -- ^ @β@ constant
     -> Ptr a        -- ^ Buffer for matrix @C@
-    -> CInt         -- ^ Leading dimension for @C@
+    -> BLASInt      -- ^ Leading dimension for @C@
     -> IO ()
 
   -- | LAPACK driver routine for computing SVD decomposition
@@ -277,16 +296,16 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   gesdd
     :: CRepr MatrixLayout -- ^ Matrix layout
     -> CChar              -- ^ Job variant
-    -> CInt               -- ^ @m@ number of rows of @A@
-    -> CInt               -- ^ @n@ number of columns of @A@
+    -> LAPACKInt          -- ^ @m@ number of rows of @A@
+    -> LAPACKInt          -- ^ @n@ number of columns of @A@
     -> Ptr a              -- ^ Matrix @A@
-    -> CInt               -- ^ Leading dimension size of @A@
+    -> LAPACKInt          -- ^ Leading dimension size of @A@
     -> Ptr (R a)          -- ^ Vector of singular values @min(m,n)@
     -> Ptr a              -- ^ Buffer for matrix @U@
-    -> CInt               -- ^ Leading dimension size of @U@
+    -> LAPACKInt          -- ^ Leading dimension size of @U@
     -> Ptr a              -- ^ Buffer for matrix @tr(V)@
-    -> CInt               -- ^ Leading dimension of @tr(V)@
-    -> IO CInt
+    -> LAPACKInt          -- ^ Leading dimension of @tr(V)@
+    -> IO LAPACKInt
 
   -- | Solve linear system \(Ax=B\) where B could have multiple right
   -- sides where A is square matrix of dimension @N×N@
@@ -298,30 +317,30 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- equations A * X = B.
   gesv
     :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CInt               -- ^ Size of square matrix A
-    -> CInt               -- ^ Number of right sides
+    -> LAPACKInt          -- ^ Size of square matrix A
+    -> LAPACKInt          -- ^ Number of right sides
     -> Ptr a              -- ^ Buffer of @A@. Upon exit factor @L@ and
                           --   @U@ are stored there.
-    -> CInt               -- ^ Leading dimension size of @A@
-    -> Ptr CInt           -- ^ Integer array of size @N@. Upon exit
+    -> LAPACKInt          -- ^ Leading dimension size of @A@
+    -> Ptr LAPACKInt      -- ^ Integer array of size @N@. Upon exit
                           --   contains pivot indices that define the
                           --   permutation matrix P; row i of the matrix
                           --   was interchanged with row IPIV[i].
     -> Ptr a              -- ^ Right side of equations @B@. On exit
                           --   contains solutions to equation
-    -> CInt               -- ^ Leading dimension size of @B@
-    -> IO CInt
+    -> LAPACKInt          -- ^ Leading dimension size of @B@
+    -> IO LAPACKInt
   -- NOTE: *getrs solves using transposition/conjugation
 
   -- | Compute inverse of square matrix @A@ using the LU factorization
   --   computed by 'getrf' routine.
   getri
     :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CInt               -- ^ Matrix size @N@
+    -> LAPACKInt          -- ^ Matrix size @N@
     -> Ptr a              -- ^ LU decomposition of @A@ matrix.
-    -> CInt               -- ^ Leading dimension of @A@
-    -> Ptr CInt           -- ^ Buffer of length @N@ for permutation matrix
-    -> IO CInt
+    -> LAPACKInt          -- ^ Leading dimension of @A@
+    -> Ptr LAPACKInt      -- ^ Buffer of length @N@ for permutation matrix
+    -> IO LAPACKInt
 
   -- | Compute LU factorization of a general M-by-N matrix A using
   --   partial pivoting with row interchanges. The factorization has
@@ -334,14 +353,14 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- triangular (upper trapezoidal if m < n).
   getrf
     :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CInt               -- ^ @M@: Number of rows of matrix @A@
-    -> CInt               -- ^ @N@: Number of columns of matrix @A@
+    -> LAPACKInt          -- ^ @M@: Number of rows of matrix @A@
+    -> LAPACKInt          -- ^ @N@: Number of columns of matrix @A@
     -> Ptr a              -- ^ Matrix @A@. Overwritten with factors @L@ and @U@.
-    -> CInt               -- ^ Leading dimension of @A@
-    -> Ptr CInt           -- ^ Integer array @IPIV@, dimension
+    -> LAPACKInt          -- ^ Leading dimension of @A@
+    -> Ptr LAPACKInt      -- ^ Integer array @IPIV@, dimension
                           --   @min(M,N)@. Row i of the matrix was
                           --   interchanged with row IPIV(i).
-    -> IO CInt
+    -> IO LAPACKInt
 
 
 instance LAPACKy Float where
@@ -538,72 +557,72 @@ instance LAPACKy (Complex Double) where
 -- BLAS FFI
 ----------------------------------------------------------------
 
-foreign import CCALL unsafe "cblas.h cblas_saxpy" s_axpy :: CInt -> S     -> ARR S (ARR S (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_daxpy" d_axpy :: CInt -> D     -> ARR D (ARR D (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_caxpy" c_axpy :: CInt -> Ptr C -> ARR C (ARR C (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zaxpy" z_axpy :: CInt -> Ptr Z -> ARR Z (ARR Z (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_saxpy" s_axpy :: BLASInt -> S     -> ARR S (ARR S (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_daxpy" d_axpy :: BLASInt -> D     -> ARR D (ARR D (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_caxpy" c_axpy :: BLASInt -> Ptr C -> ARR C (ARR C (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zaxpy" z_axpy :: BLASInt -> Ptr Z -> ARR Z (ARR Z (IO ()))
 
-foreign import CCALL unsafe "cblas.h cblas_scopy" s_copy :: CInt -> ARR S (ARR S (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_dcopy" d_copy :: CInt -> ARR D (ARR D (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_ccopy" c_copy :: CInt -> ARR C (ARR C (IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zcopy" z_copy :: CInt -> ARR Z (ARR Z (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_scopy" s_copy :: BLASInt -> ARR S (ARR S (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_dcopy" d_copy :: BLASInt -> ARR D (ARR D (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_ccopy" c_copy :: BLASInt -> ARR C (ARR C (IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zcopy" z_copy :: BLASInt -> ARR Z (ARR Z (IO ()))
 
-foreign import CCALL unsafe "cblas.h cblas_sscal" s_scal :: CInt -> S     -> ARR S (IO ())
-foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: CInt -> D     -> ARR D (IO ())
-foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: CInt -> Ptr C -> ARR C (IO ())
-foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: CInt -> Ptr Z -> ARR Z (IO ())
+foreign import CCALL unsafe "cblas.h cblas_sscal" s_scal :: BLASInt -> S     -> ARR S (IO ())
+foreign import CCALL unsafe "cblas.h cblas_dscal" d_scal :: BLASInt -> D     -> ARR D (IO ())
+foreign import CCALL unsafe "cblas.h cblas_cscal" c_scal :: BLASInt -> Ptr C -> ARR C (IO ())
+foreign import CCALL unsafe "cblas.h cblas_zscal" z_scal :: BLASInt -> Ptr Z -> ARR Z (IO ())
 
-foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot  :: CInt -> ARR S (ARR S (IO S))
-foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot  :: CInt -> ARR D (ARR D (IO D))
-foreign import CCALL unsafe "cblas.h cblas_cdotu_sub" c_dotu :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zdotu_sub" z_dotu :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
-foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dotc :: CInt -> ARR C (ARR C (Ptr C -> IO ()))
-foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dotc :: CInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_sdot"      s_dot  :: BLASInt -> ARR S (ARR S (IO S))
+foreign import CCALL unsafe "cblas.h cblas_ddot"      d_dot  :: BLASInt -> ARR D (ARR D (IO D))
+foreign import CCALL unsafe "cblas.h cblas_cdotu_sub" c_dotu :: BLASInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotu_sub" z_dotu :: BLASInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_cdotc_sub" c_dotc :: BLASInt -> ARR C (ARR C (Ptr C -> IO ()))
+foreign import CCALL unsafe "cblas.h cblas_zdotc_sub" z_dotc :: BLASInt -> ARR Z (ARR Z (Ptr Z -> IO ()))
 
-foreign import CCALL unsafe "cblas.h cblas_snrm2"  s_nrm2 :: CInt -> ARR S (IO S)
-foreign import CCALL unsafe "cblas.h cblas_dnrm2"  d_nrm2 :: CInt -> ARR D (IO D)
-foreign import CCALL unsafe "cblas.h cblas_scnrm2" c_nrm2 :: CInt -> ARR C (IO S)
-foreign import CCALL unsafe "cblas.h cblas_dznrm2" z_nrm2 :: CInt -> ARR Z (IO D)
+foreign import CCALL unsafe "cblas.h cblas_snrm2"  s_nrm2 :: BLASInt -> ARR S (IO S)
+foreign import CCALL unsafe "cblas.h cblas_dnrm2"  d_nrm2 :: BLASInt -> ARR D (IO D)
+foreign import CCALL unsafe "cblas.h cblas_scnrm2" c_nrm2 :: BLASInt -> ARR C (IO S)
+foreign import CCALL unsafe "cblas.h cblas_dznrm2" z_nrm2 :: BLASInt -> ARR Z (IO D)
 
 
 foreign import CCALL unsafe "cblas.h cblas_sgemv" s_gemv
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
-  -> CInt -> CInt -> S -> Ptr S -> CInt
+  -> BLASInt -> BLASInt -> S -> Ptr S -> BLASInt
   -> ARR S (S -> ARR S (IO ()))
 foreign import CCALL unsafe "cblas.h cblas_dgemv" d_gemv
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
-  -> CInt -> CInt -> D -> Ptr D -> CInt
+  -> BLASInt -> BLASInt -> D -> Ptr D -> BLASInt
   -> ARR D (D -> ARR D (IO ()))
 foreign import CCALL unsafe "cblas.h cblas_cgemv" c_gemv
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
-  -> CInt -> CInt -> Ptr C -> Ptr C -> CInt
+  -> BLASInt -> BLASInt -> Ptr C -> Ptr C -> BLASInt
   -> ARR C (Ptr C -> ARR C (IO ()))
 foreign import CCALL unsafe "cblas.h cblas_zgemv" z_gemv
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
-  -> CInt -> CInt -> Ptr Z -> Ptr Z -> CInt
+  -> BLASInt -> BLASInt -> Ptr Z -> Ptr Z -> BLASInt
   -> ARR Z (Ptr Z -> ARR Z (IO ()))
 
 foreign import CCALL unsafe "cblas.h cblas_ssymv" s_symv
   :: CRepr MatrixLayout
   -> CRepr UpLo
-  -> CInt
-  -> Float -> Ptr Float -> CInt
-  -> Ptr Float -> CInt
+  -> BLASInt
+  -> Float -> Ptr Float -> BLASInt
+  -> Ptr Float -> BLASInt
   -> Float
-  -> Ptr Float -> CInt
+  -> Ptr Float -> BLASInt
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
   :: CRepr MatrixLayout
   -> CRepr UpLo
-  -> CInt
-  -> Double -> Ptr Double -> CInt
-  -> Ptr Double -> CInt
+  -> BLASInt
+  -> Double -> Ptr Double -> BLASInt
+  -> Ptr Double -> BLASInt
   -> Double
-  -> Ptr Double -> CInt
+  -> Ptr Double -> BLASInt
   -> IO ()
 
 -- NOTE: there's no cblas wrapper for CSYMV and ZSYMV!
@@ -611,28 +630,28 @@ foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
 -- We have to call FORTRAN versions directly.
 foreign import ccall unsafe "csymv_" c_symv
   :: Ptr (CRepr UpLo)    -- Upper/lower part should be referenced
-  -> Ptr CInt            -- Size of matrix/vector
+  -> Ptr BLASInt         -- Size of matrix/vector
   -> Ptr (Complex Float) -- alpha
   -> Ptr (Complex Float) -- Matrix buffer
-  -> Ptr CInt            -- LDA
+  -> Ptr BLASInt         -- LDA
   -> Ptr (Complex Float) -- Vector buffer
-  -> Ptr CInt            -- Vector stride
+  -> Ptr BLASInt         -- Vector stride
   -> Ptr (Complex Float) -- beta
   -> Ptr (Complex Float) -- Output vector buffer
-  -> Ptr CInt            -- Output vector stride
+  -> Ptr BLASInt         -- Output vector stride
   -> IO ()
 
 foreign import ccall unsafe "zsymv_" z_symv
   :: Ptr (CRepr UpLo)     -- Upper/lower part should be referenced
-  -> Ptr CInt             -- Size of matrix/vector
+  -> Ptr BLASInt          -- Size of matrix/vector
   -> Ptr (Complex Double) -- alpha
   -> Ptr (Complex Double) -- Matrix buffer
-  -> Ptr CInt             -- LDA
+  -> Ptr BLASInt          -- LDA
   -> Ptr (Complex Double) -- Vector buffer
-  -> Ptr CInt             -- Vector stride
+  -> Ptr BLASInt          -- Vector stride
   -> Ptr (Complex Double) -- beta
   -> Ptr (Complex Double) -- Output vector buffer
-  -> Ptr CInt             -- Output vector stride
+  -> Ptr BLASInt          -- Output vector stride
   -> IO ()
 
 
@@ -640,53 +659,53 @@ foreign import CCALL unsafe "cblas.h cblas_sgemm" s_gemm
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
   -> CRepr MatrixTranspose
-  -> CInt
-  -> CInt
-  -> CInt
+  -> BLASInt
+  -> BLASInt
+  -> BLASInt
   -> S
-  -> Ptr S -> CInt
-  -> Ptr S -> CInt
+  -> Ptr S -> BLASInt
+  -> Ptr S -> BLASInt
   -> S
-  -> Ptr S -> CInt
+  -> Ptr S -> BLASInt
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_dgemm" d_gemm
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
   -> CRepr MatrixTranspose
-  -> CInt
-  -> CInt
-  -> CInt
+  -> BLASInt
+  -> BLASInt
+  -> BLASInt
   -> D
-  -> Ptr D -> CInt
-  -> Ptr D -> CInt
+  -> Ptr D -> BLASInt
+  -> Ptr D -> BLASInt
   -> D
-  -> Ptr D -> CInt
+  -> Ptr D -> BLASInt
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_cgemm" c_gemm
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
   -> CRepr MatrixTranspose
-  -> CInt
-  -> CInt
-  -> CInt
+  -> BLASInt
+  -> BLASInt
+  -> BLASInt
   -> Ptr C
-  -> Ptr C -> CInt
-  -> Ptr C -> CInt
+  -> Ptr C -> BLASInt
+  -> Ptr C -> BLASInt
   -> Ptr C
-  -> Ptr C -> CInt
+  -> Ptr C -> BLASInt
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_zgemm" z_gemm
   :: CRepr MatrixLayout
   -> CRepr MatrixTranspose
   -> CRepr MatrixTranspose
-  -> CInt
-  -> CInt
-  -> CInt
+  -> BLASInt
+  -> BLASInt
+  -> BLASInt
   -> Ptr Z
-  -> Ptr Z -> CInt
-  -> Ptr Z -> CInt
+  -> Ptr Z -> BLASInt
+  -> Ptr Z -> BLASInt
   -> Ptr Z
-  -> Ptr Z -> CInt
+  -> Ptr Z -> BLASInt
   -> IO ()
 
 
@@ -694,61 +713,61 @@ foreign import CCALL unsafe "cblas.h cblas_ssymm" s_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> CInt      -- M
-  -> CInt      -- N
+  -> BLASInt   -- M
+  -> BLASInt   -- N
   -> Float     -- alpha
   -> Ptr Float -- A
-  -> CInt      -- lda
+  -> BLASInt   -- lda
   -> Ptr Float -- B
-  -> CInt      -- ldb
+  -> BLASInt   -- ldb
   -> Float     -- beta
   -> Ptr Float -- C
-  -> CInt      -- ldc
+  -> BLASInt   -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_dsymm" d_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> CInt       -- M
-  -> CInt       -- N
+  -> BLASInt    -- M
+  -> BLASInt    -- N
   -> Double     -- alpha
   -> Ptr Double -- A
-  -> CInt       -- lda
+  -> BLASInt    -- lda
   -> Ptr Double -- B
-  -> CInt       -- ldb
+  -> BLASInt    -- ldb
   -> Double     -- beta
   -> Ptr Double -- C
-  -> CInt       -- ldc
+  -> BLASInt    -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_csymm" c_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> CInt                -- M
-  -> CInt                -- N
+  -> BLASInt             -- M
+  -> BLASInt             -- N
   -> Ptr (Complex Float) -- alpha
   -> Ptr (Complex Float) -- A
-  -> CInt                -- lda
+  -> BLASInt             -- lda
   -> Ptr (Complex Float) -- B
-  -> CInt                -- ldb
+  -> BLASInt             -- ldb
   -> Ptr (Complex Float) -- beta
   -> Ptr (Complex Float) -- C
-  -> CInt                -- ldc
+  -> BLASInt             -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_zsymm" z_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> CInt                 -- M
-  -> CInt                 -- N
+  -> BLASInt              -- M
+  -> BLASInt              -- N
   -> Ptr (Complex Double) -- alpha
   -> Ptr (Complex Double) -- A
-  -> CInt                 -- lda
+  -> BLASInt              -- lda
   -> Ptr (Complex Double) -- B
-  -> CInt                 -- ldb
+  -> BLASInt              -- ldb
   -> Ptr (Complex Double) -- beta
   -> Ptr (Complex Double) -- C
-  -> CInt                 -- ldc
+  -> BLASInt              -- ldc
   -> IO ()
 
 
@@ -763,88 +782,88 @@ foreign import CCALL unsafe "cblas.h cblas_zsymm" z_symm
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
   :: CRepr MatrixLayout -> CChar
-  -> CInt -> CInt
-  -> Ptr Float -> CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Float -> LAPACKInt
   -> Ptr Float
-  -> Ptr Float -> CInt
-  -> Ptr Float -> CInt
-  -> IO CInt
+  -> Ptr Float -> LAPACKInt
+  -> Ptr Float -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
   :: CRepr MatrixLayout -> CChar
-  -> CInt -> CInt
-  -> Ptr Double -> CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Double -> LAPACKInt
   -> Ptr Double
-  -> Ptr Double -> CInt
-  -> Ptr Double -> CInt
-  -> IO CInt
+  -> Ptr Double -> LAPACKInt
+  -> Ptr Double -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
   :: CRepr MatrixLayout -> CChar
-  -> CInt -> CInt
-  -> Ptr (Complex Float) -> CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
   -> Ptr Float
-  -> Ptr (Complex Float) -> CInt
-  -> Ptr (Complex Float) -> CInt
-  -> IO CInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
   :: CRepr MatrixLayout -> CChar
-  -> CInt -> CInt
-  -> Ptr (Complex Double) -> CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr (Complex Double) -> LAPACKInt
   -> Ptr Double
-  -> Ptr (Complex Double) -> CInt
-  -> Ptr (Complex Double) -> CInt
-  -> IO CInt
+  -> Ptr (Complex Double) -> LAPACKInt
+  -> Ptr (Complex Double) -> LAPACKInt
+  -> IO LAPACKInt
 
 
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesv" c_sgesv
   :: CRepr MatrixLayout
-  -> CInt -> CInt
-  -> Ptr Float -> CInt
-  -> Ptr CInt
-  -> Ptr Float -> CInt
-  -> IO CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Float -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr Float -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesv" c_dgesv
   :: CRepr MatrixLayout
-  -> CInt -> CInt
-  -> Ptr Double -> CInt
-  -> Ptr CInt
-  -> Ptr Double -> CInt
-  -> IO CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Double -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr Double -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesv" c_cgesv
   :: CRepr MatrixLayout
-  -> CInt -> CInt
-  -> Ptr (Complex Float) -> CInt
-  -> Ptr CInt
-  -> Ptr (Complex Float) -> CInt
-  -> IO CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesv" c_zgesv
   :: CRepr MatrixLayout
-  -> CInt -> CInt
-  -> Ptr (Complex Double) -> CInt
-  -> Ptr CInt
-  -> Ptr (Complex Double) -> CInt
-  -> IO CInt
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr (Complex Double) -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr (Complex Double) -> LAPACKInt
+  -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgetri" c_sgetri
-  :: CRepr MatrixLayout -> CInt -> Ptr Float -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr Float -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_dgetri" c_dgetri
-  :: CRepr MatrixLayout -> CInt -> Ptr Double -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr Double -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_cgetri" c_cgetri
-  :: CRepr MatrixLayout -> CInt -> Ptr (Complex Float) -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr (Complex Float) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_zgetri" c_zgetri
-  :: CRepr MatrixLayout -> CInt -> Ptr (Complex Double) -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr (Complex Double) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgetrf" c_sgetrf
-  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr Float -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Float -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_dgetrf" c_dgetrf
-  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr Double -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Double -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_cgetrf" c_cgetrf
-  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr (Complex Float) -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr (Complex Float) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_zgetrf" c_zgetrf
-  :: CRepr MatrixLayout -> CInt -> CInt -> Ptr (Complex Double) -> CInt -> Ptr CInt -> IO CInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr (Complex Double) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt

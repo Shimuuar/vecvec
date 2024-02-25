@@ -348,9 +348,9 @@ unsafeBlasSymv α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY 
             unsafeWithForeignPtr fpX    $ \p_x ->
             unsafeWithForeignPtr fpY    $ \p_y ->
               C.symv C.RowMajor C.UP
-                (fromIntegral size) α p_A (fromIntegral leadingDim)
-                p_x (fromIntegral incX)
-                β p_y (fromIntegral incY)
+                (C.toB size) α p_A (C.toB leadingDim)
+                p_x (C.toB incX)
+                β p_y (C.toB incY)
 
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the left
 --
@@ -373,10 +373,10 @@ unsafeBlasSymmL α (asSymInput @s -> matA) (asMInput @s -> matB) β (asMInput @s
     unsafeWithForeignPtr matB.buffer $ \p_B ->
     unsafeWithForeignPtr matC.buffer $ \p_C -> do
       C.symm C.RowMajor C.LeftSide C.UP
-        (fromIntegral matC.nrows) (fromIntegral matC.ncols)
-        α p_A (fromIntegral matA.leadingDim)
-          p_B (fromIntegral matB.leadingDim)
-        β p_C (fromIntegral matC.leadingDim)
+        (C.toB matC.nrows) (C.toB matC.ncols)
+        α p_A (C.toB matA.leadingDim)
+          p_B (C.toB matB.leadingDim)
+        β p_C (C.toB matC.leadingDim)
 
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the right
 --
@@ -399,7 +399,7 @@ unsafeBlasSymmR α (asMInput @s -> matB) (asSymInput @s -> matA) β (asMInput @s
     unsafeWithForeignPtr matB.buffer $ \p_B ->
     unsafeWithForeignPtr matC.buffer $ \p_C -> do
       C.symm C.RowMajor C.RightSide C.UP
-        (fromIntegral matC.nrows) (fromIntegral matC.ncols)
-        α p_A (fromIntegral matA.leadingDim)
-          p_B (fromIntegral matB.leadingDim)
-        β p_C (fromIntegral matC.leadingDim)
+        (C.toB matC.nrows) (C.toB matC.ncols)
+        α p_A (C.toB matA.leadingDim)
+          p_B (C.toB matB.leadingDim)
+        β p_C (C.toB matC.leadingDim)

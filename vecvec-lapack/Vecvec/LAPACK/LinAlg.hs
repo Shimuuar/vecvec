@@ -64,16 +64,16 @@ decomposeSVD a = unsafePerformIO $ do
     unsafeWithForeignPtr (vecBuffer vec_Sig) $ \ptr_Sig ->
     unsafeWithForeignPtr (buffer mat_VT)     $ \ptr_VT ->
       gesdd (toCEnum RowMajor) (fromIntegral $ ord 'A')
-            (fromIntegral n_row) (fromIntegral n_col)
-            ptr_A (fromIntegral (leadingDim mat_A))
+            (toL n_row) (toL n_col)
+            ptr_A (toL (leadingDim mat_A))
             ptr_Sig
-            ptr_U  (fromIntegral (leadingDim mat_U))
-            ptr_VT (fromIntegral (leadingDim mat_VT))
+            ptr_U  (toL (leadingDim mat_U))
+            ptr_VT (toL (leadingDim mat_VT))
   case info of
-    0 -> pure ( Matrix mat_U
-              , Vec    vec_Sig
-              , Matrix mat_VT
-              )
+    LAPACKInt 0 -> pure ( Matrix mat_U
+                        , Vec    vec_Sig
+                        , Matrix mat_VT
+                        )
     _ -> error "SVD failed"
 
 
@@ -91,15 +91,15 @@ invertMatrix m
         unsafeWithForeignPtr buffer $ \ptr_a    ->
         allocaArray ncols           $ \ptr_ipiv -> do
           info_trf <- getrf
-            (toCEnum RowMajor) (fromIntegral ncols) (fromIntegral ncols)
-            ptr_a (fromIntegral leadingDim) ptr_ipiv
-          case info_trf of 0 -> pure ()
-                           _ -> error "invertMatrix failed (GETRF)"
+            (toCEnum RowMajor) (toL ncols) (toL ncols)
+            ptr_a (toL leadingDim) ptr_ipiv
+          case info_trf of LAPACKInt 0 -> pure ()
+                           _           -> error "invertMatrix failed (GETRF)"
           info_tri <- getri
-            (toCEnum RowMajor) (fromIntegral ncols)
-            ptr_a (fromIntegral leadingDim) ptr_ipiv
-          case info_tri of 0 -> pure ()
-                           _ -> error "invertMatrix failed (GETRF)"
+            (toCEnum RowMajor) (toL ncols)
+            ptr_a (toL leadingDim) ptr_ipiv
+          case info_tri of LAPACKInt 0 -> pure ()
+                           _           -> error "invertMatrix failed (GETRF)"
       --
       pure $ Matrix inv
 
@@ -180,10 +180,10 @@ solveLinEq a0 rhs = unsafePerformIO $ do
     unsafeWithForeignPtr (buffer b) $ \ptr_b    ->
     allocaArray n                   $ \ptr_ipiv ->
       gesv (toCEnum RowMajor)
-        (fromIntegral n) (fromIntegral (ncols b))
-        ptr_a (fromIntegral (leadingDim a))
+        (toL n) (toL (ncols b))
+        ptr_a (toL (leadingDim a))
         ptr_ipiv
-        ptr_b (fromIntegral (leadingDim b))
+        ptr_b (toL (leadingDim b))
   case info of
-    0 -> pure $ rhsGetSolutions rhs (Matrix b)
-    _ -> error "solveLinEq failed"
+    LAPACKInt 0 -> pure $ rhsGetSolutions rhs (Matrix b)
+    _           -> error "solveLinEq failed"

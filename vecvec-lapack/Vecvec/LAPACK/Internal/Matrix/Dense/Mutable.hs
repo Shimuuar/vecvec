@@ -473,9 +473,9 @@ unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fp
             unsafeWithForeignPtr fpX    $ \p_x ->
             unsafeWithForeignPtr fpY    $ \p_y ->
               C.gemv C.RowMajor tr
-                (fromIntegral nrows) (fromIntegral ncols) α p_A (fromIntegral leadingDim)
-                p_x (fromIntegral incX)
-                β p_y (fromIntegral incY)
+                (C.toB nrows) (C.toB ncols) α p_A (C.toB leadingDim)
+                p_x (C.toB incX)
+                β p_y (C.toB incY)
 
 -- | General matrix-matrix multiplication
 --
@@ -496,9 +496,9 @@ unsafeBlasGemm α trA (asMInput @s -> matA) trB (asMInput @s -> matB) β (MMatri
     unsafeWithForeignPtr (buffer matB) $ \p_B ->
     unsafeWithForeignPtr (buffer matC) $ \p_C ->
       C.gemm C.RowMajor trA trB
-        (fromIntegral $ if trA == C.NoTrans then nrows matA else ncols matA)
-        (fromIntegral $ if trB == C.NoTrans then ncols matB else nrows matB)
-        (fromIntegral $ if trB == C.NoTrans then nrows matB else ncols matB)
-        α p_A (fromIntegral $ leadingDim matA)
-          p_B (fromIntegral $ leadingDim matB)
-        β p_C (fromIntegral $ leadingDim matC)
+        (C.toB $ if trA == C.NoTrans then nrows matA else ncols matA)
+        (C.toB $ if trB == C.NoTrans then ncols matB else nrows matB)
+        (C.toB $ if trB == C.NoTrans then nrows matB else ncols matB)
+        α p_A (C.toB $ leadingDim matA)
+          p_B (C.toB $ leadingDim matB)
+        β p_C (C.toB $ leadingDim matC)
