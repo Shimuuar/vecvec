@@ -70,10 +70,10 @@ decomposeSVD a = unsafePerformIO $ do
             ptr_U  (toL (leadingDim mat_U))
             ptr_VT (toL (leadingDim mat_VT))
   case info of
-    LAPACKInt 0 -> pure ( Matrix mat_U
-                        , Vec    vec_Sig
-                        , Matrix mat_VT
-                        )
+    LAPACK0 -> pure ( Matrix mat_U
+                    , Vec    vec_Sig
+                    , Matrix mat_VT
+                    )
     _ -> error "SVD failed"
 
 
@@ -93,13 +93,13 @@ invertMatrix m
           info_trf <- getrf
             (toCEnum RowMajor) (toL ncols) (toL ncols)
             ptr_a (toL leadingDim) ptr_ipiv
-          case info_trf of LAPACKInt 0 -> pure ()
-                           _           -> error "invertMatrix failed (GETRF)"
+          case info_trf of LAPACK0 -> pure ()
+                           _       -> error "invertMatrix failed (GETRF)"
           info_tri <- getri
             (toCEnum RowMajor) (toL ncols)
             ptr_a (toL leadingDim) ptr_ipiv
-          case info_tri of LAPACKInt 0 -> pure ()
-                           _           -> error "invertMatrix failed (GETRF)"
+          case info_tri of LAPACK0 -> pure ()
+                           _       -> error "invertMatrix failed (GETRF)"
       --
       pure $ Matrix inv
 
@@ -185,5 +185,5 @@ solveLinEq a0 rhs = unsafePerformIO $ do
         ptr_ipiv
         ptr_b (toL (leadingDim b))
   case info of
-    LAPACKInt 0 -> pure $ rhsGetSolutions rhs (Matrix b)
-    _           -> error "solveLinEq failed"
+    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+    _       -> error "solveLinEq failed"

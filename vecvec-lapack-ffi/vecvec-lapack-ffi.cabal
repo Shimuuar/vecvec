@@ -20,14 +20,31 @@ source-repository head
   type:     git
   location: http://github.com/Shimuuar/vecvec
 
+flag blas64
+  Description: (Experimental!) Set to true when BLAS uses 64bit integers
+  Default:     False
+  Manual:      True
+flag lapack64
+  Description: (Experimental!) Set to true when LAPACK uses 64bit integers
+  Default:     False
+  Manual:      True
+  
 Library
   Ghc-options:          -Wall
   Default-Language:     Haskell2010
+  -- Flag-dependent configuration
+  if flag(Blas64)
+    cpp-options: -DVECVEC_BLAS64=1
+    cc-options:  -DVECVEC_BLAS64=1
+  if flag(lapack64)
+    cpp-options: -DVECVEC_LAPACK64=1
+    cc-options:  -DVECVEC_LAPACK64=1
+  pkgconfig-depends: openblas, lapacke
+
   c-sources:            cbits/blastest.c
   Build-Depends:        base             >=4.12 && <5
                       , primitive        >=0.7
                       , vecvec-classes
                       , storable-complex >=0.2.2
-  extra-libraries:      openblas lapacke
   Exposed-modules:
     Vecvec.LAPACK.FFI
