@@ -35,11 +35,11 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                       qualified as VV
-import Vecvec.LAPACK.FFI                   (S,D,C,Z)
-import Vecvec.LAPACK.Vector                (Vec)
-import Vecvec.LAPACK.Matrix.Dense          (Matrix)
-import Vecvec.LAPACK.Matrix.Dense          qualified as Mat
+import Vecvec.LAPACK                 qualified as VV
+import Vecvec.LAPACK.FFI             (S,D,C,Z)
+import Vecvec.LAPACK.Vector          (Vec)
+import Vecvec.LAPACK.Matrix          (Matrix)
+import Vecvec.LAPACK.Matrix          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
 import TST.Tools.MatModel

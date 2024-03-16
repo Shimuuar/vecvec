@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Immutable dense matrices.
-module Vecvec.LAPACK.Matrix.Dense
+module Vecvec.LAPACK.Matrix
   ( -- * Matrix
     Matrix(..)
   , pattern AsVec
@@ -36,5 +36,5 @@ module Vecvec.LAPACK.Matrix.Dense
   , unsafeGetCol
   ) where
 
-import Vecvec.LAPACK.Internal.Matrix.Dense
+import Vecvec.LAPACK.Internal.Matrix
 import Prelude ()

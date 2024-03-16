@@ -75,12 +75,12 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                           (Strided(..))
-import Vecvec.LAPACK                           qualified as VV
-import Vecvec.LAPACK.Internal.Matrix.Dense     (Matrix, fromRowsFF)
-import Vecvec.LAPACK.Internal.Matrix.Dense     qualified as Mat
-import Vecvec.LAPACK.Internal.Matrix.Symmetric (Symmetric)
-import Vecvec.LAPACK.Internal.Matrix.Symmetric qualified as Sym
+import Vecvec.LAPACK                    (Strided(..))
+import Vecvec.LAPACK                    qualified as VV
+import Vecvec.LAPACK.Internal.Matrix    (Matrix, fromRowsFF)
+import Vecvec.LAPACK.Internal.Matrix    qualified as Mat
+import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
+import Vecvec.LAPACK.Internal.Symmetric qualified as Sym
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
 import TST.Tools.Model

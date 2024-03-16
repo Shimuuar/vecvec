@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Mutable dense matrices.
-module Vecvec.LAPACK.Matrix.Dense.Mutable
+module Vecvec.LAPACK.Matrix.Mutable
   ( -- * Matrix
     MMatrix
   , pattern AsMVec
@@ -37,5 +37,5 @@ module Vecvec.LAPACK.Matrix.Dense.Mutable
   , unsafeGetRow
   ) where
 
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
+import Vecvec.LAPACK.Internal.Matrix.Mutable
 import Prelude ()

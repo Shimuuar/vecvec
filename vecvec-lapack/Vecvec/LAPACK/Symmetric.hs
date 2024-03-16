@@ -1,5 +1,5 @@
 -- |
-module Vecvec.LAPACK.Matrix.Symmetric
+module Vecvec.LAPACK.Symmetric
   ( -- * Immutable matrix
     Symmetric(..)
     -- * Operations
@@ -19,4 +19,4 @@ module Vecvec.LAPACK.Matrix.Symmetric
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Matrix.Symmetric
+import Vecvec.LAPACK.Internal.Symmetric
