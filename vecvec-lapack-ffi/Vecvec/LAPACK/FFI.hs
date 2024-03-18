@@ -18,10 +18,13 @@ module Vecvec.LAPACK.FFI
   , D
   , C
   , Z
-  , BLASInt(..)
+    -- * Int types
+    -- $BLAS_int
+  , BLASInt
   , toB
-  , LAPACKInt(..)
+  , LAPACKInt
   , toL
+  , pattern LAPACK0
     -- * Enumeration wrappers
   , CEnum(..)
   , MatrixLayout(..)
@@ -32,6 +35,9 @@ module Vecvec.LAPACK.FFI
 
 import Data.Complex
 import Data.Primitive.Ptr
+#ifdef VECVEC_BLAS64
+import Data.Int
+#endif
 import Foreign.C
 import Foreign.Ptr
 import Foreign.Storable
@@ -40,15 +46,34 @@ import Foreign.Storable.Complex ()
 import Vecvec.Classes           (NormedScalar(..))
 
 -- We want to be able to easily switch how we do foreign calls. ccall
--- is slightly faster while capi allows to check
+-- is slightly faster while capi allows to check that implementation
+-- is correct
 #define CCALL capi
 
+
+-- $BLAS_int
+--
+-- BLAS could use ints of different width for indexing (32 or
+-- 64bits). We want to support both options which are selected at
+-- build time. So representation of 'BLASInt' and 'LAPACKInt' depends
+-- on build options.
+
 -- | Integer type used by BLAS
-newtype BLASInt = BLASInt CInt
+newtype BLASInt = BLASInt
+#ifdef VECVEC_BLAS64
+    Int64
+#else
+    CInt
+#endif
   deriving newtype Storable
 
 -- | Integer type used by LAPACK
-newtype LAPACKInt = LAPACKInt CInt
+newtype LAPACKInt = LAPACKInt
+#ifdef VECVEC_LAPACK64
+    Int64
+#else
+    CInt
+#endif
   deriving newtype Storable
 
 -- FIXME: We should really trap overflows. But...
@@ -58,6 +83,11 @@ toB = BLASInt . fromIntegral
 
 toL :: Int -> LAPACKInt
 toL = LAPACKInt . fromIntegral
+
+-- | Zero (used in error checking)
+pattern LAPACK0 :: LAPACKInt
+pattern LAPACK0 = LAPACKInt 0
+{-# INLINE LAPACK0 #-}
 
 ----------------------------------------------------------------
 -- Type synonyms

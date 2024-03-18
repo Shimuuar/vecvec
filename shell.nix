@@ -13,6 +13,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     openblasCompat
     lapack
+    pkg-config
 #    pkgs_hask
   ];
   shellHook = ''
