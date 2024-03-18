@@ -27,9 +27,9 @@ import Data.Vector.Storable      qualified as VS
 import Data.Vector.Primitive     qualified as VP
 import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Matrix.Dense
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as MM
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable (MMatrix(..), MView(..))
+import Vecvec.LAPACK.Internal.Matrix
+import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MM
+import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..))
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG

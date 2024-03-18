@@ -18,7 +18,7 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Symmetric matrices.
-module Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
+module Vecvec.LAPACK.Internal.Symmetric.Mutable
   ( -- * Data types
     MSymmetric(..)
   , MSymView(..)
@@ -60,10 +60,10 @@ import Vecvec.Classes.NDMutable
 -- import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable       hiding (clone)
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable (MMatrix(..), MView(..), AsMInput(..))
-import Vecvec.LAPACK.FFI                           qualified as C
+import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
+import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MMat
+import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), AsMInput(..))
+import Vecvec.LAPACK.FFI                     qualified as C
 
 
 ----------------------------------------------------------------

@@ -6,8 +6,8 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 import Text.Show.Functions  ()
 
-import Vecvec.LAPACK.Matrix.Dense (Matrix)
-import Vecvec.LAPACK.Matrix.Dense qualified as Mat
+import Vecvec.LAPACK.Matrix (Matrix)
+import Vecvec.LAPACK.Matrix qualified as Mat
 
 import TST.Tools.Orphanage ()
 import TST.Tools.Model

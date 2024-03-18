@@ -18,7 +18,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ViewPatterns               #-}
 -- |
-module Vecvec.LAPACK.Internal.Matrix.Dense
+module Vecvec.LAPACK.Internal.Matrix
   ( -- * Immutable matrix
     Matrix(..)
   , pattern AsVec
@@ -69,11 +69,11 @@ import Prelude hiding (replicate,all,any)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 import Vecvec.Classes.Deriving
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable qualified as M
+import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as M
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
-import Vecvec.LAPACK.FFI                           qualified as C
+import Vecvec.LAPACK.FFI                     qualified as C
 import Vecvec.LAPACK.Utils
 
 -- | Immutable matrix

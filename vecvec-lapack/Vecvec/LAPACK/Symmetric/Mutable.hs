@@ -1,5 +1,5 @@
 -- |
-module Vecvec.LAPACK.Matrix.Symmetric.Mutable
+module Vecvec.LAPACK.Symmetric.Mutable
   ( -- * Data types
     MSymmetric
   , AsSymInput
@@ -19,4 +19,4 @@ module Vecvec.LAPACK.Matrix.Symmetric.Mutable
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable
+import Vecvec.LAPACK.Internal.Symmetric.Mutable

@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 -- |
-module Vecvec.LAPACK.Internal.Matrix.Symmetric
+module Vecvec.LAPACK.Internal.Symmetric
   ( -- * Immutable matrix
     Symmetric(..)
     -- * Operations
@@ -41,10 +41,10 @@ import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Internal.Matrix.Dense.Mutable     qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Dense             qualified as Mat
-import Vecvec.LAPACK.Internal.Matrix.Dense             (Matrix)
-import Vecvec.LAPACK.Internal.Matrix.Symmetric.Mutable qualified as MSym
+import Vecvec.LAPACK.Internal.Matrix.Mutable     qualified as MMat
+import Vecvec.LAPACK.Internal.Matrix             qualified as Mat
+import Vecvec.LAPACK.Internal.Matrix             (Matrix)
+import Vecvec.LAPACK.Internal.Symmetric.Mutable  qualified as MSym
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable

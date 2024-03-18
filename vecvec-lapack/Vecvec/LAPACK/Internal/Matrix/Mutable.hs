@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ViewPatterns               #-}
 -- |
-module Vecvec.LAPACK.Internal.Matrix.Dense.Mutable
+module Vecvec.LAPACK.Internal.Matrix.Mutable
   ( -- * Data types
     MMatrix(..)
   , MView(..)
