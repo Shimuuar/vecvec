@@ -1,0 +1,33 @@
+Name:                vecvec-optim
+Version:             0.1.0.0
+Synopsis:            Nonlinear optimization algorithms
+Description:
+  Various nonlinear gradiant based optiomization algorithms
+
+Cabal-version:       >=1.10
+License:             BSD3
+License-file:        LICENSE
+Author:              Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:          Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Category:            Math
+Build-type:          Simple
+extra-source-files:
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: http://github.com/Shimuuar/vecvec
+
+Library
+  Ghc-options:        -Wall
+  Default-Language:   Haskell2010
+  Build-Depends:
+    base           >= 4.12 && <5,
+    deepseq,
+    fixed-vector   >= 1.2,
+    vecvec-classes
+  Exposed-modules:
+    Vecvec.Optim.LineSearch
+
+
+        
