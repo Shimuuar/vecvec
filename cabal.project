@@ -4,3 +4,4 @@ packages:
         vecvec-hmatrix
         vecvec-lapack
         vecvec-lapack-ffi
+        vecvec-optim
