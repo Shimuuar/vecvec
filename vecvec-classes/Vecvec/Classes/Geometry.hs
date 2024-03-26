@@ -9,7 +9,9 @@
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE UndecidableInstances   #-}
 -- |
--- Helper type classes for working with geometry.
+-- Helper type classes for working with geometry. @Lens'@ in this
+-- module is standard van Laarhoven lenses: @Lens' s a = ∀f. Functor f
+-- ⇒ (a → f a) → (s → f s)@
 module Vecvec.Classes.Geometry
   ( -- * Access to coordinates
     FieldX(..)
@@ -28,12 +30,12 @@ import Data.Vector.Fixed.Primitive qualified as FP
 
 type Lens' s a = forall f. Functor f => (a -> f a) -> (s -> f s)
 
--- | Lens for vectors that has coordinate X
+-- | Provides access to @X@ component of a vector.
 class FieldX a s | s -> a where
   _X   :: Lens' s a
   getX :: s -> a
 
--- | Lens for vectors that has coordinate Y
+-- | Provides access to @Y@ component of a vector.
 class FieldY a s | s -> a where
   _Y   :: Lens' s a
   getY :: s -> a
