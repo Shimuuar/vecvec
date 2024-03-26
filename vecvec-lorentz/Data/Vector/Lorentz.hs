@@ -55,7 +55,7 @@ module Data.Vector.Lorentz (
 
 import Control.DeepSeq
 import Data.Coerce
-
+import Data.Proxy
 import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
 import qualified Data.Vector.Fixed      as F
 import qualified Data.Vector.Fixed.Cont as FC
@@ -64,6 +64,7 @@ import GHC.TypeLits
 
 import Vecvec.Classes
 import Vecvec.Classes.Convert
+import Vecvec.Classes.Geometry
 
 
 ----------------------------------------------------------------
@@ -398,6 +399,21 @@ instance (VectorN v n a, NormedScalar a) => InnerSpace (LorentzG v n a) where
   {-# INLINE (<.>)       #-}
   {-# INLINE magnitudeSq #-}
 
+instance (2 <= n, n <= 4, F.VectorN v n a) => FieldX a (LorentzG v n a) where
+  _X   = F.elementTy  (Proxy @1)
+  getX = flip F.index (Proxy @1)
+  {-# INLINE _X   #-}
+  {-# INLINE getX #-}
+instance (3 <= n, n <= 4, F.VectorN v n a) => FieldY a (LorentzG v n a) where
+  _Y   = F.elementTy  (Proxy @2)
+  getY = flip F.index (Proxy @2)
+  {-# INLINE _Y   #-}
+  {-# INLINE getY #-}  
+instance (4 <= n, n <= 4, F.VectorN v n a) => FieldZ a (LorentzG v n a) where
+  _Z   = F.elementTy  (Proxy @3)
+  getZ = flip F.index (Proxy @3)
+  {-# INLINE _Z   #-}
+  {-# INLINE getZ #-}  
 
 ----------------------------------------------------------------
 -- Helpers
