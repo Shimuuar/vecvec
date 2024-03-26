@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -56,10 +57,10 @@ module Data.Vector.Lorentz (
 import Control.DeepSeq
 import Data.Coerce
 import Data.Proxy
-import           Data.Vector.Fixed (Vector,VectorN,Dim,(!))
-import qualified Data.Vector.Fixed      as F
-import qualified Data.Vector.Fixed.Cont as FC
-import Data.Vector.Fixed.Unboxed   (Vec)
+import Data.Vector.Fixed         (Vector,VectorN,Dim,(!))
+import Data.Vector.Fixed         qualified as F
+import Data.Vector.Fixed.Cont    qualified as FC
+import Data.Vector.Fixed.Unboxed (Vec)
 import GHC.TypeLits
 
 import Vecvec.Classes
