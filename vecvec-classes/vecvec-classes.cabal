@@ -34,6 +34,7 @@ Library
     Vecvec.Classes.NDMutable
     Vecvec.Classes.Tools
     Vecvec.Classes.Deriving
+    Vecvec.Classes.Geometry
   Other-modules:
     Vecvec.Classes.Internal.ND
     Vecvec.Classes.Internal.Types
