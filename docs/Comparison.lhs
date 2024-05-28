@@ -1,6 +1,6 @@
-% WENO
+% hmatrix vs vecvec
 % Dominic Steinitz
-% 15th August 2020
+% 28th May 2024
 
 Introduction
 ============
@@ -16,7 +16,10 @@ McKendrick / von Foerster
 > import Vecvec.LAPACK.LinAlg
 > import Vecvec.LAPACK.Matrix.Dense as M
 > import Vecvec.LAPACK.FFI
-> import qualified Vecvec.Classes as VV
+> import Vecvec.Classes            qualified as VV
+> import Vecvec.Classes ((.+.))
+> import Vecvec.LAPACK.Vector
+> import Data.Vector.Generic       qualified as VG
 
 > u = vector [1..5]
 
@@ -29,6 +32,16 @@ McKendrick / von Foerster
     u <.> v
 
     u - 10
+
+> u' :: Vector Double
+> u' = fromList [1..5]
+
+> v' :: Vector Double
+> v' = fromList [10,-3,0,4,5]
+
+    [ghci]
+
+    u' .+. v'
 
 > w = vector [1, 0, 1, 0, 1, 0, 1]
 
