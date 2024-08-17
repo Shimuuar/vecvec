@@ -287,14 +287,14 @@ instance VS.Storable a => MVG.MVector MVec a where
 clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
       => inp a
       -> m (MVec s a)
-clone vecIn
-  = unsafePrimToPrim
-  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vecIn
-       unsafeWithForeignPtr fp $ \p -> do
-         vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
-         unsafeWithForeignPtr fp' $ \p' -> do
-           C.copy (C.toB len) p (C.toB inc) p' (C.toB inc')
-         return $ coerce vecOut
+clone vecIn = stToPrim $ do
+  VecRepr len inc fp <- asInput vecIn
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fp $ \p -> do
+      vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
+      unsafeWithForeignPtr fp' $ \p' -> do
+        C.copy (C.toB len) p (C.toB inc) p' (C.toB inc')
+      return $ coerce vecOut
 
 
 -- | Compute vector-scalar product in place
@@ -306,8 +306,8 @@ blasAxpy
   -> inp a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
-blasAxpy a vecX vecY = primToPrim $ do
-  VecRepr lenX _ _ <- asInput @s vecX
+blasAxpy a vecX vecY = stToPrim $ do
+  VecRepr lenX _ _ <- asInput vecX
   when (lenX /= MVG.length vecY) $ error "Length mismatch"
   unsafeBlasAxpy a vecX vecY
 
@@ -319,12 +319,13 @@ unsafeBlasAxpy
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasAxpy #-}
-unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.axpy (C.toB lenX) a pX (C.toB incX)
-                             pY (C.toB incY)
+unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+  VecRepr lenX incX fpX <- asInput vecX
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.axpy (C.toB lenX) a pX (C.toB incX)
+                            pY (C.toB incY)
 
 -- | Multiply vector by scalar in place
 --
@@ -362,12 +363,13 @@ unsafeBlasDotu
   => inpX a -- ^ Vector @x@
   -> inpY a -- ^ Vector @y@
   -> m a
-unsafeBlasDotu vecX vecY = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.dot (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
+unsafeBlasDotu vecX vecY = stToPrim $ do
+  VecRepr lenX incX fpX <- asInput vecX
+  VecRepr _    incY fpY <- asInput vecY
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.dot (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute scalar product of two vectors. First vector is complex
 --   conjugated. See 'blasDotc' for variant without conjugation.
@@ -390,12 +392,13 @@ unsafeBlasDotc
   => inpX a -- ^ Vector @x@
   -> inpY a -- ^ Vector @y@
   -> m a
-unsafeBlasDotc vecX vecY = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.dotc (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
+unsafeBlasDotc vecX vecY = stToPrim $ do
+  VecRepr lenX incX fpX <- asInput vecX
+  VecRepr _    incY fpY <- asInput vecY
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.dotc (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute euclidean norm or vector:
 --
@@ -404,8 +407,8 @@ blasNrm2
   :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
   => inp a -- ^ Vector @x@
   -> m (R a)
-blasNrm2 vec
-  = unsafePrimToPrim
-  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vec
-       unsafeWithForeignPtr fpX $ \pX ->
-         C.nrm2 (C.toB lenX) pX (C.toB incX)
+blasNrm2 vec = stToPrim $ do
+  VecRepr lenX incX fpX <- asInput vec
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+      C.nrm2 (C.toB lenX) pX (C.toB incX)
