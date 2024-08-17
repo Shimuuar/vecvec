@@ -382,6 +382,48 @@ instance ( InnerSpace a, InnerSpace b, Scalar a ~ Scalar b
   (a1,b1) <.> (a2,b2) = a1<.>a2 + b1<.>b2
   magnitudeSq (a,b) = magnitudeSq a + magnitudeSq b
 
+instance (AdditiveSemigroup a, AdditiveSemigroup b, AdditiveSemigroup c
+         ) => AdditiveSemigroup (a,b,c) where
+  (a1,b1,c1) .+. (a2,b2,c2) = (a1.+.a2, b1.+.b2, c1.+.c2)
+instance (AdditiveMonoid a, AdditiveMonoid b, AdditiveMonoid c
+         ) => AdditiveMonoid (a,b,c) where
+  zeroV = (zeroV, zeroV, zeroV)
+instance (AdditiveQuasigroup a, AdditiveQuasigroup b, AdditiveQuasigroup c
+         ) => AdditiveQuasigroup (a,b,c) where
+  (a1,b1,c1) .-. (a2,b2,c2) = (a1.-.a2, b1.-.b2, c1.-.c2)
+  negateV (a,b,c) = (negateV a, negateV b, negateV c)
+instance ( VectorSpace a, VectorSpace b, VectorSpace c, Scalar a ~ Scalar b, Scalar a ~ Scalar c
+         ) => VectorSpace (a,b,c) where
+  type Scalar (a,b,c) = Scalar a
+  x *. (a,b,c) = (x *. a, x *. b, x *. c)
+  (a,b,c) .* x = (a .* x, b .* x, c .* x)
+instance ( InnerSpace a, InnerSpace b, InnerSpace c, Scalar a ~ Scalar b, Scalar a ~ Scalar c
+         ) => InnerSpace (a,b,c) where
+  (a1,b1,c1) <.> (a2,b2,c2) = a1<.>a2 + b1<.>b2 + c1<.>c2
+  magnitudeSq (a,b,c) = magnitudeSq a + magnitudeSq b + magnitudeSq c
+
+instance (AdditiveSemigroup a, AdditiveSemigroup b, AdditiveSemigroup c, AdditiveSemigroup d
+         ) => AdditiveSemigroup (a,b,c,d) where
+  (a1,b1,c1,d1) .+. (a2,b2,c2,d2) = (a1.+.a2, b1.+.b2, c1.+.c2, d1.+.d2)
+instance (AdditiveMonoid a, AdditiveMonoid b, AdditiveMonoid c, AdditiveMonoid d
+         ) => AdditiveMonoid (a,b,c,d) where
+  zeroV = (zeroV, zeroV, zeroV,zeroV)
+instance (AdditiveQuasigroup a, AdditiveQuasigroup b, AdditiveQuasigroup c, AdditiveQuasigroup d
+         ) => AdditiveQuasigroup (a,b,c,d) where
+  (a1,b1,c1,d1) .-. (a2,b2,c2,d2) = (a1.-.a2, b1.-.b2, c1.-.c2, d1.-.d2)
+  negateV (a,b,c,d) = (negateV a, negateV b, negateV c, negateV d)
+instance ( VectorSpace a, VectorSpace b, VectorSpace c, VectorSpace d
+         , Scalar a ~ Scalar b, Scalar a ~ Scalar c, Scalar a ~ Scalar d
+         ) => VectorSpace (a,b,c,d) where
+  type Scalar (a,b,c,d) = Scalar a
+  x *. (a,b,c,d) = (x *. a, x *. b, x *. c, x *. d)
+  (a,b,c,d) .* x = (a .* x, b .* x, c .* x, d .* x)
+instance ( InnerSpace a, InnerSpace b, InnerSpace c, InnerSpace d
+         , Scalar a ~ Scalar b, Scalar a ~ Scalar c, Scalar a ~ Scalar d
+         ) => InnerSpace (a,b,c,d) where
+  (a1,b1,c1,d1) <.> (a2,b2,c2,d2) = a1<.>a2 + b1<.>b2 + c1<.>c2 + d1<.>d2
+  magnitudeSq (a,b,c,d) = magnitudeSq a + magnitudeSq b + magnitudeSq c + magnitudeSq d
+
 
 
 deriving via AsVector V.Vector a instance Num a          => AdditiveSemigroup  (V.Vector a)
