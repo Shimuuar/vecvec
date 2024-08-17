@@ -114,17 +114,17 @@ instance s ~ s => AsInput s (MVS.MVector s') where
   {-# INLINE asInput #-}
   asInput (MVS.MVector n buf) = pure (VecRepr n 1 buf)
 
+instance AsInput s VS.Vector where
+  {-# INLINE asInput #-}
+  asInput v = pure $ case VS.unsafeToForeignPtr0 v of
+                       (buf,n) -> VecRepr n 1 buf
+
+
 instance (Storable a) => NDMutable MVec a where
   basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
   basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
   {-# INLINE basicUnsafeReadArr  #-}
   {-# INLINE basicUnsafeWriteArr #-}
-
--- -- FIXME: We cannot define instance since we need Storable a for that
--- instance AsInput s VS.Vector where
---   {-# INLINE asInput #-}
---   asInput = asInput <=< VS.unsafeThaw
-
 
 
 
