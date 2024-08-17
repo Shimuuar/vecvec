@@ -313,9 +313,9 @@ blasAxpy a vecX vecY = stToPrim $ do
 
 -- | See 'blasAxpy'.
 unsafeBlasAxpy
-  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  :: forall a m vec s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vec)
   => a        -- ^ Scalar @a@
-  -> inp a    -- ^ Vector @x@
+  -> vec a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasAxpy #-}
@@ -327,11 +327,12 @@ unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = stToPrim $ do
       C.axpy (C.toB lenX) a pX (C.toB incX)
                             pY (C.toB incY)
 
--- | Multiply vector by scalar in place
+-- | Multiply vector @x@ by scalar @a@ in place
 --
 -- > x := a*x
 blasScal
-  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  :: forall a m s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s)
   => a        -- ^ Scalar @a@
   -> MVec s a -- ^ Vector @x@
   -> m ()
@@ -347,9 +348,10 @@ blasScal a (MVec (VecRepr lenX incX fpX))
 --
 -- \[ \operatorname{dotu}(\vec x,\vec y) = \sum_i x_i y_i \]
 blasDotu
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vecX, AsInput s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 blasDotu vecX vecY = primToPrim $ do
   VecRepr lenX _ _ <- asInput vecX
@@ -357,11 +359,12 @@ blasDotu vecX vecY = primToPrim $ do
   when (lenX /= lenY) $ error "Length mismatch"
   unsafeBlasDotu vecX vecY
 
--- | See 'blasDot'.
+-- | See 'blasDotu'.
 unsafeBlasDotu
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vecX, AsInput s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 unsafeBlasDotu vecX vecY = stToPrim $ do
   VecRepr lenX incX fpX <- asInput vecX
@@ -376,9 +379,10 @@ unsafeBlasDotu vecX vecY = stToPrim $ do
 --
 -- \[ \operatorname{dotc}(\vec x,\vec y) = \sum_i \bar{x_i} y_i \]
 blasDotc
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vecX, AsInput s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 blasDotc vecX vecY = primToPrim $ do
   VecRepr lenX _ _ <- asInput vecX
@@ -388,9 +392,10 @@ blasDotc vecX vecY = primToPrim $ do
 
 -- | See 'blasDotc'.
 unsafeBlasDotc
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vecX, AsInput s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 unsafeBlasDotc vecX vecY = stToPrim $ do
   VecRepr lenX incX fpX <- asInput vecX
@@ -404,8 +409,9 @@ unsafeBlasDotc vecX vecY = stToPrim $ do
 --
 -- \[ \operatorname{nrm2}(\vec{x}) = \sqrt{\sum_i x_i^2} \]
 blasNrm2
-  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
-  => inp a -- ^ Vector @x@
+  :: forall a m vec s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s vec)
+  => vec a -- ^ Vector @x@
   -> m (R a)
 blasNrm2 vec = stToPrim $ do
   VecRepr lenX incX fpX <- asInput vec
