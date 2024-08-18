@@ -88,9 +88,9 @@ tryVec (Matrix M.MView{..})
   | ncols /= leadingDim = Nothing
   | otherwise           = Just (Vec (VecRepr (ncols * nrows) 1 buffer))
 
-instance M.AsMInput s Matrix where
-  {-# INLINE asMInput #-}
-  asMInput = coerce
+instance M.InMatrix s Matrix where
+  {-# INLINE matrixRepr #-}
+  matrixRepr = pure . coerce
 
 type instance Rank Matrix = 2
 

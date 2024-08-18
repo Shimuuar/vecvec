@@ -21,7 +21,7 @@
 module Vecvec.LAPACK.Internal.Vector.Mutable
   ( -- * Representation
     VecRepr(..)
-  , AsInput(..)
+  , InVector(..)
     -- * Mutable vector
   , MVec(..)
   , Strided(..)
@@ -100,31 +100,33 @@ instance (Slice1D i, Storable a) => Slice (Strided i) (VecRepr a) where
 
 
 
--- | Convenience type class which allows to use several data types as
---   read-only input for in-place operations with mutable vectors.
-class AsInput s v where
-  -- | Expected to be /O(1)/ and very cheap.
-  asInput :: v a -> ST s (VecRepr a)
+-- | This type class allows to use both mutable and immutable vector
+--   as input parameters to functions operating in 'PrimMonad' with
+--   state token @s@.
+class InVector s v where
+  -- | Expose internal representation of a type. Expected to be /O(1)/
+  --   and very cheap.
+  vectorRepr :: v a -> ST s (VecRepr a)
 
-instance s ~ s => AsInput s (MVec s') where
-  {-# INLINE asInput #-}
-  asInput (MVec v) = pure v
+instance s ~ s => InVector s (MVec s') where
+  {-# INLINE vectorRepr #-}
+  vectorRepr (MVec v) = pure v
 
-instance s ~ s => AsInput s (MVS.MVector s') where
-  {-# INLINE asInput #-}
-  asInput (MVS.MVector n buf) = pure (VecRepr n 1 buf)
+instance s ~ s => InVector s (MVS.MVector s') where
+  {-# INLINE vectorRepr #-}
+  vectorRepr (MVS.MVector n buf) = pure (VecRepr n 1 buf)
+
+instance InVector s VS.Vector where
+  {-# INLINE vectorRepr #-}
+  vectorRepr v = pure $ case VS.unsafeToForeignPtr0 v of
+                       (buf,n) -> VecRepr n 1 buf
+
 
 instance (Storable a) => NDMutable MVec a where
   basicUnsafeReadArr  v (ContVec idx)   = idx $ Fun $ MVG.unsafeRead v
   basicUnsafeWriteArr v (ContVec idx) a = idx $ Fun $ \i -> MVG.unsafeWrite v i a
   {-# INLINE basicUnsafeReadArr  #-}
   {-# INLINE basicUnsafeWriteArr #-}
-
--- -- FIXME: We cannot define instance since we need Storable a for that
--- instance AsInput s VS.Vector where
---   {-# INLINE asInput #-}
---   asInput = asInput <=< VS.unsafeThaw
-
 
 
 
@@ -284,53 +286,55 @@ instance VS.Storable a => MVG.MVector MVec a where
 ----------------------------------------------------------------
 
 -- | Create copy of a vector
-clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+clone :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s inp)
       => inp a
       -> m (MVec s a)
-clone vecIn
-  = unsafePrimToPrim
-  $ do VecRepr len inc fp <- unsafePrimToPrim $ asInput @s vecIn
-       unsafeWithForeignPtr fp $ \p -> do
-         vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
-         unsafeWithForeignPtr fp' $ \p' -> do
-           C.copy (C.toB len) p (C.toB inc) p' (C.toB inc')
-         return $ coerce vecOut
+clone vecIn = stToPrim $ do
+  VecRepr len inc fp <- vectorRepr vecIn
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fp $ \p -> do
+      vecOut@(MVec (VecRepr _ inc' fp')) <- MVG.unsafeNew len
+      unsafeWithForeignPtr fp' $ \p' -> do
+        C.copy (C.toB len) p (C.toB inc) p' (C.toB inc')
+      return $ coerce vecOut
 
 
 -- | Compute vector-scalar product in place
 --
 -- > y := a*x + y
 blasAxpy
-  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s inp)
   => a        -- ^ Scalar @a@
   -> inp a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
-blasAxpy a vecX vecY = primToPrim $ do
-  VecRepr lenX _ _ <- asInput @s vecX
+blasAxpy a vecX vecY = stToPrim $ do
+  VecRepr lenX _ _ <- vectorRepr vecX
   when (lenX /= MVG.length vecY) $ error "Length mismatch"
   unsafeBlasAxpy a vecX vecY
 
 -- | See 'blasAxpy'.
 unsafeBlasAxpy
-  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
+  :: forall a m vec s. (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vec)
   => a        -- ^ Scalar @a@
-  -> inp a    -- ^ Vector @x@
+  -> vec a    -- ^ Vector @x@
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasAxpy #-}
-unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.axpy (C.toB lenX) a pX (C.toB incX)
-                             pY (C.toB incY)
+unsafeBlasAxpy a vecX (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+  VecRepr lenX incX fpX <- vectorRepr vecX
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.axpy (C.toB lenX) a pX (C.toB incX)
+                            pY (C.toB incY)
 
--- | Multiply vector by scalar in place
+-- | Multiply vector @x@ by scalar @a@ in place
 --
 -- > x := a*x
 blasScal
-  :: (LAPACKy a, PrimMonad m, PrimState m ~ s)
+  :: forall a m s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s)
   => a        -- ^ Scalar @a@
   -> MVec s a -- ^ Vector @x@
   -> m ()
@@ -346,66 +350,73 @@ blasScal a (MVec (VecRepr lenX incX fpX))
 --
 -- \[ \operatorname{dotu}(\vec x,\vec y) = \sum_i x_i y_i \]
 blasDotu
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vecX, InVector s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 blasDotu vecX vecY = primToPrim $ do
-  VecRepr lenX _ _ <- asInput vecX
-  VecRepr lenY _ _ <- asInput vecY
+  VecRepr lenX _ _ <- vectorRepr vecX
+  VecRepr lenY _ _ <- vectorRepr vecY
   when (lenX /= lenY) $ error "Length mismatch"
   unsafeBlasDotu vecX vecY
 
--- | See 'blasDot'.
+-- | See 'blasDotu'.
 unsafeBlasDotu
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vecX, InVector s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
-unsafeBlasDotu vecX vecY = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.dot (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
+unsafeBlasDotu vecX vecY = stToPrim $ do
+  VecRepr lenX incX fpX <- vectorRepr vecX
+  VecRepr _    incY fpY <- vectorRepr vecY
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.dot (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute scalar product of two vectors. First vector is complex
 --   conjugated. See 'blasDotc' for variant without conjugation.
 --
 -- \[ \operatorname{dotc}(\vec x,\vec y) = \sum_i \bar{x_i} y_i \]
 blasDotc
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vecX, InVector s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
 blasDotc vecX vecY = primToPrim $ do
-  VecRepr lenX _ _ <- asInput vecX
-  VecRepr lenY _ _ <- asInput vecY
+  VecRepr lenX _ _ <- vectorRepr vecX
+  VecRepr lenY _ _ <- vectorRepr vecY
   when (lenX /= lenY) $ error "Length mismatch"
   unsafeBlasDotc vecX vecY
 
 -- | See 'blasDotc'.
 unsafeBlasDotc
-  :: forall a m inpX inpY s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inpX, AsInput s inpY)
-  => inpX a -- ^ Vector @x@
-  -> inpY a -- ^ Vector @y@
+  :: forall a m vecX vecY s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vecX, InVector s vecY)
+  => vecX a -- ^ Vector @x@
+  -> vecY a -- ^ Vector @y@
   -> m a
-unsafeBlasDotc vecX vecY = unsafePrimToPrim $ do
-  VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-  VecRepr _    incY fpY <- unsafePrimToPrim $ asInput @s vecY
-  id $ unsafeWithForeignPtr fpX $ \pX ->
-       unsafeWithForeignPtr fpY $ \pY ->
-       C.dotc (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
+unsafeBlasDotc vecX vecY = stToPrim $ do
+  VecRepr lenX incX fpX <- vectorRepr vecX
+  VecRepr _    incY fpY <- vectorRepr vecY
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+    unsafeWithForeignPtr fpY $ \pY ->
+      C.dotc (C.toB lenX) pX (C.toB incX) pY (C.toB incY)
 
 -- | Compute euclidean norm or vector:
 --
 -- \[ \operatorname{nrm2}(\vec{x}) = \sqrt{\sum_i x_i^2} \]
 blasNrm2
-  :: forall a m inp s. (LAPACKy a, PrimMonad m, PrimState m ~ s, AsInput s inp)
-  => inp a -- ^ Vector @x@
+  :: forall a m vec s.
+     (LAPACKy a, PrimMonad m, PrimState m ~ s, InVector s vec)
+  => vec a -- ^ Vector @x@
   -> m (R a)
-blasNrm2 vec
-  = unsafePrimToPrim
-  $ do VecRepr lenX incX fpX <- unsafePrimToPrim $ asInput @s vec
-       unsafeWithForeignPtr fpX $ \pX ->
-         C.nrm2 (C.toB lenX) pX (C.toB incX)
+blasNrm2 vec = stToPrim $ do
+  VecRepr lenX incX fpX <- vectorRepr vec
+  unsafeIOToPrim $
+    unsafeWithForeignPtr fpX $ \pX ->
+      C.nrm2 (C.toB lenX) pX (C.toB incX)

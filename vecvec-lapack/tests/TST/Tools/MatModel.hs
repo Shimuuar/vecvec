@@ -35,6 +35,7 @@ module TST.Tools.MatModel
     -- ** Matrices
   , Nonsingular(..)
   , genNonsingularMatrix
+  , genNonsingularSymmetric
     -- * Models
   , TestMatrix
   , TestMatrix1
@@ -188,6 +189,15 @@ genNonsingularMatrix sz = do
   pure $  (2 * maxGenScacar * fromIntegral sz) *. Mat.eye sz
       .+. mat
 
+-- | Generate nonsingular square matrix. In order to ensure
+--   nonsingularity we generate matrix with diagonal dominance
+genNonsingularSymmetric
+  :: (SmallScalar a, VV.LAPACKy a)
+  => Int -> Gen (Symmetric a)
+genNonsingularSymmetric sz = do
+  mat <- arbitraryShape (sz)
+  pure $  (2 * maxGenScacar * fromIntegral sz) *. Sym.eye sz
+      .+. mat
 
 ----------------------------------------------------------------
 -- Models
@@ -347,7 +357,7 @@ instance (Storable a{-, Num a-}) => TestData1 TagMat Symmetric a where
     = Sym.fromRowsFF
     $ (fmap . fmap) f xs
 
-instance (Storable a, Num a) => TestData TagMat (Symmetric a) where
+instance (Storable a) => TestData TagMat (Symmetric a) where
   type Model TagMat (Symmetric a) = ModelSym a
   unmodel t = liftUnmodel t id
   model   t = liftModel   t id
@@ -620,6 +630,13 @@ instance (SmallScalar a, Storable a, Num a
 
 instance (SmallScalar a, Storable a, Num a
          ) => ArbitraryShape Matrix a where
+  arbitraryShape = fmap fromModel . arbitraryShape
+  arbitraryNCols = fmap fromModel . arbitraryNCols
+  arbitraryNRows = fmap fromModel . arbitraryNRows
+
+instance (SmallScalar a, Storable a
+         ) => ArbitraryShape Symmetric a where
+  type CreationRank Symmetric = 1
   arbitraryShape = fmap fromModel . arbitraryShape
   arbitraryNCols = fmap fromModel . arbitraryNCols
   arbitraryNRows = fmap fromModel . arbitraryNRows

@@ -22,8 +22,12 @@ module Vecvec.LAPACK.Internal.Symmetric
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
+  , zeros
+  , eye
   , fromRowsFF
   , fromRowsFV
+  , diag
+  , diagF
   , replicate
   , generate
   ) where
@@ -67,9 +71,9 @@ instance (Slice1D i, Storable a) => Slice i (Symmetric a) where
 instance (Show a, Storable a) => Show (Symmetric a) where
   show = show . toDense
 
-instance MSym.AsSymInput s Symmetric where
-  {-# INLINE asSymInput #-}
-  asSymInput (Symmetric _ mat) = mat
+instance MSym.InSymmetric s Symmetric where
+  {-# INLINE symmetricRepr #-}
+  symmetricRepr (Symmetric _ mat) = pure mat
 
 type instance Rank Symmetric = 2
 
@@ -149,6 +153,22 @@ fromRowsFV :: (Storable a, Foldable f, VG.Vector v a)
 {-# INLINE fromRowsFV #-}
 fromRowsFV dat = runST $ unsafeFreeze =<< MSym.fromRowsFV dat
 
+-- | Create matrix filled with zeros. It's more efficient than using
+--   'replicate'.
+--
+-- ==== __Examples__
+--
+-- >>> zeros 2 :: Symmetric Double
+-- [ [0.0,0.0]
+-- , [0.0,0.0]]
+zeros :: (LAPACKy a)
+      => Int          -- ^ Matrix size
+      -> Symmetric a
+zeros sz = runST $ unsafeFreeze =<< MSym.zeros sz
+
+-- | Create identity matrix
+eye :: (LAPACKy a, Num a) => Int -> Symmetric a
+eye n = runST $ unsafeFreeze =<< MSym.eye n
 
 
 -- | Fill matrix of given size with provided value.
@@ -178,6 +198,15 @@ generate :: (Storable a)
          -> Symmetric a
 generate sz f = runST $ unsafeFreeze =<< MSym.generate sz f
 
+-- | Create diagonal matrix. Diagonal elements are stored in list-like
+--   container.
+diagF :: (LAPACKy a, Foldable f) => f a -> Symmetric a
+diagF xs = runST $ unsafeFreeze =<< MSym.diagF xs
+
+-- | Create diagonal matrix. Diagonal elements are stored in vector
+diag :: (LAPACKy a, VG.Vector v a) => v a -> Symmetric a
+{-# INLINE diag #-}
+diag xs = runST $ unsafeFreeze =<< MSym.diag xs
 
 ----------------------------------------------------------------
 -- Matrix-Vector
