@@ -31,10 +31,15 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   , unsafeNew
   , fromRowsFF
   , fromRowsFV
+  , zeros
   , replicate
   , replicateM
   , generate
   , generateM
+  , eye
+  , diag
+  , diagF
+
     -- * Unsafe functions
   , unsafeCast
   , unsafeToDense
@@ -307,6 +312,16 @@ replicateM n action = do
     reallyUnsafeWrite mat (i,j) a
   pure mat
 
+-- | Create matrix filled with zeros. It's more efficient than using
+--   'replicate'.
+zeros :: (LAPACKy a, PrimMonad m, s ~ PrimState m)
+      => Int -- ^ Size of a matrix
+      -> m (MSymmetric s a)
+zeros n = stToPrim $ do
+  mat@(MSymmetric MSymView{..}) <- unsafeNew n
+  unsafeIOToPrim $ unsafeWithForeignPtr buffer $ \p -> C.fillZeros p (n*n)
+  pure mat
+
 -- | Fill matrix of given size using function from indices to element.
 generate
   :: (Storable a, PrimMonad m, s ~ PrimState m)
@@ -331,6 +346,43 @@ generateM n action = do
     a <- action i j
     reallyUnsafeWrite mat (i,j) a
   pure mat
+
+
+-- | Create identity matrix
+eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
+    => Int -- ^ Matrix size
+    -> m (MSymmetric s a)
+eye n = stToPrim $ do
+  mat <- zeros n
+  loop0_ n $ \i -> unsafeWriteArr mat (i,i) 1
+  pure mat
+
+-- | Create diagonal matrix. Diagonal elements are stored in vector.
+diag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+     => v a
+     -> m (MSymmetric s a)
+{-# INLINE diag #-}
+diag xs = stToPrim $ do
+  mat <- zeros n
+  VG.iforM_ xs $ \i x -> unsafeWriteArr mat (i,i) x
+  pure mat
+  where
+    n = VG.length xs
+
+-- | Create diagonal matrix. Diagonal elements are stored in list-like
+--   container.
+diagF :: (LAPACKy a, Foldable f, PrimMonad m, s ~ PrimState m)
+      => f a
+      -> m (MSymmetric s a)
+diagF xs = stToPrim $ do
+  mat <- zeros n
+  -- FIXME: is build/foldr fusion reliable here?
+  forM_ ([0..] `zip` toList xs) $ \(i,x) -> unsafeWriteArr mat (i,i) x
+  pure mat
+  where
+    n = length xs
+
+
 
 ----------------------------------------------------------------
 -- BLAS wrappers

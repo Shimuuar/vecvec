@@ -11,8 +11,12 @@ module Vecvec.LAPACK.Symmetric
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
+  , zeros
+  , eye
   , fromRowsFF
   , fromRowsFV
+  , diag
+  , diagF
   , replicate
   , generate
   ) where

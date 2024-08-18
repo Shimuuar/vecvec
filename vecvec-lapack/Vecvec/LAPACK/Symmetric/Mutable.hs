@@ -11,8 +11,12 @@ module Vecvec.LAPACK.Symmetric.Mutable
   , unsafeNew
   , fromRowsFF
   , fromRowsFV
+  , zeros
   , replicate
   , replicateM
+  , eye
+  , diag
+  , diagF
   , generate
   , generateM
   ) where
