@@ -134,12 +134,12 @@ instance HasShape (MMatrix s) a where
 
 instance Storable a => NDMutable MMatrix a where
   basicUnsafeReadArr (MMatrix MView{..}) (FC.ContVec idx)
-    = unsafePrimToPrim
+    = unsafeIOToPrim
     $ idx $ FC.Fun $ \i j ->
       unsafeWithForeignPtr buffer $ \p ->
         peekElemOff p (i * leadingDim + j)
   basicUnsafeWriteArr (MMatrix MView{..}) (FC.ContVec idx) a
-    = unsafePrimToPrim
+    = unsafeIOToPrim
     $ idx $ FC.Fun $ \i j ->
       unsafeWithForeignPtr buffer $ \p ->
         pokeElemOff p (i * leadingDim + j) a
@@ -227,7 +227,7 @@ fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
 fromRowsFF dat
   | ncols == 0 = error "Number of columns is zero"
   | nrows == 0 = error "Number of rows is zero"
-  | otherwise = unsafePrimToPrim $ do
+  | otherwise = unsafeIOToPrim $ do
       buffer <- mallocForeignPtrArray (ncols * nrows)
       let step p row
             | length row /= ncols = error "Row has different length"
@@ -385,10 +385,11 @@ generateM (n,k) fun = do
 zeros :: (LAPACKy a, PrimMonad m, s ~ PrimState m)
       => (Int,Int) -- ^ Tuple (\(N_{rows}\), \(N_{columns}\))
       -> m (MMatrix s a)
-zeros (n,k) = unsafeIOToPrim $ do
-  (MMatrix mat@MView{..}) <- unsafeNew (n,k)
-  unsafeWithForeignPtr buffer $ \p -> C.fillZeros p (n*k)
-  pure (MMatrix mat)
+zeros (n,k) = stToPrim $ do
+  mat@(MMatrix MView{..}) <- unsafeNew (n,k)
+  unsafeIOToPrim $
+    unsafeWithForeignPtr buffer $ \p -> C.fillZeros p (n*k)
+  pure mat
 
 -- | Create identity matrix
 eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
