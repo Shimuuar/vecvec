@@ -151,8 +151,11 @@ instance CEnum Side where
     RightSide -> c_RIGHT
 
 
+deriving newtype instance Show     (CRepr UpLo)
 deriving newtype instance Storable (CRepr UpLo)
+deriving newtype instance Show     (CRepr MatrixLayout)
 deriving newtype instance Storable (CRepr MatrixLayout)
+deriving newtype instance Show     (CRepr Side)
 deriving newtype instance Storable (CRepr Side)
 
 foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
