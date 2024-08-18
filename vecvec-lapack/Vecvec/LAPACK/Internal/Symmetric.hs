@@ -158,9 +158,9 @@ fromRowsFV dat = runST $ unsafeFreeze =<< MSym.fromRowsFV dat
 --
 -- ==== __Examples__
 --
--- >>> zeros (2,3) :: Matrix Double
--- [ [0.0,0.0,0.0]
--- , [0.0,0.0,0.0]]
+-- >>> zeros 2 :: Symmetric Double
+-- [ [0.0,0.0]
+-- , [0.0,0.0]]
 zeros :: (LAPACKy a)
       => Int          -- ^ Matrix size
       -> Symmetric a
