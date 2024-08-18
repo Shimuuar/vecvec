@@ -4,12 +4,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
 -- |
--- Linear algebra routines
+-- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg
   ( -- * Linear systems
-    LinearEqRHS(..)
+    -- $linear_eq
+    -- ** Type classes
+    LinearEq(..)
+  , LinearEqRHS(..)
+    -- ** Solvers
   , solveLinEq
-    -- ** Matrix inverse
+    -- * Matrix inversion
   , invertMatrix
     -- * Matrix decomposition
   , decomposeSVD
@@ -104,6 +108,21 @@ invertMatrix m
       pure $ Matrix inv
 
 
+-- $linear_eq
+--
+-- Placeholder for documentation for systems of linear equations
+
+-- | Standard solver for linear equation. This type class picks
+--   default algorithm for solving linear equations
+class LinearEq m a where
+  -- | Solve linear equation \(Ax=b\)
+  (\\\) :: (LinearEqRHS rhs a) => m a -> rhs a -> rhs a
+
+-- | See 'solveLinEq'
+instance LAPACKy a => LinearEq Matrix a where
+  (\\\) = solveLinEq
+
+
 -- | When solving linear equations like \(Ax=b\) most of the work is
 --   spent on factoring matrix. Thus it's computationally advantageous
 --   to batch right hand sides of an equation. This type class exists
@@ -159,11 +178,11 @@ instance VU.Unbox a => LinearEqRHS VU.Vector a where
 --   Note that this function does not check whether matrix is
 --   ill-conditioned and may return nonsensical answers in this case.
 --
---   /Uses GESV LAPACK routine internally/
+--   /Uses _GESV LAPACK routine internally/
 solveLinEq
   :: (LinearEqRHS rhs a, LAPACKy a)
   => Matrix a -- ^ Matrix \(A\)
-  -> rhs a
+  -> rhs a    -- ^ Right hand side(s) \(b\)
   -> rhs a
 solveLinEq a _
   | nRows a /= nCols a = error "Matrix A is not square"
