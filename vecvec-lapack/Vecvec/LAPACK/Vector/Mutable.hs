@@ -14,7 +14,7 @@ module Vecvec.LAPACK.Vector.Mutable
     MVec
     -- * Type classes
   , LAPACKy
-  , AsInput
+  , InVector
     -- * Mutable BLAS wrappers
     -- ** Checked varians
     -- $blas

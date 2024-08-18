@@ -67,9 +67,9 @@ instance (Slice1D i, Storable a) => Slice i (Symmetric a) where
 instance (Show a, Storable a) => Show (Symmetric a) where
   show = show . toDense
 
-instance MSym.AsSymInput s Symmetric where
-  {-# INLINE asSymInput #-}
-  asSymInput (Symmetric _ mat) = mat
+instance MSym.InSymmetric s Symmetric where
+  {-# INLINE symmetricRepr #-}
+  symmetricRepr (Symmetric _ mat) = pure mat
 
 type instance Rank Symmetric = 2
 

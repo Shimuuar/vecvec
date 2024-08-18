@@ -2,7 +2,7 @@
 module Vecvec.LAPACK.Symmetric.Mutable
   ( -- * Data types
     MSymmetric
-  , AsSymInput
+  , InSymmetric
   , symmetrizeMSymView
     -- * Operations
     -- ** Creation

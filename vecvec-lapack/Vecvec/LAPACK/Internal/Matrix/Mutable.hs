@@ -20,7 +20,7 @@ module Vecvec.LAPACK.Internal.Matrix.Mutable
   ( -- * Data types
     MMatrix(..)
   , MView(..)
-  , AsMInput(..)
+  , InMatrix(..)
   , pattern AsMVec
     -- * Operations
     -- ** Creation
@@ -56,6 +56,7 @@ module Vecvec.LAPACK.Internal.Matrix.Mutable
 
 import Control.Monad           (foldM)
 import Control.Monad.Primitive
+import Control.Monad.ST
 import Data.Coerce
 import Data.Foldable
 import Data.Vector.Generic.Mutable           qualified as MVG
@@ -103,13 +104,17 @@ instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
                  , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
                  }
 
--- | Values that could be used as read-only dense matrix parameter.
-class AsMInput s m where
-  asMInput :: m a -> MView a
+-- | This type class allows to use both mutable and immutable vector
+--   as input parameters to functions operating in 'PrimMonad' with
+--   state token @s@.
+class InMatrix s m where
+  -- | Expose internal representation of a type. Expected to be /O(1)/
+  --   and very cheap.
+  matrixRepr :: m a -> ST s (MView a)
 
-instance s ~ s' => AsMInput s' (MMatrix s) where
-  {-# INLINE asMInput #-}
-  asMInput = coerce
+instance s ~ s' => InMatrix s' (MMatrix s) where
+  {-# INLINE matrixRepr #-}
+  matrixRepr = pure . coerce
 
 
 ----------------------------------------------------------------
@@ -191,27 +196,30 @@ getCol m@(MMatrix MView{..}) i
 ----------------------------------------------------------------
 
 -- | Create copy of mutable matrix
-clone :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsMInput s mat)
+clone :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, InMatrix s mat)
       => mat a -> m (MMatrix s a)
-clone (asMInput @s -> MView{..}) = unsafePrimToPrim $ do
-  buf <- mallocForeignPtrArray n_elt
-  unsafeWithForeignPtr buffer $ \src ->
-    unsafeWithForeignPtr buf $ \dst ->
-    if-- Source buffer is dense. We can copy in one go
-      | ncols == leadingDim -> copyArray dst src n_elt
-      -- We have to copy row by row
-      | otherwise -> let loop !d !s i
-                           | i >= nrows = return ()
-                           | otherwise  = do
-                               copyArray d s ncols
-                               loop (advancePtr d ncols) (advancePtr s leadingDim) (i+1)
-                     in loop dst src 0
-  pure $ MMatrix MView { buffer     = buf
-                       , leadingDim = ncols
-                       , ..
-                       }
-  where
-    n_elt = ncols * nrows
+clone mat = stToPrim $ do
+  MView{..} <- matrixRepr mat
+  let n_elt = ncols * nrows
+  unsafeIOToPrim $ do
+    return ()
+    buf <- mallocForeignPtrArray n_elt
+    unsafeWithForeignPtr buffer $ \src ->
+      unsafeWithForeignPtr buf $ \dst ->
+      if-- Source buffer is dense. We can copy in one go
+        | ncols == leadingDim -> copyArray dst src n_elt
+        -- We have to copy row by row
+        | otherwise -> let loop !d !s i
+                             | i >= nrows = return ()
+                             | otherwise  = do
+                                 copyArray d s ncols
+                                 loop (advancePtr d ncols) (advancePtr s leadingDim) (i+1)
+                       in loop dst src 0
+    pure $ MMatrix MView { buffer     = buf
+                         , leadingDim = ncols
+                         , ..
+                         }
+
 
 -- | Create matrix from list of rows.
 fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
@@ -457,7 +465,8 @@ gdiag (n,k) xs
 --
 -- > y := αAx + βy
 unsafeBlasGemv
-  :: forall a m mat vec s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsMInput s mat, AsInput s vec)
+  :: forall a m mat vec s.
+     (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InMatrix s mat, InVector s vec)
   => MatrixTranspose -- ^ Matrix transformation
   -> a        -- ^ Scalar @α@
   -> mat a    -- ^ Matrix @A@
@@ -466,22 +475,23 @@ unsafeBlasGemv
   -> MVec s a -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasGemv #-}
-unsafeBlasGemv tr α (asMInput @s -> MView{..}) vecX β (MVec (VecRepr _ incY fpY))
-  = unsafePrimToPrim
-  $ do VecRepr _lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-       id $ unsafeWithForeignPtr buffer $ \p_A ->
-            unsafeWithForeignPtr fpX    $ \p_x ->
-            unsafeWithForeignPtr fpY    $ \p_y ->
-              C.gemv C.RowMajor tr
-                (C.toB nrows) (C.toB ncols) α p_A (C.toB leadingDim)
-                p_x (C.toB incX)
-                β p_y (C.toB incY)
+unsafeBlasGemv tr α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+  MView{..}              <- matrixRepr mat
+  VecRepr _lenX incX fpX <- vectorRepr vecX
+  unsafeIOToPrim $
+    unsafeWithForeignPtr buffer $ \p_A ->
+    unsafeWithForeignPtr fpX    $ \p_x ->
+    unsafeWithForeignPtr fpY    $ \p_y ->
+      C.gemv C.RowMajor tr
+        (C.toB nrows) (C.toB ncols) α p_A (C.toB leadingDim)
+        p_x (C.toB incX)
+        β p_y (C.toB incY)
 
 -- | General matrix-matrix multiplication
 --
 -- > C := α·op(A)·op(B) + β·C
 unsafeBlasGemm
-  :: forall a m matA matB s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsMInput s matA, AsMInput s matB)
+  :: forall a m matA matB s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InMatrix s matA, InMatrix s matB)
   => a               -- ^ Scalar @α@
   -> MatrixTranspose -- ^ Transformation for @A@
   -> matA a          -- ^ Matrix @A@
@@ -490,15 +500,17 @@ unsafeBlasGemm
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Matrix @C@
   -> m ()
-unsafeBlasGemm α trA (asMInput @s -> matA) trB (asMInput @s -> matB) β (MMatrix matC)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr (buffer matA) $ \p_A ->
-    unsafeWithForeignPtr (buffer matB) $ \p_B ->
-    unsafeWithForeignPtr (buffer matC) $ \p_C ->
+unsafeBlasGemm α trA matA trB matB β (MMatrix mC) = stToPrim $ do
+  mA <- matrixRepr matA
+  mB <- matrixRepr matB
+  unsafeIOToPrim $
+    unsafeWithForeignPtr (buffer mA) $ \p_A ->
+    unsafeWithForeignPtr (buffer mB) $ \p_B ->
+    unsafeWithForeignPtr (buffer mC) $ \p_C ->
       C.gemm C.RowMajor trA trB
-        (C.toB $ if trA == C.NoTrans then nrows matA else ncols matA)
-        (C.toB $ if trB == C.NoTrans then ncols matB else nrows matB)
-        (C.toB $ if trB == C.NoTrans then nrows matB else ncols matB)
-        α p_A (C.toB $ leadingDim matA)
-          p_B (C.toB $ leadingDim matB)
-        β p_C (C.toB $ leadingDim matC)
+        (C.toB $ if trA == C.NoTrans then nrows mA else ncols mA)
+        (C.toB $ if trB == C.NoTrans then ncols mB else nrows mB)
+        (C.toB $ if trB == C.NoTrans then nrows mB else ncols mB)
+        α p_A (C.toB $ leadingDim mA)
+          p_B (C.toB $ leadingDim mB)
+        β p_C (C.toB $ leadingDim mC)

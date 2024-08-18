@@ -22,7 +22,7 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   ( -- * Data types
     MSymmetric(..)
   , MSymView(..)
-  , AsSymInput(..)
+  , InSymmetric(..)
   , symmetrizeMSymView
     -- * Operations
     -- ** Creation
@@ -45,6 +45,7 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   ) where
 
 import Control.Monad.Primitive
+import Control.Monad.ST
 import Data.Coerce
 import Data.Foldable
 import Data.Vector.Fixed.Cont                qualified as FC
@@ -62,7 +63,7 @@ import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), AsMInput(..))
+import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), InMatrix(..))
 import Vecvec.LAPACK.FFI                     qualified as C
 
 
@@ -96,13 +97,17 @@ symmetrizeMSymView view@MSymView{..} = do
   loopUp_ size $ \i j -> do
     reallyUnsafeWrite (MSymmetric view) (j,i) =<< reallyUnsafeRead (MSymmetric view) (i,j)
 
--- | Values that could be used as read-only dense matrix parameter.
-class AsSymInput s m where
-  asSymInput :: m a -> MSymView a
+-- | This type class allows to use both mutable and immutable vector
+--   as input parameters to functions operating in 'PrimMonad' with
+--   state token @s@.
+class InSymmetric s m where
+  -- | Expose internal representation of a type. Expected to be /O(1)/
+  --   and very cheap.
+  symmetricRepr :: m a -> ST s (MSymView a)
 
-instance s ~ s' => AsSymInput s (MSymmetric s') where
-  {-# INLINE asSymInput #-}
-  asSymInput = coerce
+instance s ~ s' => InSymmetric s (MSymmetric s') where
+  {-# INLINE symmetricRepr #-}
+  symmetricRepr = pure . coerce
 
 
 ----------------------------------------------------------------
@@ -191,27 +196,29 @@ reallyUnsafeWrite (MSymmetric MSymView{..}) (i,j) a
 
 -- | Create copy of mutable matrix
 clone
-  :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, AsSymInput s mat)
+  :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, InSymmetric s mat)
   => mat a -> m (MSymmetric s a)
 {-# INLINE clone #-}
-clone (asSymInput @s -> MSymView{..}) = unsafePrimToPrim $ do
-  buf <- mallocForeignPtrArray (size * size)
-  unsafeWithForeignPtr buffer $ \src ->
-    unsafeWithForeignPtr buf $ \dst ->
-    -- FIXME: We copy all elements in matrix
-    if-- Source buffer is dense. We can copy in one go
-      | size == leadingDim -> copyArray dst src (size*size)
-      -- We have to copy row by row
-      | otherwise -> let loop !d !s i
-                           | i >= size = return ()
-                           | otherwise  = do
-                               copyArray d s size
-                               loop (advancePtr d size) (advancePtr s leadingDim) (i+1)
-                     in loop dst src 0
-  pure $ MSymmetric MSymView { size       = size
-                             , leadingDim = size
-                             , buffer     = buf
-                             }
+clone mat = stToPrim $ do
+  MSymView{..} <- symmetricRepr mat
+  unsafeIOToPrim $ do
+    buf <- mallocForeignPtrArray (size * size)
+    unsafeWithForeignPtr buffer $ \src ->
+      unsafeWithForeignPtr buf $ \dst ->
+      -- FIXME: We copy all elements in matrix
+      if-- Source buffer is dense. We can copy in one go
+        | size == leadingDim -> copyArray dst src (size*size)
+        -- We have to copy row by row
+        | otherwise -> let loop !d !s i
+                             | i >= size = return ()
+                             | otherwise  = do
+                                 copyArray d s size
+                                 loop (advancePtr d size) (advancePtr s leadingDim) (i+1)
+                       in loop dst src 0
+    pure $ MSymmetric MSymView { size       = size
+                               , leadingDim = size
+                               , buffer     = buf
+                               }
 
 -- | Create matrix from list of rows. Each row contains elements
 --   starting from diagonal.
@@ -333,7 +340,8 @@ generateM n action = do
 --
 -- > y := αAx + βy
 unsafeBlasSymv
-  :: forall a m mat vec s. (C.LAPACKy a, PrimMonad m, s ~ PrimState m, AsSymInput s mat, AsInput s vec)
+  :: forall a m mat vec s.
+     (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InSymmetric s mat, InVector s vec)
   => a               -- ^ Scalar @α@
   -> mat a           -- ^ Matrix @A@
   -> vec a           -- ^ Vector @x@
@@ -341,16 +349,17 @@ unsafeBlasSymv
   -> MVec s a        -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasSymv #-}
-unsafeBlasSymv α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY fpY))
-  = unsafePrimToPrim
-  $ do VecRepr _lenX incX fpX <- unsafePrimToPrim $ asInput @s vecX
-       id $ unsafeWithForeignPtr buffer $ \p_A ->
-            unsafeWithForeignPtr fpX    $ \p_x ->
-            unsafeWithForeignPtr fpY    $ \p_y ->
-              C.symv C.RowMajor C.UP
-                (C.toB size) α p_A (C.toB leadingDim)
-                p_x (C.toB incX)
-                β p_y (C.toB incY)
+unsafeBlasSymv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+  MSymView{..}           <- symmetricRepr mat
+  VecRepr _lenX incX fpX <- vectorRepr    vecX
+  unsafeIOToPrim $
+    unsafeWithForeignPtr buffer $ \p_A ->
+    unsafeWithForeignPtr fpX    $ \p_x ->
+    unsafeWithForeignPtr fpY    $ \p_y ->
+      C.symv C.RowMajor C.UP
+        (C.toB size) α p_A (C.toB leadingDim)
+        p_x (C.toB incX)
+        β p_y (C.toB incY)
 
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the left
 --
@@ -358,7 +367,7 @@ unsafeBlasSymv α (asSymInput @s -> MSymView{..}) vecX β (MVec (VecRepr _ incY 
 unsafeBlasSymmL
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
-     , AsSymInput s matA, AsMInput s matB
+     , InSymmetric s matA, InMatrix s matB
      )
   => a               -- ^ Scalar @α@
   -> matA a          -- ^ Matrix @A@
@@ -367,16 +376,18 @@ unsafeBlasSymmL
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasSymmL #-}
-unsafeBlasSymmL α (asSymInput @s -> matA) (asMInput @s -> matB) β (asMInput @s -> matC)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr matA.buffer $ \p_A ->
-    unsafeWithForeignPtr matB.buffer $ \p_B ->
-    unsafeWithForeignPtr matC.buffer $ \p_C -> do
+unsafeBlasSymmL α matA matB β (MMatrix mC) = stToPrim $ do
+  mA <- symmetricRepr matA
+  mB <- matrixRepr    matB
+  unsafeIOToPrim $
+    unsafeWithForeignPtr mA.buffer $ \p_A ->
+    unsafeWithForeignPtr mB.buffer $ \p_B ->
+    unsafeWithForeignPtr mC.buffer $ \p_C -> do
       C.symm C.RowMajor C.LeftSide C.UP
-        (C.toB matC.nrows) (C.toB matC.ncols)
-        α p_A (C.toB matA.leadingDim)
-          p_B (C.toB matB.leadingDim)
-        β p_C (C.toB matC.leadingDim)
+        (C.toB mC.nrows) (C.toB mC.ncols)
+        α p_A (C.toB mA.leadingDim)
+          p_B (C.toB mB.leadingDim)
+        β p_C (C.toB mC.leadingDim)
 
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the right
 --
@@ -384,22 +395,24 @@ unsafeBlasSymmL α (asSymInput @s -> matA) (asMInput @s -> matB) β (asMInput @s
 unsafeBlasSymmR
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
-     , AsSymInput s matA, AsMInput s matB
+     , InSymmetric s matA, InMatrix s matB
      )
   => a               -- ^ Scalar @α@
-  -> matB a          -- ^ Matrix @a@
+  -> matB a          -- ^ Matrix @B@
   -> matA a          -- ^ Matrix @A@
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
 {-# INLINE unsafeBlasSymmR #-}
-unsafeBlasSymmR α (asMInput @s -> matB) (asSymInput @s -> matA) β (asMInput @s -> matC)
-  = unsafePrimToPrim
-  $ unsafeWithForeignPtr matA.buffer $ \p_A ->
-    unsafeWithForeignPtr matB.buffer $ \p_B ->
-    unsafeWithForeignPtr matC.buffer $ \p_C -> do
+unsafeBlasSymmR α matB matA β (MMatrix mC) = stToPrim $ do
+  mB <- matrixRepr    matB
+  mA <- symmetricRepr matA
+  unsafeIOToPrim $
+    unsafeWithForeignPtr mA.buffer $ \p_A ->
+    unsafeWithForeignPtr mB.buffer $ \p_B ->
+    unsafeWithForeignPtr mC.buffer $ \p_C -> do
       C.symm C.RowMajor C.RightSide C.UP
-        (C.toB matC.nrows) (C.toB matC.ncols)
-        α p_A (C.toB matA.leadingDim)
-          p_B (C.toB matB.leadingDim)
-        β p_C (C.toB matC.leadingDim)
+        (C.toB mC.nrows) (C.toB mC.ncols)
+        α p_A (C.toB mA.leadingDim)
+          p_B (C.toB mB.leadingDim)
+        β p_C (C.toB mC.leadingDim)

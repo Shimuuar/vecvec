@@ -5,7 +5,7 @@ module Vecvec.LAPACK.Matrix.Mutable
   ( -- * Matrix
     MMatrix
   , pattern AsMVec
-  , AsMInput
+  , InMatrix
     -- * Operations
     -- ** Construction
   , clone

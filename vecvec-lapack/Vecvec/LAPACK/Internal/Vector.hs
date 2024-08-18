@@ -41,7 +41,7 @@ import Data.Vector.Fusion.Util      (liftBox)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), AsInput(..), Strided(..)
+import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..), Strided(..)
                                              ,blasDotc, blasScal, blasAxpy, clone
                                              )
 
@@ -86,9 +86,9 @@ instance (Storable a, Ord a) => Ord (Vec a) where
   {-# INLINE (>=) #-}
   xs >= ys = Bundle.cmp (VG.stream xs) (VG.stream ys) /= LT
 
-instance AsInput s Vec where
-  {-# INLINE asInput #-}
-  asInput = pure . coerce
+instance InVector s Vec where
+  {-# INLINE vectorRepr #-}
+  vectorRepr = pure . coerce
 
 instance (i ~ Int, Storable a) => Slice (i, Length) (Vec a) where
   {-# INLINE sliceMaybe #-}
