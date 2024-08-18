@@ -26,10 +26,12 @@ module Vecvec.LAPACK.FFI
   , toL
   , pattern LAPACK0
     -- * Enumeration wrappers
+  , CRepr(..)
   , CEnum(..)
   , MatrixLayout(..)
   , MatrixTranspose(..)
   , UpLo(..)
+  , FortranUpLo(..)
   , Side(..)
   ) where
 
@@ -104,10 +106,14 @@ type ARR a r = Ptr a -> BLASInt -> r
 -- Enumerations
 ----------------------------------------------------------------
 
+-- | C representation of an enumeration
+newtype CRepr a = CRepr CInt
+  deriving stock   (Show,Eq)
+  deriving newtype Storable
+
 -- | Type class for conversion of haskell representation of values and
 --   constants to representation used in FFI calls
 class CEnum a where
-  data CRepr a
   toCEnum :: a -> CRepr a
 
 -- | Layout of matrix. Could be row or column major.
@@ -117,7 +123,6 @@ data MatrixLayout
   deriving stock (Show,Eq)
 
 instance CEnum MatrixLayout where
-  newtype CRepr MatrixLayout = CMatrixLayout CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     RowMajor -> c_BLAS_ROW_MAJOR
@@ -131,39 +136,36 @@ data UpLo
   deriving stock (Show,Eq)
 
 instance CEnum UpLo where
-  newtype CRepr UpLo = CUpLo CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     UP -> c_UP
     LO -> c_LO
 
--- | Which side i
+-- | Whether upper or lower part of symmetric\/hermitian matrix is
+--   referenced. This is FORTRAN enumerations which is different from
+--   CBLAS.
+data FortranUpLo
+  = FortranUP
+  | FortranLO
+  deriving stock (Show, Eq)
+
+instance CEnum FortranUpLo where
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    FortranUP -> CRepr 85 -- 'U'
+    FortranLO -> CRepr 76 -- 'L'
+
+-- | On which side of multiplication matrix appears
 data Side
   = LeftSide
   | RightSide
   deriving stock (Show,Eq)
 
 instance CEnum Side where
-  newtype CRepr Side = CSide CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     LeftSide  -> c_LEFT
     RightSide -> c_RIGHT
-
-
-deriving newtype instance Show     (CRepr UpLo)
-deriving newtype instance Storable (CRepr UpLo)
-deriving newtype instance Show     (CRepr MatrixLayout)
-deriving newtype instance Storable (CRepr MatrixLayout)
-deriving newtype instance Show     (CRepr Side)
-deriving newtype instance Storable (CRepr Side)
-
-foreign import capi "cblas.h value CblasRowMajor" c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
-foreign import capi "cblas.h value CblasColMajor" c_BLAS_COL_MAJOR :: CRepr MatrixLayout
-foreign import capi "cblas.h value CblasUpper"    c_UP             :: CRepr UpLo
-foreign import capi "cblas.h value CblasLower"    c_LO             :: CRepr UpLo
-foreign import capi "cblas.h value CblasLeft"     c_LEFT           :: CRepr Side
-foreign import capi "cblas.h value CblasRight"    c_RIGHT          :: CRepr Side
 
 -- | Whether matrix should be transposed, transposed and conjugater
 data MatrixTranspose
@@ -174,7 +176,6 @@ data MatrixTranspose
   deriving stock (Show,Eq)
 
 instance CEnum MatrixTranspose where
-  newtype CRepr MatrixTranspose = CMatrixTranspose CInt
   {-# INLINE toCEnum #-}
   toCEnum = \case
     NoTrans     -> c_NO_TRANS
@@ -182,10 +183,18 @@ instance CEnum MatrixTranspose where
     ConjTrans   -> c_CONJ_TRANS
     ConjNoTrans -> c_CONJ_NO_TRANS
 
-foreign import capi "cblas.h value CblasNoTrans"     c_NO_TRANS      :: CRepr MatrixTranspose
-foreign import capi "cblas.h value CblasTrans"       c_TRANS         :: CRepr MatrixTranspose
-foreign import capi "cblas.h value CblasConjTrans"   c_CONJ_TRANS    :: CRepr MatrixTranspose
-foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS :: CRepr MatrixTranspose
+
+
+foreign import capi "cblas.h value CblasRowMajor"    c_BLAS_ROW_MAJOR :: CRepr MatrixLayout
+foreign import capi "cblas.h value CblasColMajor"    c_BLAS_COL_MAJOR :: CRepr MatrixLayout
+foreign import capi "cblas.h value CblasUpper"       c_UP             :: CRepr UpLo
+foreign import capi "cblas.h value CblasLower"       c_LO             :: CRepr UpLo
+foreign import capi "cblas.h value CblasLeft"        c_LEFT           :: CRepr Side
+foreign import capi "cblas.h value CblasRight"       c_RIGHT          :: CRepr Side
+foreign import capi "cblas.h value CblasNoTrans"     c_NO_TRANS       :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasTrans"       c_TRANS          :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasConjTrans"   c_CONJ_TRANS     :: CRepr MatrixTranspose
+foreign import capi "cblas.h value CblasConjNoTrans" c_CONJ_NO_TRANS  :: CRepr MatrixTranspose
 
 
 ----------------------------------------------------------------
@@ -363,6 +372,23 @@ class (NormedScalar a, Storable a) => LAPACKy a where
                           --   contains solutions to equation
     -> LAPACKInt          -- ^ Leading dimension size of @B@
     -> IO LAPACKInt
+
+  -- | Solve to a real system of linear equations \(Ax=B\), where @A@ is
+  --   an N-by-N symmetric matrix and @X@ and @B@ are N-by-NRHS matrices.
+  sysv
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CRepr FortranUpLo  -- ^ Whether upper or lower part of matrix should be referenced
+    -> LAPACKInt          -- ^ Matrix size
+    -> LAPACKInt          -- ^ Number of right hand sizes
+    -> Ptr a              -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
+    -> LAPACKInt          -- ^ Leading dimension size of @A@.
+    -> Ptr LAPACKInt      -- ^ @[out]@ Integer array of size @N@
+    -> Ptr a              -- ^ Buffer of matrix of right hand @B@
+    -> LAPACKInt          -- ^ Leading dimension size of @B@.
+    -> IO LAPACKInt       -- ^ @INFO@ Return parameter. If @INFO=-i@, the
+                          -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                          -- exactly singular and solution could not be found
+
   -- NOTE: *getrs solves using transposition/conjugation
 
   -- | Compute inverse of square matrix @A@ using the LU factorization
@@ -415,6 +441,7 @@ instance LAPACKy Float where
   -- LAPACK
   gesdd = c_sgesdd
   gesv  = c_sgesv
+  sysv  = c_ssysv
   getri = c_sgetri
   getrf = c_sgetrf
 
@@ -437,6 +464,7 @@ instance LAPACKy Double where
   -- LAPACK
   gesdd = c_dgesdd
   gesv  = c_dgesv
+  sysv  = c_dsysv
   getri = c_dgetri
   getrf = c_dgetrf
 
@@ -482,11 +510,11 @@ instance LAPACKy (Complex Float) where
       alloca $ \p_incX   ->
       alloca $ \p_β      ->
       alloca $ \p_incY   -> do
-        poke p_uplo $ case layout of
-          RowMajor -> case uplo of UP -> CUpLo 76 -- 'L'
-                                   LO -> CUpLo 85 -- 'U'
-          ColMajor -> case uplo of UP -> CUpLo 85 -- 'U'
-                                   LO -> CUpLo 76 -- 'L'
+        poke p_uplo $ toCEnum $ case layout of
+          RowMajor -> case uplo of UP -> FortranLO
+                                   LO -> FortranUP
+          ColMajor -> case uplo of UP -> FortranUP
+                                   LO -> FortranLO
         poke p_sz   sz
         poke p_α    α
         poke p_lda  ldA
@@ -511,6 +539,7 @@ instance LAPACKy (Complex Float) where
   -- LAPACK
   gesdd = c_cgesdd
   gesv  = c_cgesv
+  sysv  = c_csysv
   getri = c_cgetri
   getrf = c_cgetrf
 
@@ -556,11 +585,11 @@ instance LAPACKy (Complex Double) where
       alloca $ \p_incX   ->
       alloca $ \p_β      ->
       alloca $ \p_incY   -> do
-        poke p_uplo $ case layout of
-          RowMajor -> case uplo of UP -> CUpLo 76 -- 'L'
-                                   LO -> CUpLo 85 -- 'U'
-          ColMajor -> case uplo of UP -> CUpLo 85 -- 'U'
-                                   LO -> CUpLo 76 -- 'L'
+        poke p_uplo $ toCEnum $ case layout of
+          RowMajor -> case uplo of UP -> FortranLO
+                                   LO -> FortranUP
+          ColMajor -> case uplo of UP -> FortranUP
+                                   LO -> FortranLO
         poke p_sz   sz
         poke p_α    α
         poke p_lda  ldA
@@ -583,6 +612,7 @@ instance LAPACKy (Complex Double) where
           m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
   gesdd = c_zgesdd
   gesv  = c_zgesv
+  sysv  = c_zsysv
   getri = c_zgetri
   getrf = c_zgetrf
 
@@ -662,29 +692,29 @@ foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
 --
 -- We have to call FORTRAN versions directly.
 foreign import ccall unsafe "csymv_" c_symv
-  :: Ptr (CRepr UpLo)    -- Upper/lower part should be referenced
-  -> Ptr BLASInt         -- Size of matrix/vector
-  -> Ptr (Complex Float) -- alpha
-  -> Ptr (Complex Float) -- Matrix buffer
-  -> Ptr BLASInt         -- LDA
-  -> Ptr (Complex Float) -- Vector buffer
-  -> Ptr BLASInt         -- Vector stride
-  -> Ptr (Complex Float) -- beta
-  -> Ptr (Complex Float) -- Output vector buffer
-  -> Ptr BLASInt         -- Output vector stride
+  :: Ptr (CRepr FortranUpLo) -- Upper/lower part should be referenced
+  -> Ptr BLASInt             -- Size of matrix/vector
+  -> Ptr (Complex Float)     -- alpha
+  -> Ptr (Complex Float)     -- Matrix buffer
+  -> Ptr BLASInt             -- LDA
+  -> Ptr (Complex Float)     -- Vector buffer
+  -> Ptr BLASInt             -- Vector stride
+  -> Ptr (Complex Float)     -- beta
+  -> Ptr (Complex Float)     -- Output vector buffer
+  -> Ptr BLASInt             -- Output vector stride
   -> IO ()
 
 foreign import ccall unsafe "zsymv_" z_symv
-  :: Ptr (CRepr UpLo)     -- Upper/lower part should be referenced
-  -> Ptr BLASInt          -- Size of matrix/vector
-  -> Ptr (Complex Double) -- alpha
-  -> Ptr (Complex Double) -- Matrix buffer
-  -> Ptr BLASInt          -- LDA
-  -> Ptr (Complex Double) -- Vector buffer
-  -> Ptr BLASInt          -- Vector stride
-  -> Ptr (Complex Double) -- beta
-  -> Ptr (Complex Double) -- Output vector buffer
-  -> Ptr BLASInt          -- Output vector stride
+  :: Ptr (CRepr FortranUpLo) -- Upper/lower part should be referenced
+  -> Ptr BLASInt             -- Size of matrix/vector
+  -> Ptr (Complex Double)    -- alpha
+  -> Ptr (Complex Double)    -- Matrix buffer
+  -> Ptr BLASInt             -- LDA
+  -> Ptr (Complex Double)    -- Vector buffer
+  -> Ptr BLASInt             -- Vector stride
+  -> Ptr (Complex Double)    -- beta
+  -> Ptr (Complex Double)    -- Output vector buffer
+  -> Ptr BLASInt             -- Output vector stride
   -> IO ()
 
 
@@ -881,6 +911,38 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zgesv" c_zgesv
   -> Ptr (Complex Double) -> LAPACKInt
   -> Ptr LAPACKInt
   -> Ptr (Complex Double) -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_ssysv" c_ssysv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr S -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr S -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dsysv" c_dsysv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr D -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr D -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_csysv" c_csysv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr C -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zsysv" c_zsysv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr Z -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgetri" c_sgetri
