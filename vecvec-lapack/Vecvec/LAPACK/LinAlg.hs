@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE ImportQualifiedPost   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE RecordWildCards       #-}
 -- |
 -- Linear algebra routines.
@@ -13,6 +14,7 @@ module Vecvec.LAPACK.LinAlg
   , LinearEqRHS(..)
     -- ** Solvers
   , solveLinEq
+  , solveLinEqSym
     -- * Matrix inversion
   , invertMatrix
     -- * Matrix decomposition
@@ -32,8 +34,11 @@ import Data.Vector.Primitive     qualified as VP
 import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Matrix
-import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MM
-import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..))
+import Vecvec.LAPACK.Internal.Symmetric         (Symmetric)
+import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MM
+import Vecvec.LAPACK.Internal.Matrix.Mutable    (MMatrix(..), MView(..))
+import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MMS
+import Vecvec.LAPACK.Internal.Symmetric.Mutable (MSymmetric(..), MSymView(..))
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
@@ -63,16 +68,16 @@ decomposeSVD a = unsafePerformIO $ do
   MMatrix mat_VT  <- MM.unsafeNew   (n_col, n_col)
   -- Run SVD
   info <-
-    unsafeWithForeignPtr (buffer mat_A)      $ \ptr_A ->
-    unsafeWithForeignPtr (buffer mat_U)      $ \ptr_U ->
+    unsafeWithForeignPtr (mat_A.buffer)      $ \ptr_A ->
+    unsafeWithForeignPtr (mat_U.buffer)      $ \ptr_U ->
     unsafeWithForeignPtr (vecBuffer vec_Sig) $ \ptr_Sig ->
-    unsafeWithForeignPtr (buffer mat_VT)     $ \ptr_VT ->
+    unsafeWithForeignPtr (mat_VT.buffer)     $ \ptr_VT ->
       gesdd (toCEnum RowMajor) (fromIntegral $ ord 'A')
             (toL n_row) (toL n_col)
-            ptr_A (toL (leadingDim mat_A))
+            ptr_A (toL mat_A.leadingDim)
             ptr_Sig
-            ptr_U  (toL (leadingDim mat_U))
-            ptr_VT (toL (leadingDim mat_VT))
+            ptr_U  (toL mat_U.leadingDim)
+            ptr_VT (toL mat_VT.leadingDim)
   case info of
     LAPACK0 -> pure ( Matrix mat_U
                     , Vec    vec_Sig
@@ -195,14 +200,47 @@ solveLinEq a0 rhs = unsafePerformIO $ do
   when (nrows b /= n) $ error "Right hand dimensions don't match"
   -- Solve equation
   info <-
-    unsafeWithForeignPtr (buffer a) $ \ptr_a    ->
-    unsafeWithForeignPtr (buffer b) $ \ptr_b    ->
-    allocaArray n                   $ \ptr_ipiv ->
+    unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+    unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+    allocaArray n                 $ \ptr_ipiv ->
       gesv (toCEnum RowMajor)
         (toL n) (toL (ncols b))
-        ptr_a (toL (leadingDim a))
+        ptr_a (toL a.leadingDim)
         ptr_ipiv
-        ptr_b (toL (leadingDim b))
+        ptr_b (toL b.leadingDim)
   case info of
     LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
     _       -> error "solveLinEq failed"
+
+
+-- | Simple solver for linear equation of the form \(Ax=b\).
+--
+--   Note that this function does not check whether matrix is
+--   ill-conditioned and may return nonsensical answers in this case.
+--
+--   /Uses _SYSV LAPACK routine internally/
+solveLinEqSym
+  :: (LinearEqRHS rhs a, LAPACKy a)
+  => Symmetric a -- ^ Matrix \(A\)
+  -> rhs a       -- ^ Right hand side(s) \(b\)
+  -> rhs a
+solveLinEqSym a0 rhs = unsafePerformIO $ do
+  -- Clone A it gets destroyed during solution
+  MSymmetric a <- MMS.clone a0
+  -- Prepare right hand side and check sizes. We also need to clone
+  let n = a.size
+  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  when (nrows b /= n) $ error "Right hand dimensions don't match"
+  -- Solve equation
+  info <-
+    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
+    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
+    allocaArray n                   $ \ptr_ipiv ->
+      sysv (toCEnum RowMajor) (toCEnum FortranUP)
+        (toL n) (toL (ncols b))
+        ptr_a (toL a.leadingDim)
+        ptr_ipiv
+        ptr_b (toL b.leadingDim)
+  case info of
+    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+    _       -> error "solveLinEqSym failed"
