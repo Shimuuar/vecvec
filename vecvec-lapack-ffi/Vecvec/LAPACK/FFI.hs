@@ -764,19 +764,19 @@ foreign import CCALL unsafe "cblas.h cblas_ssymv" s_symv
   :: CRepr MatrixLayout
   -> CRepr UpLo
   -> BLASInt
-  -> Float -> Ptr Float -> BLASInt
-  -> Ptr Float -> BLASInt
-  -> Float
-  -> Ptr Float -> BLASInt
+  -> S -> Ptr S -> BLASInt
+  -> Ptr S -> BLASInt
+  -> S
+  -> Ptr S -> BLASInt
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
   :: CRepr MatrixLayout
   -> CRepr UpLo
   -> BLASInt
-  -> Double -> Ptr Double -> BLASInt
-  -> Ptr Double -> BLASInt
-  -> Double
-  -> Ptr Double -> BLASInt
+  -> D -> Ptr D -> BLASInt
+  -> Ptr D -> BLASInt
+  -> D
+  -> Ptr D -> BLASInt
   -> IO ()
 
 foreign import CCALL unsafe "cblas.h cblas_chemv" c_hemv
@@ -805,26 +805,26 @@ foreign import CCALL unsafe "cblas.h cblas_zhemv" z_hemv
 foreign import ccall unsafe "csymv_" c_symv
   :: Ptr (CRepr FortranUpLo) -- Upper/lower part should be referenced
   -> Ptr BLASInt             -- Size of matrix/vector
-  -> Ptr (Complex Float)     -- alpha
-  -> Ptr (Complex Float)     -- Matrix buffer
+  -> Ptr C                   -- alpha
+  -> Ptr C                   -- Matrix buffer
   -> Ptr BLASInt             -- LDA
-  -> Ptr (Complex Float)     -- Vector buffer
+  -> Ptr C                   -- Vector buffer
   -> Ptr BLASInt             -- Vector stride
-  -> Ptr (Complex Float)     -- beta
-  -> Ptr (Complex Float)     -- Output vector buffer
+  -> Ptr C                   -- beta
+  -> Ptr C                   -- Output vector buffer
   -> Ptr BLASInt             -- Output vector stride
   -> IO ()
 
 foreign import ccall unsafe "zsymv_" z_symv
   :: Ptr (CRepr FortranUpLo) -- Upper/lower part should be referenced
   -> Ptr BLASInt             -- Size of matrix/vector
-  -> Ptr (Complex Double)    -- alpha
-  -> Ptr (Complex Double)    -- Matrix buffer
+  -> Ptr Z                   -- alpha
+  -> Ptr Z                   -- Matrix buffer
   -> Ptr BLASInt             -- LDA
-  -> Ptr (Complex Double)    -- Vector buffer
+  -> Ptr Z                   -- Vector buffer
   -> Ptr BLASInt             -- Vector stride
-  -> Ptr (Complex Double)    -- beta
-  -> Ptr (Complex Double)    -- Output vector buffer
+  -> Ptr Z                   -- beta
+  -> Ptr Z                   -- Output vector buffer
   -> Ptr BLASInt             -- Output vector stride
   -> IO ()
 
@@ -889,13 +889,13 @@ foreign import CCALL unsafe "cblas.h cblas_ssymm" s_symm
   -> CRepr UpLo
   -> BLASInt   -- M
   -> BLASInt   -- N
-  -> Float     -- alpha
-  -> Ptr Float -- A
+  -> S         -- alpha
+  -> Ptr S     -- A
   -> BLASInt   -- lda
-  -> Ptr Float -- B
+  -> Ptr S     -- B
   -> BLASInt   -- ldb
-  -> Float     -- beta
-  -> Ptr Float -- C
+  -> S         -- beta
+  -> Ptr S     -- C
   -> BLASInt   -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_dsymm" d_symm
@@ -904,75 +904,75 @@ foreign import CCALL unsafe "cblas.h cblas_dsymm" d_symm
   -> CRepr UpLo
   -> BLASInt    -- M
   -> BLASInt    -- N
-  -> Double     -- alpha
-  -> Ptr Double -- A
+  -> D          -- alpha
+  -> Ptr D      -- A
   -> BLASInt    -- lda
-  -> Ptr Double -- B
+  -> Ptr D      -- B
   -> BLASInt    -- ldb
-  -> Double     -- beta
-  -> Ptr Double -- C
+  -> D          -- beta
+  -> Ptr D      -- C
   -> BLASInt    -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_csymm" c_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> BLASInt             -- M
-  -> BLASInt             -- N
-  -> Ptr (Complex Float) -- alpha
-  -> Ptr (Complex Float) -- A
-  -> BLASInt             -- lda
-  -> Ptr (Complex Float) -- B
-  -> BLASInt             -- ldb
-  -> Ptr (Complex Float) -- beta
-  -> Ptr (Complex Float) -- C
-  -> BLASInt             -- ldc
+  -> BLASInt -- M
+  -> BLASInt -- N
+  -> Ptr C   -- alpha
+  -> Ptr C   -- A
+  -> BLASInt -- lda
+  -> Ptr C   -- B
+  -> BLASInt -- ldb
+  -> Ptr C   -- beta
+  -> Ptr C   -- C
+  -> BLASInt -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_zsymm" z_symm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> BLASInt              -- M
-  -> BLASInt              -- N
-  -> Ptr (Complex Double) -- alpha
-  -> Ptr (Complex Double) -- A
-  -> BLASInt              -- lda
-  -> Ptr (Complex Double) -- B
-  -> BLASInt              -- ldb
-  -> Ptr (Complex Double) -- beta
-  -> Ptr (Complex Double) -- C
-  -> BLASInt              -- ldc
+  -> BLASInt -- M
+  -> BLASInt -- N
+  -> Ptr Z   -- alpha
+  -> Ptr Z   -- A
+  -> BLASInt -- lda
+  -> Ptr Z   -- B
+  -> BLASInt -- ldb
+  -> Ptr Z   -- beta
+  -> Ptr Z   -- C
+  -> BLASInt -- ldc
   -> IO ()
 
 foreign import CCALL unsafe "cblas.h cblas_chemm" c_hemm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> BLASInt             -- M
-  -> BLASInt             -- N
-  -> Ptr (Complex Float) -- alpha
-  -> Ptr (Complex Float) -- A
-  -> BLASInt             -- lda
-  -> Ptr (Complex Float) -- B
-  -> BLASInt             -- ldb
-  -> Ptr (Complex Float) -- beta
-  -> Ptr (Complex Float) -- C
-  -> BLASInt             -- ldc
+  -> BLASInt -- M
+  -> BLASInt -- N
+  -> Ptr C   -- alpha
+  -> Ptr C   -- A
+  -> BLASInt -- lda
+  -> Ptr C   -- B
+  -> BLASInt -- ldb
+  -> Ptr C   -- beta
+  -> Ptr C   -- C
+  -> BLASInt -- ldc
   -> IO ()
 foreign import CCALL unsafe "cblas.h cblas_zhemm" z_hemm
   :: CRepr MatrixLayout
   -> CRepr Side
   -> CRepr UpLo
-  -> BLASInt              -- M
-  -> BLASInt              -- N
-  -> Ptr (Complex Double) -- alpha
-  -> Ptr (Complex Double) -- A
-  -> BLASInt              -- lda
-  -> Ptr (Complex Double) -- B
-  -> BLASInt              -- ldb
-  -> Ptr (Complex Double) -- beta
-  -> Ptr (Complex Double) -- C
-  -> BLASInt              -- ldc
+  -> BLASInt -- M
+  -> BLASInt -- N
+  -> Ptr Z   -- alpha
+  -> Ptr Z   -- A
+  -> BLASInt -- lda
+  -> Ptr Z   -- B
+  -> BLASInt -- ldb
+  -> Ptr Z   -- beta
+  -> Ptr Z   -- C
+  -> BLASInt -- ldc
   -> IO ()
 
 
@@ -987,37 +987,37 @@ foreign import CCALL unsafe "cblas.h cblas_zhemm" z_hemm
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
   :: CRepr MatrixLayout -> CChar
   -> LAPACKInt -> LAPACKInt
-  -> Ptr Float -> LAPACKInt
-  -> Ptr Float
-  -> Ptr Float -> LAPACKInt
-  -> Ptr Float -> LAPACKInt
+  -> Ptr S -> LAPACKInt
+  -> Ptr S
+  -> Ptr S -> LAPACKInt
+  -> Ptr S -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
   :: CRepr MatrixLayout -> CChar
   -> LAPACKInt -> LAPACKInt
-  -> Ptr Double -> LAPACKInt
-  -> Ptr Double
-  -> Ptr Double -> LAPACKInt
-  -> Ptr Double -> LAPACKInt
+  -> Ptr D -> LAPACKInt
+  -> Ptr D
+  -> Ptr D -> LAPACKInt
+  -> Ptr D -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
   :: CRepr MatrixLayout -> CChar
   -> LAPACKInt -> LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
-  -> Ptr Float
-  -> Ptr (Complex Float) -> LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr C -> LAPACKInt
+  -> Ptr S
+  -> Ptr C -> LAPACKInt
+  -> Ptr C -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
   :: CRepr MatrixLayout -> CChar
   -> LAPACKInt -> LAPACKInt
-  -> Ptr (Complex Double) -> LAPACKInt
-  -> Ptr Double
-  -> Ptr (Complex Double) -> LAPACKInt
-  -> Ptr (Complex Double) -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
+  -> Ptr D
+  -> Ptr Z -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
   -> IO LAPACKInt
 
 
@@ -1025,33 +1025,33 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesv" c_sgesv
   :: CRepr MatrixLayout
   -> LAPACKInt -> LAPACKInt
-  -> Ptr Float -> LAPACKInt
+  -> Ptr S -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr Float -> LAPACKInt
+  -> Ptr S -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesv" c_dgesv
   :: CRepr MatrixLayout
   -> LAPACKInt -> LAPACKInt
-  -> Ptr Double -> LAPACKInt
+  -> Ptr D -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr Double -> LAPACKInt
+  -> Ptr D -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesv" c_cgesv
   :: CRepr MatrixLayout
   -> LAPACKInt -> LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr C -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr C -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesv" c_zgesv
   :: CRepr MatrixLayout
   -> LAPACKInt -> LAPACKInt
-  -> Ptr (Complex Double) -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr (Complex Double) -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_ssysv" c_ssysv
@@ -1075,7 +1075,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_csysv" c_csysv
   -> LAPACKInt -> LAPACKInt
   -> Ptr C -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr C -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zsysv" c_zsysv
@@ -1091,7 +1091,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_chesv" c_chesv
   -> LAPACKInt -> LAPACKInt
   -> Ptr C -> LAPACKInt
   -> Ptr LAPACKInt
-  -> Ptr (Complex Float) -> LAPACKInt
+  -> Ptr C -> LAPACKInt
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zhesv" c_zhesv
@@ -1103,19 +1103,19 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zhesv" c_zhesv
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgetri" c_sgetri
-  :: CRepr MatrixLayout -> LAPACKInt -> Ptr Float -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr S -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_dgetri" c_dgetri
-  :: CRepr MatrixLayout -> LAPACKInt -> Ptr Double -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr D -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_cgetri" c_cgetri
-  :: CRepr MatrixLayout -> LAPACKInt -> Ptr (Complex Float) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr C -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_zgetri" c_zgetri
-  :: CRepr MatrixLayout -> LAPACKInt -> Ptr (Complex Double) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> Ptr Z -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgetrf" c_sgetrf
-  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Float -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr S -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_dgetrf" c_dgetrf
-  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Double -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr D -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_cgetrf" c_cgetrf
-  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr (Complex Float) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr C -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_zgetrf" c_zgetrf
-  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr (Complex Double) -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+  :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Z -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
