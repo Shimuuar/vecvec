@@ -285,6 +285,22 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> BLASInt      -- ^ Stride for vector @y@
     -> IO ()
 
+  -- | Hermitian-vector multiplication. Compute one of:
+  --
+  -- > y := conj(α·A·x) + β·y
+  hemv
+    :: MatrixLayout -- ^ Matrix layout
+    -> UpLo         -- ^ Whether upper or lower part of matrix should be referenced
+    -> BLASInt      -- ^ Size of matrix
+    -> a            -- ^ Scalar @α@
+    -> Ptr a        -- ^ Pointer to matrix data @A@
+    -> BLASInt      -- ^ Leading dimension size
+    -> Ptr a        -- ^ Buffer for vector @x@
+    -> BLASInt      -- ^ Stride of vector @x@
+    -> a            -- ^ Scalar β
+    -> Ptr a        -- ^ Buffer for vector @y@
+    -> BLASInt      -- ^ Stride for vector @y@
+    -> IO ()
 
   -- | Matrix-matrix multiplication.
   --
@@ -321,6 +337,29 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     :: MatrixLayout -- ^ Layout of matrix
     -> Side         -- ^ On which side symmetric matrix go
     -> UpLo         -- ^ Which part of symmetric matrix is referenced
+    -> BLASInt      -- ^ @M@ number of rows of matrix @C@
+    -> BLASInt      -- ^ @N@ number of columns of matrix @C@
+    -> a            -- ^ @α@ constant
+    -> Ptr a        -- ^ Buffer for matrix @A@
+    -> BLASInt      -- ^ Leading dimension for @A@
+    -> Ptr a        -- ^ Buffer for matrix @B@
+    -> BLASInt      -- ^ Leading dimension for @B@
+    -> a            -- ^ @β@ constant
+    -> Ptr a        -- ^ Buffer for matrix @C@
+    -> BLASInt      -- ^ Leading dimension for @C@
+    -> IO ()
+
+  -- | Multiplication of hermitian and general matrix. It evaluates one of:
+  --
+  -- > C := α·A·B + β·C   -- LeftSide
+  -- > C := α·B·A + β·C   -- RightSide
+  --
+  -- Where @A@ is hermitian matrix and @B@ and @C@ are general n×m
+  -- matrices.
+  hemm
+    :: MatrixLayout -- ^ Layout of matrix
+    -> Side         -- ^ On which side hermitian matrix go
+    -> UpLo         -- ^ Which part of hermitian matrix is referenced
     -> BLASInt      -- ^ @M@ number of rows of matrix @C@
     -> BLASInt      -- ^ @N@ number of columns of matrix @C@
     -> a            -- ^ @α@ constant
@@ -389,6 +428,22 @@ class (NormedScalar a, Storable a) => LAPACKy a where
                           -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
                           -- exactly singular and solution could not be found
 
+  -- | Solve to a real system of linear equations \(Ax=B\), where @A@ is
+  --   an N-by-N hermitian matrix and @X@ and @B@ are N-by-NRHS matrices.
+  hesv
+    :: CRepr MatrixLayout -- ^ Matrix layout
+    -> CRepr FortranUpLo  -- ^ Whether upper or lower part of matrix should be referenced
+    -> LAPACKInt          -- ^ Matrix size
+    -> LAPACKInt          -- ^ Number of right hand sizes
+    -> Ptr a              -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
+    -> LAPACKInt          -- ^ Leading dimension size of @A@.
+    -> Ptr LAPACKInt      -- ^ @[out]@ Integer array of size @N@
+    -> Ptr a              -- ^ Buffer of matrix of right hand @B@
+    -> LAPACKInt          -- ^ Leading dimension size of @B@.
+    -> IO LAPACKInt       -- ^ @INFO@ Return parameter. If @INFO=-i@, the
+                          -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                          -- exactly singular and solution could not be found
+
   -- NOTE: *getrs solves using transposition/conjugation
 
   -- | Compute inverse of square matrix @A@ using the LU factorization
@@ -434,14 +489,17 @@ instance LAPACKy Float where
   {-# INLINE gemv #-}
   symv layout uplo = s_symv (toCEnum layout) (toCEnum uplo)
   {-# INLINE symv #-}
+  hemv = symv
   gemm layout opA opB = s_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
   symm layout side uplo = s_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
   {-# INLINE symm #-}
+  hemm = symm
   -- LAPACK
   gesdd = c_sgesdd
   gesv  = c_sgesv
   sysv  = c_ssysv
+  hesv  = sysv
   getri = c_sgetri
   getrf = c_sgetrf
 
@@ -457,14 +515,17 @@ instance LAPACKy Double where
   {-# INLINE gemv #-}
   symv layout uplo = d_symv (toCEnum layout) (toCEnum uplo)
   {-# INLINE symv #-}
+  hemv = symv
   gemm layout opA opB = d_gemm (toCEnum layout) (toCEnum opA) (toCEnum opB)
   {-# INLINE gemm #-}
   symm layout side uplo = d_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
   {-# INLINE symm #-}
+  hemm = symm
   -- LAPACK
   gesdd = c_dgesdd
   gesv  = c_dgesv
   sysv  = c_dsysv
+  hesv  = sysv
   getri = c_dgetri
   getrf = c_dgetrf
 
@@ -522,6 +583,13 @@ instance LAPACKy (Complex Float) where
         poke p_β    β
         poke p_incY incY
         c_symv p_uplo p_sz p_α p_A p_lda p_x p_incX p_β p_y p_incY
+  {-# INLINE hemv #-}
+  hemv layout uplo sz α p_A ldA p_x incX β p_y incY
+    = alloca $ \p_α ->
+      alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        c_hemv (toCEnum layout) (toCEnum uplo) sz p_α p_A ldA p_x incX p_β p_y incY
 
   {-# INLINE gemm #-}
   gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
@@ -536,10 +604,18 @@ instance LAPACKy (Complex Float) where
         poke p_β β
         c_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC
+  {-# INLINE hemm #-}
+  hemm layout side uplo m n α bufA lda bufB ldb β bufC ldC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        c_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+          m n p_α bufA lda bufB ldb p_β bufC ldC
   -- LAPACK
   gesdd = c_cgesdd
   gesv  = c_cgesv
   sysv  = c_csysv
+  hesv  = c_chesv
   getri = c_cgetri
   getrf = c_cgetrf
 
@@ -597,6 +673,13 @@ instance LAPACKy (Complex Double) where
         poke p_β    β
         poke p_incY incY
         z_symv p_uplo p_sz p_α p_A p_lda p_x p_incX p_β p_y p_incY
+  {-# INLINE hemv #-}
+  hemv layout uplo sz α p_A ldA p_x incX β p_y incY
+    = alloca $ \p_α ->
+      alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        z_hemv (toCEnum layout) (toCEnum uplo) sz p_α p_A ldA p_x incX p_β p_y incY
   {-# INLINE gemm #-}
   gemm layout opA opB m n k α bufA ldaA bufB ldaB β bufC ldaC
     = alloca $ \p_α -> alloca $ \p_β -> do
@@ -610,9 +693,17 @@ instance LAPACKy (Complex Double) where
         poke p_β β
         z_symm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
+  {-# INLINE hemm #-}
+  hemm layout side uplo m n α bufA lda bufB ldb β bufC ldC
+    = alloca $ \p_α -> alloca $ \p_β -> do
+        poke p_α α
+        poke p_β β
+        z_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
+          m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
   gesdd = c_zgesdd
   gesv  = c_zgesv
   sysv  = c_zsysv
+  hesv  = c_zhesv
   getri = c_zgetri
   getrf = c_zgetrf
 
@@ -687,6 +778,26 @@ foreign import CCALL unsafe "cblas.h cblas_dsymv" d_symv
   -> Double
   -> Ptr Double -> BLASInt
   -> IO ()
+
+foreign import CCALL unsafe "cblas.h cblas_chemv" c_hemv
+  :: CRepr MatrixLayout
+  -> CRepr UpLo
+  -> BLASInt
+  -> Ptr C -> Ptr C -> BLASInt
+  -> Ptr C -> BLASInt
+  -> Ptr C
+  -> Ptr C -> BLASInt
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_zhemv" z_hemv
+  :: CRepr MatrixLayout
+  -> CRepr UpLo
+  -> BLASInt
+  -> Ptr Z -> Ptr Z -> BLASInt
+  -> Ptr Z -> BLASInt
+  -> Ptr Z
+  -> Ptr Z -> BLASInt
+  -> IO ()
+
 
 -- NOTE: there's no cblas wrapper for CSYMV and ZSYMV!
 --
@@ -833,6 +944,36 @@ foreign import CCALL unsafe "cblas.h cblas_zsymm" z_symm
   -> BLASInt              -- ldc
   -> IO ()
 
+foreign import CCALL unsafe "cblas.h cblas_chemm" c_hemm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> BLASInt             -- M
+  -> BLASInt             -- N
+  -> Ptr (Complex Float) -- alpha
+  -> Ptr (Complex Float) -- A
+  -> BLASInt             -- lda
+  -> Ptr (Complex Float) -- B
+  -> BLASInt             -- ldb
+  -> Ptr (Complex Float) -- beta
+  -> Ptr (Complex Float) -- C
+  -> BLASInt             -- ldc
+  -> IO ()
+foreign import CCALL unsafe "cblas.h cblas_zhemm" z_hemm
+  :: CRepr MatrixLayout
+  -> CRepr Side
+  -> CRepr UpLo
+  -> BLASInt              -- M
+  -> BLASInt              -- N
+  -> Ptr (Complex Double) -- alpha
+  -> Ptr (Complex Double) -- A
+  -> BLASInt              -- lda
+  -> Ptr (Complex Double) -- B
+  -> BLASInt              -- ldb
+  -> Ptr (Complex Double) -- beta
+  -> Ptr (Complex Double) -- C
+  -> BLASInt              -- ldc
+  -> IO ()
 
 
 
@@ -938,6 +1079,22 @@ foreign import ccall unsafe "lapacke.h LAPACKE_csysv" c_csysv
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zsysv" c_zsysv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr Z -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_chesv" c_chesv
+  :: CRepr MatrixLayout -> CRepr FortranUpLo
+  -> LAPACKInt -> LAPACKInt
+  -> Ptr C -> LAPACKInt
+  -> Ptr LAPACKInt
+  -> Ptr (Complex Float) -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zhesv" c_zhesv
   :: CRepr MatrixLayout -> CRepr FortranUpLo
   -> LAPACKInt -> LAPACKInt
   -> Ptr Z -> LAPACKInt
