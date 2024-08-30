@@ -23,6 +23,6 @@ static_assert(
 );
 
 static_assert(
-    sizeof(lapack_int) == sizeof(int),
+    sizeof(lapack_int) == sizeof(EXPECTED_LAPACK),
     "LAPACK integer is not of expected size"
 );
