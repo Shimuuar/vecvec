@@ -348,7 +348,7 @@ type instance Model1 TagMat Symmetric = ModelSym
 instance (Storable a{-, Num a-}) => TestData1 TagMat Symmetric a where
   liftModel _ f m = ModelSym
     { pad = 0
-    , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n]]
+    , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n-1]]
                    | i <- [0 .. n-1]
                    ]
     } where (n,_) = shape m
