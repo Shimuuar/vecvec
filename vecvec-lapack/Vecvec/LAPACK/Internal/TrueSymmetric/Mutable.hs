@@ -18,11 +18,11 @@
 {-# LANGUAGE ViewPatterns               #-}
 -- |
 -- Symmetric matrices.
-module Vecvec.LAPACK.Internal.Symmetric.Mutable
+module Vecvec.LAPACK.Internal.TrueSymmetric.Mutable
   ( -- * Data types
-    MSymmetric(..)
+    MTrueSymmetric(..)
   , MSymView(..)
-  , InSymmetric(..)
+  , InTrueSymmetric(..)
   , symmetrizeMSymView
     -- * Operations
     -- ** Creation
@@ -44,9 +44,9 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   , unsafeCast
   , unsafeToDense
     -- ** BLAS wrappers
-  , unsafeBlasHemv
-  , unsafeBlasHemmL
-  , unsafeBlasHemmR
+  , unsafeBlasSymv
+  , unsafeBlasSymmL
+  , unsafeBlasSymmR
   ) where
 
 import Control.Monad.Primitive
@@ -62,8 +62,8 @@ import Foreign.Marshal.Array
 
 import Prelude hiding (read,replicate)
 
-import Vecvec.Classes
 import Vecvec.Classes.NDMutable
+-- import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -97,21 +97,20 @@ instance (Slice1D i, Storable a) => Slice i (MSymView a) where
                     }
 
 -- | Symmetrises matrix by copying value from above diagonal below.
-symmetrizeMSymView :: (Storable a, NormedScalar a) => MSymView a -> IO ()
+symmetrizeMSymView :: Storable a => MSymView a -> IO ()
 symmetrizeMSymView view@MSymView{..} = do
-  loopUpD_ size $ \i j ->
-    reallyUnsafeWrite (MSymmetric view) (j,i) . conjugate
-      =<< reallyUnsafeRead (MSymmetric view) (i,j)
+  loopUpD_ size $ \i j -> do
+    reallyUnsafeWrite (MTrueSymmetric view) (j,i) =<< reallyUnsafeRead (MTrueSymmetric view) (i,j)
 
 -- | This type class allows to use both mutable and immutable vector
 --   as input parameters to functions operating in 'PrimMonad' with
 --   state token @s@.
-class InSymmetric s m where
+class InTrueSymmetric s m where
   -- | Expose internal representation of a type. Expected to be /O(1)/
   --   and very cheap.
   symmetricRepr :: m a -> ST s (MSymView a)
 
-instance s ~ s' => InSymmetric s (MSymmetric s') where
+instance s ~ s' => InTrueSymmetric s (MTrueSymmetric s') where
   {-# INLINE symmetricRepr #-}
   symmetricRepr = pure . coerce
 
@@ -122,26 +121,25 @@ instance s ~ s' => InSymmetric s (MSymmetric s') where
 
 -- | Symmetric matrix. It uses same memory layout as general dense
 --   matrix but only diagonal and elements above it are referenced.
-newtype MSymmetric s a = MSymmetric (MSymView a)
+newtype MTrueSymmetric s a = MTrueSymmetric (MSymView a)
 
-deriving newtype instance (Slice1D i, Storable a) => Slice i (MSymmetric s a)
+deriving newtype instance (Slice1D i, Storable a) => Slice i (MTrueSymmetric s a)
 
-type instance Rank (MSymmetric s) = 2
+type instance Rank (MTrueSymmetric s) = 2
 
-instance HasShape (MSymmetric s) a where
-  shapeAsCVec (MSymmetric MSymView{..}) = FC.mk2 size size
+instance HasShape (MTrueSymmetric s) a where
+  shapeAsCVec (MTrueSymmetric MSymView{..}) = FC.mk2 size size
   {-# INLINE shapeAsCVec #-}
 
-instance (NormedScalar a, Storable a) => NDMutable MSymmetric a where
-  -- FIXME: What to do with diagonal???
+instance Storable a => NDMutable MTrueSymmetric a where
   basicUnsafeReadArr mat (N2 i j)
     | j >= i    = reallyUnsafeRead mat (i,j)
-    | otherwise = conjugate <$> reallyUnsafeRead mat (j,i)
+    | otherwise = reallyUnsafeRead mat (j,i)
   basicUnsafeWriteArr mat (N2 i j)
     | j >= i    = reallyUnsafeWrite mat (i,j)
-    | otherwise = reallyUnsafeWrite mat (j,i) . conjugate
+    | otherwise = reallyUnsafeWrite mat (j,i)
 
-unsafeCast :: MSymmetric s a -> MSymmetric s' a
+unsafeCast :: MTrueSymmetric s a -> MTrueSymmetric s' a
 unsafeCast = coerce
 {-# INLINE unsafeCast #-}
 
@@ -150,9 +148,9 @@ unsafeCast = coerce
 --   symmetric matrix will only element on diagonal and above unless
 --   noted otherwise.
 unsafeToDense
-  :: forall a m s. (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
-  => MSymmetric s a -> m (MMatrix s a)
-unsafeToDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
+  :: forall a m s. (Storable a, PrimMonad m, s ~ PrimState m)
+  => MTrueSymmetric s a -> m (MMatrix s a)
+unsafeToDense (MTrueSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
   symmetrizeMSymView view
   pure $ MMat.unsafeCast $ MMatrix MView
     { nrows      = size
@@ -174,9 +172,9 @@ unsafeToDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
 -- __UNSAFE__: this function does not any range checks.
 reallyUnsafeRead
   :: forall a m s. (Storable a, PrimMonad m, s ~ PrimState m)
-  => MSymmetric s a -> (Int, Int) -> m a
+  => MTrueSymmetric s a -> (Int, Int) -> m a
 {-# INLINE reallyUnsafeRead #-}
-reallyUnsafeRead (MSymmetric MSymView{..}) (i,j)
+reallyUnsafeRead (MTrueSymmetric MSymView{..}) (i,j)
   = unsafePrimToPrim
   $ unsafeWithForeignPtr buffer $ \p -> do
     peekElemOff p (i * leadingDim + j)
@@ -188,9 +186,9 @@ reallyUnsafeRead (MSymmetric MSymView{..}) (i,j)
 -- __UNSAFE__: this function does not any range checks.
 reallyUnsafeWrite
   :: (Storable a, PrimMonad m, s ~ PrimState m)
-  => MSymmetric s a -> (Int, Int) -> a -> m ()
+  => MTrueSymmetric s a -> (Int, Int) -> a -> m ()
 {-# INLINE reallyUnsafeWrite #-}
-reallyUnsafeWrite (MSymmetric MSymView{..}) (i,j) a
+reallyUnsafeWrite (MTrueSymmetric MSymView{..}) (i,j) a
   = unsafePrimToPrim
   $ unsafeWithForeignPtr buffer $ \p -> do
     pokeElemOff p (i * leadingDim + j) a
@@ -203,8 +201,8 @@ reallyUnsafeWrite (MSymmetric MSymView{..}) (i,j) a
 
 -- | Create copy of mutable matrix
 clone
-  :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, InSymmetric s mat)
-  => mat a -> m (MSymmetric s a)
+  :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, InTrueSymmetric s mat)
+  => mat a -> m (MTrueSymmetric s a)
 {-# INLINE clone #-}
 clone mat = stToPrim $ do
   MSymView{..} <- symmetricRepr mat
@@ -222,7 +220,7 @@ clone mat = stToPrim $ do
                                  copyArray d s size
                                  loop (advancePtr d size) (advancePtr s leadingDim) (i+1)
                        in loop dst src 0
-    pure $ MSymmetric MSymView { size       = size
+    pure $ MTrueSymmetric MSymView { size       = size
                                , leadingDim = size
                                , buffer     = buf
                                }
@@ -230,7 +228,7 @@ clone mat = stToPrim $ do
 -- | Create matrix from list of rows. Each row contains elements
 --   starting from diagonal.
 fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
-           => f (g a) -> m (MSymmetric s a)
+           => f (g a) -> m (MTrueSymmetric s a)
 fromRowsFF dat
   | otherwise = unsafeIOToPrim $ do
       mat <- unsafeNew n
@@ -250,7 +248,7 @@ fromRowsFF dat
 -- | Create matrix from list of rows. Each row contains elements
 --   starting from diagonal.
 fromRowsFV :: (Storable a, Foldable f, VG.Vector v a, PrimMonad m, s ~ PrimState m)
-           => f (v a) -> m (MSymmetric s a)
+           => f (v a) -> m (MTrueSymmetric s a)
 {-# INLINE fromRowsFV #-}
 fromRowsFV dat
   | otherwise = unsafeIOToPrim $ do
@@ -269,10 +267,10 @@ fromRowsFV dat
 -- | Allocate new matrix. Content of buffer zeroed out.
 new :: (Storable a, PrimMonad m, s ~ PrimState m)
     => Int -- ^ Matrix size
-    -> m (MSymmetric s a)
+    -> m (MTrueSymmetric s a)
 new n = do
   MVec buffer <- MVG.new (n * n)
-  pure $ MSymmetric MSymView { size       = n
+  pure $ MTrueSymmetric MSymView { size       = n
                              , leadingDim = n
                              , buffer     = vecBuffer buffer
                              }
@@ -282,20 +280,20 @@ new n = do
 unsafeNew
   :: (Storable a, PrimMonad m, s ~ PrimState m)
   => Int -- ^ Matrix size
-  -> m (MSymmetric s a)
+  -> m (MTrueSymmetric s a)
 unsafeNew n = do
   MVec buffer <- MVG.unsafeNew (n * n)
-  pure $ MSymmetric MSymView { size       = n
-                             , leadingDim = n
-                             , buffer     = vecBuffer buffer
-                             }
+  pure $ MTrueSymmetric MSymView { size       = n
+                                 , leadingDim = n
+                                 , buffer     = vecBuffer buffer
+                                 }
 
 -- | Fill matrix of given size with provided value.
 replicate
   :: (Storable a, PrimMonad m, s ~ PrimState m)
   => Int -- ^ Size of matrix
   -> a   -- ^ Element to replicate
-  -> m (MSymmetric s a)
+  -> m (MTrueSymmetric s a)
 replicate n a = stToPrim $ do
   mat <- unsafeNew n
   loopUp_ n $ \i j ->
@@ -306,7 +304,7 @@ replicate n a = stToPrim $ do
 replicateM :: (Storable a, PrimMonad m, s ~ PrimState m)
            => Int -- ^ Matrix size
            -> m a
-           -> m (MSymmetric s a)
+           -> m (MTrueSymmetric s a)
 replicateM n action = do
   mat <- unsafeNew n
   loopUp_ n $ \i j -> do
@@ -318,9 +316,9 @@ replicateM n action = do
 --   'replicate'.
 zeros :: (LAPACKy a, PrimMonad m, s ~ PrimState m)
       => Int -- ^ Size of a matrix
-      -> m (MSymmetric s a)
+      -> m (MTrueSymmetric s a)
 zeros n = stToPrim $ do
-  mat@(MSymmetric MSymView{..}) <- unsafeNew n
+  mat@(MTrueSymmetric MSymView{..}) <- unsafeNew n
   unsafeIOToPrim $ unsafeWithForeignPtr buffer $ \p -> C.fillZeros p (n*n)
   pure mat
 
@@ -329,7 +327,7 @@ generate
   :: (Storable a, PrimMonad m, s ~ PrimState m)
   => Int               -- ^ Size of matrix
   -> (Int -> Int -> a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
-  -> m (MSymmetric s a)
+  -> m (MTrueSymmetric s a)
 generate n a = stToPrim $ do
   mat <- unsafeNew n
   loopUp_ n $ \i j ->
@@ -341,7 +339,7 @@ generateM
   :: (Storable a, PrimMonad m, s ~ PrimState m)
   => Int -- ^ Matrix size
   -> (Int -> Int -> m a)
-  -> m (MSymmetric s a)
+  -> m (MTrueSymmetric s a)
 generateM n action = do
   mat <- unsafeNew n
   loopUp_ n $ \i j -> do
@@ -353,7 +351,7 @@ generateM n action = do
 -- | Create identity matrix
 eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
     => Int -- ^ Matrix size
-    -> m (MSymmetric s a)
+    -> m (MTrueSymmetric s a)
 eye n = stToPrim $ do
   mat <- zeros n
   loop0_ n $ \i -> unsafeWriteArr mat (i,i) 1
@@ -362,7 +360,7 @@ eye n = stToPrim $ do
 -- | Create diagonal matrix. Diagonal elements are stored in vector.
 diag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
      => v a
-     -> m (MSymmetric s a)
+     -> m (MTrueSymmetric s a)
 {-# INLINE diag #-}
 diag xs = stToPrim $ do
   mat <- zeros n
@@ -375,7 +373,7 @@ diag xs = stToPrim $ do
 --   container.
 diagF :: (LAPACKy a, Foldable f, PrimMonad m, s ~ PrimState m)
       => f a
-      -> m (MSymmetric s a)
+      -> m (MTrueSymmetric s a)
 diagF xs = stToPrim $ do
   mat <- zeros n
   -- FIXME: is build/foldr fusion reliable here?
@@ -393,24 +391,24 @@ diagF xs = stToPrim $ do
 -- | matrix-vector multiplication by symmetric matrix
 --
 -- > y := αAx + βy
-unsafeBlasHemv
+unsafeBlasSymv
   :: forall a m mat vec s.
-     (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InSymmetric s mat, InVector s vec)
+     (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InTrueSymmetric s mat, InVector s vec)
   => a               -- ^ Scalar @α@
   -> mat a           -- ^ Matrix @A@
   -> vec a           -- ^ Vector @x@
   -> a               -- ^ Scalar @β@
   -> MVec s a        -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemv #-}
-unsafeBlasHemv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+{-# INLINE unsafeBlasSymv #-}
+unsafeBlasSymv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
   MSymView{..}           <- symmetricRepr mat
   VecRepr _lenX incX fpX <- vectorRepr    vecX
   unsafeIOToPrim $
     unsafeWithForeignPtr buffer $ \p_A ->
     unsafeWithForeignPtr fpX    $ \p_x ->
     unsafeWithForeignPtr fpY    $ \p_y ->
-      C.hemv C.RowMajor C.UP
+      C.symv C.RowMajor C.UP
         (C.toB size) α p_A (C.toB leadingDim)
         p_x (C.toB incX)
         β p_y (C.toB incY)
@@ -418,10 +416,10 @@ unsafeBlasHemv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the left
 --
 -- > C := αAB + βC
-unsafeBlasHemmL
+unsafeBlasSymmL
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
-     , InSymmetric s matA, InMatrix s matB
+     , InTrueSymmetric s matA, InMatrix s matB
      )
   => a               -- ^ Scalar @α@
   -> matA a          -- ^ Matrix @A@
@@ -429,15 +427,15 @@ unsafeBlasHemmL
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemmL #-}
-unsafeBlasHemmL α matA matB β (MMatrix mC) = stToPrim $ do
+{-# INLINE unsafeBlasSymmL #-}
+unsafeBlasSymmL α matA matB β (MMatrix mC) = stToPrim $ do
   mA <- symmetricRepr matA
   mB <- matrixRepr    matB
   unsafeIOToPrim $
     unsafeWithForeignPtr mA.buffer $ \p_A ->
     unsafeWithForeignPtr mB.buffer $ \p_B ->
     unsafeWithForeignPtr mC.buffer $ \p_C -> do
-      C.hemm C.RowMajor C.LeftSide C.UP
+      C.symm C.RowMajor C.LeftSide C.UP
         (C.toB mC.nrows) (C.toB mC.ncols)
         α p_A (C.toB mA.leadingDim)
           p_B (C.toB mB.leadingDim)
@@ -446,10 +444,10 @@ unsafeBlasHemmL α matA matB β (MMatrix mC) = stToPrim $ do
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the right
 --
 -- > C := αBA + βC
-unsafeBlasHemmR
+unsafeBlasSymmR
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
-     , InSymmetric s matA, InMatrix s matB
+     , InTrueSymmetric s matA, InMatrix s matB
      )
   => a               -- ^ Scalar @α@
   -> matB a          -- ^ Matrix @B@
@@ -457,15 +455,15 @@ unsafeBlasHemmR
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemmR #-}
-unsafeBlasHemmR α matB matA β (MMatrix mC) = stToPrim $ do
+{-# INLINE unsafeBlasSymmR #-}
+unsafeBlasSymmR α matB matA β (MMatrix mC) = stToPrim $ do
   mB <- matrixRepr    matB
   mA <- symmetricRepr matA
   unsafeIOToPrim $
     unsafeWithForeignPtr mA.buffer $ \p_A ->
     unsafeWithForeignPtr mB.buffer $ \p_B ->
     unsafeWithForeignPtr mC.buffer $ \p_C -> do
-      C.hemm C.RowMajor C.RightSide C.UP
+      C.symm C.RowMajor C.RightSide C.UP
         (C.toB mC.nrows) (C.toB mC.ncols)
         α p_A (C.toB mA.leadingDim)
           p_B (C.toB mB.leadingDim)

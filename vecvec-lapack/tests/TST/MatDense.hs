@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 -- |
 -- Tests for dense matrices
 module TST.MatDense (tests) where
@@ -17,11 +18,11 @@ import TST.Tools.MatModel
 tests :: TestTree
 tests = testGroup "ops.Matrix.Dense"
   [ testProperty "replicate"
-    ( (Mat.replicate . getSize2D =~= mdlReplicate . getSize2D)
+    ( (Mat.replicate . (.getSize2D) =~= mdlReplicate . (.getSize2D))
     :: P (Size2D -> Double -> Matrix Double)
     )
   , testProperty "generate"
-    (  (Mat.generate . getSize2D =~= mdlGenerate . getSize2D)
+    (  (Mat.generate . (.getSize2D) =~= mdlGenerate . (.getSize2D))
     :: P (Size2D -> (Int -> Int -> Double) -> Matrix Double)
     )
   ]

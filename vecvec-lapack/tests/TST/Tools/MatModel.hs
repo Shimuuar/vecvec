@@ -5,12 +5,15 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoFieldSelectors           #-}
+{-# LANGUAGE OverloadedRecordDot        #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -52,6 +55,7 @@ module TST.Tools.MatModel
   , ModelVec(..)
   , ModelMat(..)
   , ModelSym(..)
+  , ModelTSym(..)
   , mkMat
     -- * Helpers
   , Pair(..)
@@ -76,12 +80,14 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                    (Strided(..))
-import Vecvec.LAPACK                    qualified as VV
-import Vecvec.LAPACK.Internal.Matrix    (Matrix, fromRowsFF)
-import Vecvec.LAPACK.Internal.Matrix    qualified as Mat
-import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
-import Vecvec.LAPACK.Internal.Symmetric qualified as Sym
+import Vecvec.LAPACK                        (Strided(..))
+import Vecvec.LAPACK                        qualified as VV
+import Vecvec.LAPACK.Internal.Matrix        (Matrix, fromRowsFF)
+import Vecvec.LAPACK.Internal.Matrix        qualified as Mat
+import Vecvec.LAPACK.Internal.Symmetric     (Symmetric)
+import Vecvec.LAPACK.Internal.Symmetric     qualified as Sym
+import Vecvec.LAPACK.Internal.TrueSymmetric (TrueSymmetric)
+import Vecvec.LAPACK.Internal.TrueSymmetric qualified as TSym
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
 import TST.Tools.Model
@@ -95,26 +101,30 @@ import TST.Tools.Model
 --   exploiting fact that multiplication and addition small integers
 --   are exact in floating point.
 class Arbitrary a => SmallScalar a where
-  genScalar    :: Gen a
-  shrinkScalar :: a -> [a]
+  genScalar     :: Gen a
+  genRealScalar :: Gen a
+  shrinkScalar  :: a -> [a]
 
 instance SmallScalar Float where
-  genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
-  shrinkScalar = \case
+  genScalar     = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
+  genRealScalar = genScalar
+  shrinkScalar  = \case
     0 -> []
     1 -> [0]
     _ -> [0,1]
 
 instance SmallScalar Double where
-  genScalar = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
-  shrinkScalar = \case
+  genScalar     = fromIntegral <$> choose @Int (-maxGenScacar, maxGenScacar)
+  genRealScalar = genScalar
+  shrinkScalar  = \case
     0 -> []
     1 -> [0]
     _ -> [0,1]
 
 instance (RealFloat a, SmallScalar a) => SmallScalar (Complex a) where
-  genScalar = (:+) <$> genScalar <*> genScalar
-  shrinkScalar = \case
+  genScalar     = (:+) <$> genScalar <*> genScalar
+  genRealScalar = (:+ 0) <$> genScalar
+  shrinkScalar  = \case
     0      -> []
     1      -> [0, 0:+1]
     0 :+ 1 -> [0, 1]
@@ -158,7 +168,7 @@ instance Arbitrary Size2D where
 
 -- | Generate size for N-dimensional array
 genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape
-genSize = shapeFromCVec <$> FC.replicateM @n (choose (1,10))
+genSize = shapeFromCVec <$> FC.replicateM @n (choose (1,2))
 
 -- | Generate stride for vectors
 genStride :: Gen Int
@@ -276,19 +286,19 @@ instance (Storable a, Num a) => TestData1 TagMat VV.Vec a where
                               }
 
 instance TestData1 TagMat V.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f . unModelVec
+  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
   liftModel _ f xs = ModelVec { modelVecStride = 1
                               , unModelVec     = f <$> VG.toList xs
                               }
 
 instance (VU.Unbox a) => TestData1 TagMat VU.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f .unModelVec
+  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
   liftModel _ f xs = ModelVec { modelVecStride = 1
                               , unModelVec     = f <$> VG.toList xs
                               }
 
 instance (Storable a) => TestData1 TagMat VS.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f .unModelVec
+  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
   liftModel _ f xs = ModelVec { modelVecStride = 1
                               , unModelVec     = f <$> VG.toList xs
                               }
@@ -345,7 +355,7 @@ instance (Storable a, Eq a) => TestEquiv (Matrix a) where
 
 type instance Model1 TagMat Symmetric = ModelSym
 
-instance (Storable a{-, Num a-}) => TestData1 TagMat Symmetric a where
+instance (Storable a, NormedScalar a) => TestData1 TagMat Symmetric a where
   liftModel _ f m = ModelSym
     { pad = 0
     , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n-1]]
@@ -357,12 +367,35 @@ instance (Storable a{-, Num a-}) => TestData1 TagMat Symmetric a where
     = Sym.fromRowsFF
     $ (fmap . fmap) f xs
 
-instance (Storable a) => TestData TagMat (Symmetric a) where
+instance (Storable a, NormedScalar a) => TestData TagMat (Symmetric a) where
   type Model TagMat (Symmetric a) = ModelSym a
   unmodel t = liftUnmodel t id
   model   t = liftModel   t id
 
-instance (Storable a, Eq a) => TestEquiv (Symmetric a) where
+instance (Storable a, Eq a, NormedScalar a) => TestEquiv (Symmetric a) where
+  equiv = (==)
+
+
+type instance Model1 TagMat TrueSymmetric = ModelTSym
+
+instance (Storable a, NormedScalar a) => TestData1 TagMat TrueSymmetric a where
+  liftModel _ f m = ModelTSym
+    { pad = 0
+    , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n-1]]
+                   | i <- [0 .. n-1]
+                   ]
+    } where (n,_) = shape m
+  -- FIXME: add padding
+  liftUnmodel _ f (ModelTSym _pad xs)
+    = TSym.fromRowsFF
+    $ (fmap . fmap) f xs
+
+instance (Storable a, NormedScalar a) => TestData TagMat (TrueSymmetric a) where
+  type Model TagMat (TrueSymmetric a) = ModelTSym a
+  unmodel t = liftUnmodel t id
+  model   t = liftModel   t id
+
+instance (Storable a, Eq a, NormedScalar a) => TestEquiv (TrueSymmetric a) where
   equiv = (==)
 
 
@@ -380,14 +413,14 @@ data ModelVec a = ModelVec
 type instance Rank ModelVec = 1
 
 instance HasShape ModelVec a where
-  shapeAsCVec = FC.mk1 . length . unModelVec
+  shapeAsCVec = FC.mk1 . length . (.unModelVec)
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
-  a .+. b = ModelVec 1 $ (zipWithX (+) `on` unModelVec) a b
+  a .+. b = ModelVec 1 $ (zipWithX (+) `on` (.unModelVec)) a b
 
 instance Num a => AdditiveQuasigroup (ModelVec a) where
-  a .-. b = ModelVec 1 $ (zipWithX (-) `on` unModelVec) a b
-  negateV = ModelVec 1 . map negate . unModelVec
+  a .-. b = ModelVec 1 $ (zipWithX (-) `on` (.unModelVec)) a b
+  negateV = ModelVec 1 . map negate . (.unModelVec)
 
 instance Num a => VectorSpace (ModelVec a) where
   type Scalar (ModelVec a) = a
@@ -421,11 +454,11 @@ instance HasShape ModelMat a where
   shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
-  a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` unModelMat) a b
+  a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelMat)) a b
 
 instance Num a => AdditiveQuasigroup (ModelMat a) where
-  a .-. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (-) `on` unModelMat) a b
-  negateV = ModelMat 0 0 . ((map . map) negate) . unModelMat
+  a .-. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelMat)) a b
+  negateV = ModelMat 0 0 . ((map . map) negate) . (.unModelMat)
 
 instance Num a => VectorSpace (ModelMat a) where
   type Scalar (ModelMat a) = a
@@ -446,16 +479,41 @@ instance HasShape ModelSym a where
   shapeAsCVec ModelSym{unModelSym=mat} = let n = length mat in FC.mk2 n n
 
 instance Num a => AdditiveSemigroup (ModelSym a) where
-  a .+. b = ModelSym 0 $ ((zipWithX . zipWithX) (+) `on` unModelSym) a b
+  a .+. b = ModelSym 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelSym)) a b
 
 instance Num a => AdditiveQuasigroup (ModelSym a) where
-  a .-. b = ModelSym 0 $ ((zipWithX . zipWithX) (-) `on` unModelSym) a b
-  negateV = ModelSym 0 . ((map . map) negate) . unModelSym
+  a .-. b = ModelSym 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelSym)) a b
+  negateV = ModelSym 0 . ((map . map) negate) . (.unModelSym)
 
 instance Num a => VectorSpace (ModelSym a) where
   type Scalar (ModelSym a) = a
   a *. ModelSym _ xs = ModelSym 0 $ (fmap . fmap) (a*) xs
   ModelSym _ xs .* a = ModelSym 0 $ (fmap . fmap) (*a) xs
+
+
+-- | Model for symmetric matrix
+data ModelTSym a = ModelTSym
+  { pad        :: !Int  -- ^ Padding
+  , unModelSym :: [[a]] -- ^ Rows above diagonal
+  }
+  deriving stock (Show, Eq)
+
+type instance Rank ModelTSym = 2
+
+instance HasShape ModelTSym a where
+  shapeAsCVec ModelTSym{unModelSym=mat} = let n = length mat in FC.mk2 n n
+
+instance Num a => AdditiveSemigroup (ModelTSym a) where
+  a .+. b = ModelTSym 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelSym)) a b
+
+instance Num a => AdditiveQuasigroup (ModelTSym a) where
+  a .-. b = ModelTSym 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelSym)) a b
+  negateV = ModelTSym 0 . ((map . map) negate) . (.unModelSym)
+
+instance Num a => VectorSpace (ModelTSym a) where
+  type Scalar (ModelTSym a) = a
+  a *. ModelTSym _ xs = ModelTSym 0 $ (fmap . fmap) (a*) xs
+  ModelTSym _ xs .* a = ModelTSym 0 $ (fmap . fmap) (*a) xs
 
 
 -- | Data types which could be converted to matrix model
@@ -465,17 +523,26 @@ class IsModelMat m a where
 instance IsModelMat ModelMat a where
   toModelMat = id
 instance IsModelMat (Tr ModelMat) a where
-  toModelMat (Tr m) = (ModelMat 0 0 . transpose . unModelMat) m
+  toModelMat (Tr m) = (ModelMat 0 0 . transpose . (.unModelMat)) m
 instance (NormedScalar a) => IsModelMat (Conj ModelMat) a where
-  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . unModelMat) m
+  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . (.unModelMat)) m
 
-instance IsModelMat ModelSym a where
+instance NormedScalar a => IsModelMat ModelSym a where
   toModelMat (ModelSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
+    sym     = zipWith row [0..] xs
+    row n _ = [ (if i < n then conjugate else id) $ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
+
+instance NormedScalar a => IsModelMat (Tr ModelSym) a where
+  toModelMat (Tr m) = toModelMat m
+
+instance NormedScalar a => IsModelMat ModelTSym a where
+  toModelMat (ModelTSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
     sym     = zipWith row [0..] xs
     row n _ = [ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
 
-instance IsModelMat (Tr ModelSym) a where
+instance NormedScalar a => IsModelMat (Tr ModelTSym) a where
   toModelMat (Tr m) = toModelMat m
+
 
 instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
@@ -498,13 +565,17 @@ instance (NormedScalar a) => MatMul (ModelSym a) (ModelMat a) (ModelMat a) where
 instance (NormedScalar a) => MatMul (ModelMat a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (ModelSym a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
 
+instance (NormedScalar a) => MatMul (ModelTSym a) (ModelMat a)  (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelMat a)  (ModelTSym a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul (ModelTSym a) (ModelTSym a) (ModelMat a) where (@@) = defaultMulMM
+
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
-defaultMulMM m1 m2 = ModelMat 0 0 $ unModelMat (toModelMat m1) !*! unModelMat (toModelMat m2)
+defaultMulMM m1 m2 = ModelMat 0 0 $ (.unModelMat) (toModelMat m1) !*! (.unModelMat) (toModelMat m2)
 
 -- Default model implementation of matrix-vector multiplication
 defaultMulMV :: (Num a, IsModelMat m a) => m a -> ModelVec a -> ModelVec a
-defaultMulMV m v = ModelVec 1 $ (unModelMat . toModelMat) m !* unModelVec v
+defaultMulMV m v = ModelVec 1 $ ((.unModelMat) . toModelMat) m !* v.unModelVec
 
 
 ----------------------------------------------------------------
@@ -618,11 +689,28 @@ instance (SmallScalar a) => ArbitraryShape ModelSym a where
   arbitraryShape (N1 n)
     =  ModelSym
    <$> genOffset
-   <*> sequence [ sequence [genScalar | _ <- [i .. n-1]]
+   <*> sequence [ sequence [ if i == j then genRealScalar else genScalar
+                           | j <- [i .. n-1]]
                 | i <- [0 .. n-1]
                 ]
   arbitraryNRows = arbitraryShape
   arbitraryNCols = arbitraryShape
+
+
+instance (SmallScalar a) => Arbitrary (ModelTSym a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  
+instance (SmallScalar a) => ArbitraryShape ModelTSym a where
+  type CreationRank ModelTSym = 1
+  arbitraryShape (N1 n)
+    =  ModelTSym
+   <$> genOffset
+   <*> sequence [ sequence [ genScalar | j <- [i .. n-1]]
+                | i <- [0 .. n-1]
+                ]
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = arbitraryShape
+
 
 instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
@@ -634,7 +722,7 @@ instance (SmallScalar a, Storable a, Num a
   arbitraryNCols = fmap fromModel . arbitraryNCols
   arbitraryNRows = fmap fromModel . arbitraryNRows
 
-instance (SmallScalar a, Storable a
+instance (SmallScalar a, Storable a, NormedScalar a
          ) => ArbitraryShape Symmetric a where
   type CreationRank Symmetric = 1
   arbitraryShape = fmap fromModel . arbitraryShape
@@ -675,3 +763,23 @@ instance (TestMatrix1 v a) => TestData1 TagMat (Conj v) a where
 
 deriving newtype instance TestEquiv (v a) => TestEquiv (Tr   v a)
 deriving newtype instance TestEquiv (v a) => TestEquiv (Conj v a)
+
+
+
+
+
+qm :: ModelMat (Complex Double)
+qm = ModelMat {padRows = 1, padCols = 1, unModelMat = [[ 1.0 :+ 1.0, 2.0 :+ 2.0]]}
+qs :: ModelSym (Complex Double)
+qs = ModelSym {pad = 0, unModelSym = [[ 2.0 :+ 0.0, 0 :+ 1.0],
+                                      [ 1.0 :+ 0.0]]}
+
+mm :: Matrix (Complex Double)
+mm = unmodel TagMat qm
+ms :: Symmetric (Complex Double)
+ms = unmodel TagMat qs
+
+go :: IO ()
+go = do
+  print $ qm @@ qs
+  print $ mm @@ ms
