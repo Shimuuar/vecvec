@@ -54,7 +54,7 @@ Library
     Vecvec.LAPACK.Internal.Hermitian.Mutable
   Other-modules:
     Vecvec.LAPACK.Internal.Compat
-
+    Vecvec.LAPACK.Internal.Symmetric.Types
 
 test-suite vecvec-lapack-tests
   default-language: Haskell2010

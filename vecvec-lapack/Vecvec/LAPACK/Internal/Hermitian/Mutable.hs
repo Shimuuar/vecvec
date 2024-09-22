@@ -65,35 +65,16 @@ import Vecvec.Classes
 import Vecvec.Classes.NDMutable
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
-import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), InMatrix(..))
-import Vecvec.LAPACK.FFI                     qualified as C
+import Vecvec.LAPACK.Internal.Vector.Mutable  hiding (clone)
+import Vecvec.LAPACK.Internal.Matrix.Mutable  qualified as MMat
+import Vecvec.LAPACK.Internal.Matrix.Mutable  (MMatrix(..), MView(..), InMatrix(..))
+import Vecvec.LAPACK.Internal.Symmetric.Types (MSymView(..))
+import Vecvec.LAPACK.FFI                      qualified as C
 
 
 ----------------------------------------------------------------
 -- View
 ----------------------------------------------------------------
-
--- | View on symmetric matrix. It's distinct from 'MMat.MView' because
---   symmetric matrix is always square and we want to preserve
---   original pointer for conversion of immutable symmetric matrices
---   to general.
-data MSymView a = MSymView
-  { size       :: !Int            -- ^ Number of row\/columns
-  , leadingDim :: !Int            -- ^ Leading dimension
-  , buffer     :: !(ForeignPtr a) -- ^ Underlying buffer
-  }
-  deriving Show
-
-instance (Slice1D i, Storable a) => Slice i (MSymView a) where
-  {-# INLINE sliceMaybe #-}
-  sliceMaybe idx MSymView{..} = do
-    (i,len) <- computeSlice1D size idx
-    return MSymView { size       = len
-                    , leadingDim = leadingDim
-                    , buffer     = updPtr (`advancePtr` (i * (leadingDim + 1))) buffer
-                    }
 
 -- | Symmetrises matrix by copying value from above diagonal below.
 symmetrizeMSymView :: (Storable a, NormedScalar a) => MSymView a -> IO ()
