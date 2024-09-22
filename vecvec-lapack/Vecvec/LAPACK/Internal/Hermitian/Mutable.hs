@@ -6,6 +6,7 @@
 module Vecvec.LAPACK.Internal.Hermitian.Mutable
   ( -- * Data types
     MHermitian(..)
+  , asMSymmetric
   , MSymView(..)
   , InHermitian(..)
   , symmetrizeMSymView
@@ -57,15 +58,8 @@ import Vecvec.LAPACK.FFI                      qualified as C
 
 
 ----------------------------------------------------------------
--- View
+-- RO access to representation
 ----------------------------------------------------------------
-
--- | Symmetrises matrix by copying value from above diagonal below.
-symmetrizeMSymView :: (Storable a, NormedScalar a) => MSymView a -> IO ()
-symmetrizeMSymView view@MSymView{..} = do
-  loopUpD_ size $ \i j ->
-    reallyUnsafeWrite (MHermitian view) (j,i) . conjugate
-      =<< reallyUnsafeRead (MHermitian view) (i,j)
 
 -- | This type class allows to use both mutable and immutable vector
 --   as input parameters to functions operating in 'PrimMonad' with
@@ -81,21 +75,15 @@ instance s ~ s' => InHermitian s (MHermitian s') where
 
 
 ----------------------------------------------------------------
---
+-- Conversions
 ----------------------------------------------------------------
 
-instance (NormedScalar a, Storable a) => NDMutable MHermitian a where
-  -- FIXME: What to do with diagonal???
-  basicUnsafeReadArr mat (N2 i j)
-    | j >= i    = reallyUnsafeRead mat (i,j)
-    | otherwise = conjugate <$> reallyUnsafeRead mat (j,i)
-  basicUnsafeWriteArr mat (N2 i j)
-    | j >= i    = reallyUnsafeWrite mat (i,j)
-    | otherwise = reallyUnsafeWrite mat (j,i) . conjugate
-
-unsafeCast :: MHermitian s a -> MHermitian s' a
-unsafeCast = coerce
-{-# INLINE unsafeCast #-}
+-- | Symmetrises matrix by copying value from above diagonal below.
+symmetrizeMSymView :: (Storable a, NormedScalar a) => MSymView a -> IO ()
+symmetrizeMSymView view@MSymView{..} = do
+  loopUpD_ size $ \i j ->
+    reallyUnsafeWrite (MHermitian view) (j,i) . conjugate
+      =<< reallyUnsafeRead (MHermitian view) (i,j)
 
 -- | Convert matrix to dense matrix. Resulting matrix will share
 --   underlying buffer with symmetric matrix. All function that modify
@@ -112,6 +100,32 @@ unsafeToDense (MHermitian view@MSymView{..}) = unsafeIOToPrim $ do
     , leadingDim = leadingDim
     , buffer     = buffer
     }
+
+-- | /O(1)/ Cast hermitian matrix to symmetric one if its elements
+--   are real.
+asMSymmetric :: (R a ~ a) => MHermitian s a -> MSymmetric s a
+asMSymmetric = coerce
+{-# INLINE asMSymmetric #-}
+
+
+----------------------------------------------------------------
+--
+----------------------------------------------------------------
+
+instance (NormedScalar a, Storable a) => NDMutable MHermitian a where
+  -- FIXME: What to do with diagonal???
+  basicUnsafeReadArr mat (N2 i j)
+    | j >= i    = reallyUnsafeRead mat (i,j)
+    | otherwise = conjugate <$> reallyUnsafeRead mat (j,i)
+  basicUnsafeWriteArr mat (N2 i j)
+    | j >= i    = reallyUnsafeWrite mat (i,j)
+    | otherwise = reallyUnsafeWrite mat (j,i) . conjugate
+
+-- | Change state token. This operation is very unsafe.
+unsafeCast :: MHermitian s a -> MHermitian s' a
+unsafeCast = coerce
+{-# INLINE unsafeCast #-}
+
 
 
  

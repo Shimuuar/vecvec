@@ -11,6 +11,7 @@ module Vecvec.LAPACK.Internal.Symmetric
   , freeze
   , thaw
   , toDense
+  , asHermitian
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
@@ -96,6 +97,12 @@ toDense (Symmetric () MTSym.MSymView{..}) =
     , leadingDim = leadingDim
     , buffer     = buffer
     }
+
+-- | /O(1)/ cast hermitian matrix to symmetric if its elements are
+--   real.
+asHermitian :: (R a ~ a) => Symmetric a -> Hermitian a
+asHermitian (Symmetric tag repr) = Hermitian tag repr
+
 
 ----------------------------------------------------------------
 -- Access

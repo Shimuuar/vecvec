@@ -9,6 +9,7 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   , MSymView(..)
   , InSymmetric(..)
   , symmetrizeMSymView
+  , asMHermitian
     -- * Operations
     -- ** Creation
   , clone
@@ -47,7 +48,7 @@ import Foreign.Marshal.Array
 import Prelude hiding (read,replicate)
 
 import Vecvec.Classes.NDMutable
--- import Vecvec.Classes.Deriving
+import Vecvec.Classes
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -58,14 +59,8 @@ import Vecvec.LAPACK.FFI                     qualified as C
 
 
 ----------------------------------------------------------------
--- View
+-- RO access to representation
 ----------------------------------------------------------------
-
--- | Symmetrises matrix by copying value from above diagonal below.
-symmetrizeMSymView :: Storable a => MSymView a -> IO ()
-symmetrizeMSymView view@MSymView{..} = do
-  loopUpD_ size $ \i j -> do
-    reallyUnsafeWrite (MSymmetric view) (j,i) =<< reallyUnsafeRead (MSymmetric view) (i,j)
 
 -- | This type class allows to use both mutable and immutable vector
 --   as input parameters to functions operating in 'PrimMonad' with
@@ -79,22 +74,15 @@ instance s ~ s' => InSymmetric s (MSymmetric s') where
   {-# INLINE symmetricRepr #-}
   symmetricRepr = pure . coerce
 
-
 ----------------------------------------------------------------
---
+-- Conversions
 ----------------------------------------------------------------
 
-instance Storable a => NDMutable MSymmetric a where
-  basicUnsafeReadArr mat (N2 i j)
-    | j >= i    = reallyUnsafeRead mat (i,j)
-    | otherwise = reallyUnsafeRead mat (j,i)
-  basicUnsafeWriteArr mat (N2 i j)
-    | j >= i    = reallyUnsafeWrite mat (i,j)
-    | otherwise = reallyUnsafeWrite mat (j,i)
-
-unsafeCast :: MSymmetric s a -> MSymmetric s' a
-unsafeCast = coerce
-{-# INLINE unsafeCast #-}
+-- | Symmetrises matrix by copying value from above diagonal below.
+symmetrizeMSymView :: Storable a => MSymView a -> IO ()
+symmetrizeMSymView view@MSymView{..} = do
+  loopUpD_ size $ \i j -> do
+    reallyUnsafeWrite (MSymmetric view) (j,i) =<< reallyUnsafeRead (MSymmetric view) (i,j)
 
 -- | Convert matrix to dense matrix. Resulting matrix will share
 --   underlying buffer with symmetric matrix. All function that modify
@@ -111,6 +99,28 @@ unsafeToDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
     , leadingDim = leadingDim
     , buffer     = buffer
     }
+
+-- | /O(1)/ Cast symmetric matrix to hermitian one if its elements
+--   are real.
+asMHermitian :: (R a ~ a) => MSymmetric s a -> MSymmetric s a
+asMHermitian = coerce
+{-# INLINE asMHermitian #-}
+
+----------------------------------------------------------------
+--
+----------------------------------------------------------------
+
+instance Storable a => NDMutable MSymmetric a where
+  basicUnsafeReadArr mat (N2 i j)
+    | j >= i    = reallyUnsafeRead mat (i,j)
+    | otherwise = reallyUnsafeRead mat (j,i)
+  basicUnsafeWriteArr mat (N2 i j)
+    | j >= i    = reallyUnsafeWrite mat (i,j)
+    | otherwise = reallyUnsafeWrite mat (j,i)
+
+unsafeCast :: MSymmetric s a -> MSymmetric s' a
+unsafeCast = coerce
+{-# INLINE unsafeCast #-}
 
 
  
