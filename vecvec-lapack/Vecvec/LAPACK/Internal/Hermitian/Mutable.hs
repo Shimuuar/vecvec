@@ -153,10 +153,15 @@ reallyUnsafeRead (MHermitian MSymView{..}) (i,j)
 --
 -- __UNSAFE__: this function does not any range checks.
 reallyUnsafeWrite
-  :: (Storable a, PrimMonad m, s ~ PrimState m)
+  :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
   => MHermitian s a -> (Int, Int) -> a -> m ()
 {-# INLINE reallyUnsafeWrite #-}
 reallyUnsafeWrite (MHermitian MSymView{..}) (i,j) a
+  | i == j
+  , not (isReal a)
+  = error "Writing non-real value on diagonal"
+  --
+  | otherwise
   = unsafePrimToPrim
   $ unsafeWithForeignPtr buffer $ \p -> do
     pokeElemOff p (i * leadingDim + j) a
@@ -195,7 +200,8 @@ clone mat = stToPrim $ do
 
 -- | Create matrix from list of rows. Each row contains elements
 --   starting from diagonal.
-fromRowsFF :: (Storable a, Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
+fromRowsFF :: ( Storable a, NormedScalar a
+              , Foldable f, Foldable g, PrimMonad m, s ~ PrimState m)
            => f (g a) -> m (MHermitian s a)
 fromRowsFF dat
   | otherwise = unsafeIOToPrim $ do
@@ -215,7 +221,8 @@ fromRowsFF dat
 
 -- | Create matrix from list of rows. Each row contains elements
 --   starting from diagonal.
-fromRowsFV :: (Storable a, Foldable f, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+fromRowsFV :: ( Storable a, NormedScalar a
+              , Foldable f, VG.Vector v a, PrimMonad m, s ~ PrimState m)
            => f (v a) -> m (MHermitian s a)
 {-# INLINE fromRowsFV #-}
 fromRowsFV dat
@@ -258,7 +265,7 @@ unsafeNew n = do
 
 -- | Fill matrix of given size with provided value.
 replicate
-  :: (Storable a, PrimMonad m, s ~ PrimState m)
+  :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
   => Int -- ^ Size of matrix
   -> a   -- ^ Element to replicate
   -> m (MHermitian s a)
@@ -269,7 +276,7 @@ replicate n a = stToPrim $ do
   pure mat
 
 -- | Fill matrix of given size using provided monadic action.
-replicateM :: (Storable a, PrimMonad m, s ~ PrimState m)
+replicateM :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
            => Int -- ^ Matrix size
            -> m a
            -> m (MHermitian s a)
@@ -282,7 +289,7 @@ replicateM n action = do
 
 -- | Create matrix filled with zeros. It's more efficient than using
 --   'replicate'.
-zeros :: (LAPACKy a, PrimMonad m, s ~ PrimState m)
+zeros :: (LAPACKy a, NormedScalar a, PrimMonad m, s ~ PrimState m)
       => Int -- ^ Size of a matrix
       -> m (MHermitian s a)
 zeros n = stToPrim $ do
@@ -292,7 +299,7 @@ zeros n = stToPrim $ do
 
 -- | Fill matrix of given size using function from indices to element.
 generate
-  :: (Storable a, PrimMonad m, s ~ PrimState m)
+  :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
   => Int               -- ^ Size of matrix
   -> (Int -> Int -> a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
   -> m (MHermitian s a)
@@ -304,7 +311,7 @@ generate n a = stToPrim $ do
 
 -- | Fill matrix of given size using monadic function from indices to element.
 generateM
-  :: (Storable a, PrimMonad m, s ~ PrimState m)
+  :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
   => Int -- ^ Matrix size
   -> (Int -> Int -> m a)
   -> m (MHermitian s a)
@@ -317,7 +324,7 @@ generateM n action = do
 
 
 -- | Create identity matrix
-eye :: (LAPACKy a, Num a, PrimMonad m, s ~ PrimState m)
+eye :: (LAPACKy a, NormedScalar a, PrimMonad m, s ~ PrimState m)
     => Int -- ^ Matrix size
     -> m (MHermitian s a)
 eye n = stToPrim $ do
@@ -326,7 +333,7 @@ eye n = stToPrim $ do
   pure mat
 
 -- | Create diagonal matrix. Diagonal elements are stored in vector.
-diag :: (LAPACKy a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
+diag :: (LAPACKy a, NormedScalar a, VG.Vector v a, PrimMonad m, s ~ PrimState m)
      => v a
      -> m (MHermitian s a)
 {-# INLINE diag #-}
