@@ -1,9 +1,4 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE ImportQualifiedPost   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedRecordDot   #-}
-{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg

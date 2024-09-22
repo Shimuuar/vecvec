@@ -22,7 +22,21 @@ source-repository head
 
 Library
   Ghc-options:          -Wall
-  Default-Language:     Haskell2010
+  Default-Language:     GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DerivingStrategies
+                        DataKinds
+                        ViewPatterns
+                        MultiWayIf
+                        LambdaCase
+                        DerivingVia
+                        LexicalNegation
+                        PatternSynonyms
+                        -- Records
+                        DuplicateRecordFields
+                        OverloadedRecordDot
+  --
   Build-Depends:        base             >=4.12 && <5
                       , vecvec-classes
                       , vecvec-lapack-ffi

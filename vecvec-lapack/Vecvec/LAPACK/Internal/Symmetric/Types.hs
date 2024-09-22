@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Data types used for both symmetric and hermitian matrices
 module Vecvec.LAPACK.Internal.Symmetric.Types where
@@ -9,9 +7,9 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
-import Vecvec.Classes
 import Vecvec.Classes.NDMutable
 import Vecvec.LAPACK.Internal.Compat
+
 
 -- | Internal representation of symmetric or hermitian matrix. It's
 --   distinct from 'MMat.MView' because symmetric matrix is always

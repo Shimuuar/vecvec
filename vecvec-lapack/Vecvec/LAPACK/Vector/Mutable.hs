@@ -1,9 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE NegativeLiterals    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE ViewPatterns        #-}
 -- |
 -- Mutable storable vectors. Unlike standard vectors they have stride
 -- which means that only N-th element in underlying buffer belong to
