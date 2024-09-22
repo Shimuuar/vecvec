@@ -3,7 +3,6 @@ module Vecvec.LAPACK.Hermitian.Mutable
   ( -- * Data types
     MHermitian
   , InHermitian
-  , symmetrizeMSymView
     -- * Operations
     -- ** Creation
   , clone

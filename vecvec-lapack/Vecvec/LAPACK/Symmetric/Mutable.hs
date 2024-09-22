@@ -3,7 +3,6 @@ module Vecvec.LAPACK.Symmetric.Mutable
   ( -- * Data types
     MSymmetric
   , InSymmetric
-  , symmetrizeMSymView
     -- * Operations
     -- ** Creation
   , clone
