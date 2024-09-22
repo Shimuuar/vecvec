@@ -1,7 +1,7 @@
 -- |
-module Vecvec.LAPACK.TrueSymmetric
+module Vecvec.LAPACK.Hermitian
   ( -- * Immutable matrix
-    TrueSymmetric(..)
+    Hermitian(..)
     -- * Operations
     -- ** Conversion to\/from mutable
   , unsafeFreeze
@@ -23,4 +23,4 @@ module Vecvec.LAPACK.TrueSymmetric
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.TrueSymmetric
+import Vecvec.LAPACK.Internal.Hermitian

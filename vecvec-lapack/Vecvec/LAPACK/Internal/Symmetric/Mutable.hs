@@ -44,9 +44,9 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
   , unsafeCast
   , unsafeToDense
     -- ** BLAS wrappers
-  , unsafeBlasHemv
-  , unsafeBlasHemmL
-  , unsafeBlasHemmR
+  , unsafeBlasSymv
+  , unsafeBlasSymmL
+  , unsafeBlasSymmR
   ) where
 
 import Control.Monad.Primitive
@@ -62,8 +62,8 @@ import Foreign.Marshal.Array
 
 import Prelude hiding (read,replicate)
 
-import Vecvec.Classes
 import Vecvec.Classes.NDMutable
+-- import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
@@ -97,11 +97,10 @@ instance (Slice1D i, Storable a) => Slice i (MSymView a) where
                     }
 
 -- | Symmetrises matrix by copying value from above diagonal below.
-symmetrizeMSymView :: (Storable a, NormedScalar a) => MSymView a -> IO ()
+symmetrizeMSymView :: Storable a => MSymView a -> IO ()
 symmetrizeMSymView view@MSymView{..} = do
-  loopUpD_ size $ \i j ->
-    reallyUnsafeWrite (MSymmetric view) (j,i) . conjugate
-      =<< reallyUnsafeRead (MSymmetric view) (i,j)
+  loopUpD_ size $ \i j -> do
+    reallyUnsafeWrite (MSymmetric view) (j,i) =<< reallyUnsafeRead (MSymmetric view) (i,j)
 
 -- | This type class allows to use both mutable and immutable vector
 --   as input parameters to functions operating in 'PrimMonad' with
@@ -132,14 +131,13 @@ instance HasShape (MSymmetric s) a where
   shapeAsCVec (MSymmetric MSymView{..}) = FC.mk2 size size
   {-# INLINE shapeAsCVec #-}
 
-instance (NormedScalar a, Storable a) => NDMutable MSymmetric a where
-  -- FIXME: What to do with diagonal???
+instance Storable a => NDMutable MSymmetric a where
   basicUnsafeReadArr mat (N2 i j)
     | j >= i    = reallyUnsafeRead mat (i,j)
-    | otherwise = conjugate <$> reallyUnsafeRead mat (j,i)
+    | otherwise = reallyUnsafeRead mat (j,i)
   basicUnsafeWriteArr mat (N2 i j)
     | j >= i    = reallyUnsafeWrite mat (i,j)
-    | otherwise = reallyUnsafeWrite mat (j,i) . conjugate
+    | otherwise = reallyUnsafeWrite mat (j,i)
 
 unsafeCast :: MSymmetric s a -> MSymmetric s' a
 unsafeCast = coerce
@@ -150,7 +148,7 @@ unsafeCast = coerce
 --   symmetric matrix will only element on diagonal and above unless
 --   noted otherwise.
 unsafeToDense
-  :: forall a m s. (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
+  :: forall a m s. (Storable a, PrimMonad m, s ~ PrimState m)
   => MSymmetric s a -> m (MMatrix s a)
 unsafeToDense (MSymmetric view@MSymView{..}) = unsafeIOToPrim $ do
   symmetrizeMSymView view
@@ -286,9 +284,9 @@ unsafeNew
 unsafeNew n = do
   MVec buffer <- MVG.unsafeNew (n * n)
   pure $ MSymmetric MSymView { size       = n
-                             , leadingDim = n
-                             , buffer     = vecBuffer buffer
-                             }
+                                 , leadingDim = n
+                                 , buffer     = vecBuffer buffer
+                                 }
 
 -- | Fill matrix of given size with provided value.
 replicate
@@ -393,7 +391,7 @@ diagF xs = stToPrim $ do
 -- | matrix-vector multiplication by symmetric matrix
 --
 -- > y := αAx + βy
-unsafeBlasHemv
+unsafeBlasSymv
   :: forall a m mat vec s.
      (C.LAPACKy a, PrimMonad m, s ~ PrimState m, InSymmetric s mat, InVector s vec)
   => a               -- ^ Scalar @α@
@@ -402,15 +400,15 @@ unsafeBlasHemv
   -> a               -- ^ Scalar @β@
   -> MVec s a        -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemv #-}
-unsafeBlasHemv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
+{-# INLINE unsafeBlasSymv #-}
+unsafeBlasSymv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
   MSymView{..}           <- symmetricRepr mat
   VecRepr _lenX incX fpX <- vectorRepr    vecX
   unsafeIOToPrim $
     unsafeWithForeignPtr buffer $ \p_A ->
     unsafeWithForeignPtr fpX    $ \p_x ->
     unsafeWithForeignPtr fpY    $ \p_y ->
-      C.hemv C.RowMajor C.UP
+      C.symv C.RowMajor C.UP
         (C.toB size) α p_A (C.toB leadingDim)
         p_x (C.toB incX)
         β p_y (C.toB incY)
@@ -418,7 +416,7 @@ unsafeBlasHemv α mat vecX β (MVec (VecRepr _ incY fpY)) = stToPrim $ do
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the left
 --
 -- > C := αAB + βC
-unsafeBlasHemmL
+unsafeBlasSymmL
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
      , InSymmetric s matA, InMatrix s matB
@@ -429,15 +427,15 @@ unsafeBlasHemmL
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemmL #-}
-unsafeBlasHemmL α matA matB β (MMatrix mC) = stToPrim $ do
+{-# INLINE unsafeBlasSymmL #-}
+unsafeBlasSymmL α matA matB β (MMatrix mC) = stToPrim $ do
   mA <- symmetricRepr matA
   mB <- matrixRepr    matB
   unsafeIOToPrim $
     unsafeWithForeignPtr mA.buffer $ \p_A ->
     unsafeWithForeignPtr mB.buffer $ \p_B ->
     unsafeWithForeignPtr mC.buffer $ \p_C -> do
-      C.hemm C.RowMajor C.LeftSide C.UP
+      C.symm C.RowMajor C.LeftSide C.UP
         (C.toB mC.nrows) (C.toB mC.ncols)
         α p_A (C.toB mA.leadingDim)
           p_B (C.toB mB.leadingDim)
@@ -446,7 +444,7 @@ unsafeBlasHemmL α matA matB β (MMatrix mC) = stToPrim $ do
 -- | Multiplication of general matrix @B@ by symmetric matrix @A@ on the right
 --
 -- > C := αBA + βC
-unsafeBlasHemmR
+unsafeBlasSymmR
   :: forall a m matA matB s.
      ( C.LAPACKy a, PrimMonad m, s ~ PrimState m
      , InSymmetric s matA, InMatrix s matB
@@ -457,15 +455,15 @@ unsafeBlasHemmR
   -> a               -- ^ Scalar @β@
   -> MMatrix s a     -- ^ Vector @y@
   -> m ()
-{-# INLINE unsafeBlasHemmR #-}
-unsafeBlasHemmR α matB matA β (MMatrix mC) = stToPrim $ do
+{-# INLINE unsafeBlasSymmR #-}
+unsafeBlasSymmR α matB matA β (MMatrix mC) = stToPrim $ do
   mB <- matrixRepr    matB
   mA <- symmetricRepr matA
   unsafeIOToPrim $
     unsafeWithForeignPtr mA.buffer $ \p_A ->
     unsafeWithForeignPtr mB.buffer $ \p_B ->
     unsafeWithForeignPtr mC.buffer $ \p_C -> do
-      C.hemm C.RowMajor C.RightSide C.UP
+      C.symm C.RowMajor C.RightSide C.UP
         (C.toB mC.nrows) (C.toB mC.ncols)
         α p_A (C.toB mA.leadingDim)
           p_B (C.toB mB.leadingDim)

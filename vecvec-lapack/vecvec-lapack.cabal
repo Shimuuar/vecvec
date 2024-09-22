@@ -39,8 +39,8 @@ Library
     Vecvec.LAPACK.Matrix.Mutable
     Vecvec.LAPACK.Symmetric
     Vecvec.LAPACK.Symmetric.Mutable
-    Vecvec.LAPACK.TrueSymmetric
-    Vecvec.LAPACK.TrueSymmetric.Mutable
+    Vecvec.LAPACK.Hermitian
+    Vecvec.LAPACK.Hermitian.Mutable
     Vecvec.LAPACK.LinAlg
     Vecvec.LAPACK.Utils
     --
@@ -50,8 +50,8 @@ Library
     Vecvec.LAPACK.Internal.Matrix.Mutable
     Vecvec.LAPACK.Internal.Symmetric
     Vecvec.LAPACK.Internal.Symmetric.Mutable
-    Vecvec.LAPACK.Internal.TrueSymmetric
-    Vecvec.LAPACK.Internal.TrueSymmetric.Mutable
+    Vecvec.LAPACK.Internal.Hermitian
+    Vecvec.LAPACK.Internal.Hermitian.Mutable
   Other-modules:
     Vecvec.LAPACK.Internal.Compat
 

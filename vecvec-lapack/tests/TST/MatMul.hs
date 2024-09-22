@@ -26,8 +26,8 @@ import Test.Tasty.QuickCheck
 import Vecvec.Classes
 import Vecvec.LAPACK                    qualified as VV
 import Vecvec.LAPACK.Internal.Matrix    (Matrix)
+import Vecvec.LAPACK.Internal.Hermitian (Hermitian)
 import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
-import Vecvec.LAPACK.Internal.TrueSymmetric (TrueSymmetric)
 import Vecvec.LAPACK.FFI                (S,D,C,Z)
 
 import TST.Tools.MatModel
@@ -98,6 +98,19 @@ tests = testGroup "MatMul"
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @D
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @C
   , prop_matmul @(Conj Matrix) @(Conj Matrix) @Z
+    -- Hermitian-dense
+  , prop_matmul @Matrix    @Hermitian @S
+  , prop_matmul @Matrix    @Hermitian @D
+  , prop_matmul @Matrix    @Hermitian @C
+  , prop_matmul @Matrix    @Hermitian @Z
+  , prop_matmul @Hermitian @Matrix    @S
+  , prop_matmul @Hermitian @Matrix    @D
+  , prop_matmul @Hermitian @Matrix    @C
+  , prop_matmul @Hermitian @Matrix    @Z
+  , prop_matmul @Hermitian @Hermitian @S
+  , prop_matmul @Hermitian @Hermitian @D
+  , prop_matmul @Hermitian @Hermitian @C
+  , prop_matmul @Hermitian @Hermitian @Z
     -- Symmetric-dense
   , prop_matmul @Matrix    @Symmetric @S
   , prop_matmul @Matrix    @Symmetric @D
@@ -111,19 +124,6 @@ tests = testGroup "MatMul"
   , prop_matmul @Symmetric @Symmetric @D
   , prop_matmul @Symmetric @Symmetric @C
   , prop_matmul @Symmetric @Symmetric @Z
-    -- Symmetric-dense
-  , prop_matmul @Matrix        @TrueSymmetric @S
-  , prop_matmul @Matrix        @TrueSymmetric @D
-  , prop_matmul @Matrix        @TrueSymmetric @C
-  , prop_matmul @Matrix        @TrueSymmetric @Z
-  , prop_matmul @TrueSymmetric @Matrix        @S
-  , prop_matmul @TrueSymmetric @Matrix        @D
-  , prop_matmul @TrueSymmetric @Matrix        @C
-  , prop_matmul @TrueSymmetric @Matrix        @Z
-  , prop_matmul @TrueSymmetric @TrueSymmetric @S
-  , prop_matmul @TrueSymmetric @TrueSymmetric @D
-  , prop_matmul @TrueSymmetric @TrueSymmetric @C
-  , prop_matmul @TrueSymmetric @TrueSymmetric @Z
   ]
 
 -- Test for generalized matrix-vector multiplication.

@@ -1,8 +1,8 @@
 -- |
-module Vecvec.LAPACK.TrueSymmetric.Mutable
+module Vecvec.LAPACK.Hermitian.Mutable
   ( -- * Data types
-    MTrueSymmetric
-  , InTrueSymmetric
+    MHermitian
+  , InHermitian
   , symmetrizeMSymView
     -- * Operations
     -- ** Creation
@@ -23,4 +23,4 @@ module Vecvec.LAPACK.TrueSymmetric.Mutable
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.TrueSymmetric.Mutable
+import Vecvec.LAPACK.Internal.Hermitian.Mutable
