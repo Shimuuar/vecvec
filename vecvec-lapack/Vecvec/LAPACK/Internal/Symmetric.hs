@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 module Vecvec.LAPACK.Internal.Symmetric
   ( -- * Immutable matrix
@@ -28,7 +29,6 @@ import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Vector.Generic         qualified as VG
 import Data.Vector.Generic.Mutable qualified as MVG
-import Data.Vector.Fixed.Cont      qualified as FC
 import Foreign.Storable
 import Foreign.Marshal.Array
 import System.IO.Unsafe
@@ -36,28 +36,20 @@ import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Internal.Matrix.Mutable        qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix                qualified as Mat
-import Vecvec.LAPACK.Internal.Matrix                (Matrix)
+import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MMat
+import Vecvec.LAPACK.Internal.Matrix            qualified as Mat
+import Vecvec.LAPACK.Internal.Matrix            (Matrix)
 import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MTSym
+import Vecvec.LAPACK.Internal.Symmetric.Types
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
-import Vecvec.LAPACK.FFI                           qualified as C
+import Vecvec.LAPACK.FFI                        qualified as C
 import Vecvec.LAPACK.Utils
 
 ----------------------------------------------------------------
 --
 ----------------------------------------------------------------
-
--- | Symmetric matrix
-data Symmetric a = Symmetric () (MTSym.MSymView a)
-
-instance (Slice1D i, Storable a) => Slice i (Symmetric a) where
-  {-# INLINE sliceMaybe #-}
-  sliceMaybe i (Symmetric flag view) = do
-    view' <- sliceMaybe i view
-    pure $ Symmetric flag view'
 
 instance (Show a, Storable a) => Show (Symmetric a) where
   show = show . toDense
@@ -65,12 +57,6 @@ instance (Show a, Storable a) => Show (Symmetric a) where
 instance MTSym.InSymmetric s Symmetric where
   {-# INLINE symmetricRepr #-}
   symmetricRepr (Symmetric _ mat) = pure mat
-
-type instance Rank Symmetric = 2
-
-instance HasShape Symmetric a where
-  shapeAsCVec (Symmetric _ MTSym.MSymView{..}) = FC.mk2 size size
-  {-# INLINE shapeAsCVec #-}
 
 instance Storable a => NDArray Symmetric a where
   basicUnsafeIndex mat (N2 i j)
@@ -87,7 +73,7 @@ instance (Storable a, Eq a) => Eq (Symmetric a) where
     where n = nCols a
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
-             => MTSym.MSymmetric s a -> m (Symmetric a)
+             => MSymmetric s a -> m (Symmetric a)
 unsafeFreeze (MTSym.MSymmetric view)
   = pure $ Symmetric flag view
   where

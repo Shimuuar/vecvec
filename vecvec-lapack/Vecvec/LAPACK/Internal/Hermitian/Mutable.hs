@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 -- Symmetric matrices.
 module Vecvec.LAPACK.Internal.Hermitian.Mutable
@@ -36,7 +37,6 @@ import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Coerce
 import Data.Foldable
-import Data.Vector.Fixed.Cont                qualified as FC
 import Data.Vector.Generic.Mutable           qualified as MVG
 import Data.Vector.Generic                   qualified as VG
 import Foreign.Storable
@@ -52,7 +52,7 @@ import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable  hiding (clone)
 import Vecvec.LAPACK.Internal.Matrix.Mutable  qualified as MMat
 import Vecvec.LAPACK.Internal.Matrix.Mutable  (MMatrix(..), MView(..), InMatrix(..))
-import Vecvec.LAPACK.Internal.Symmetric.Types (MSymView(..))
+import Vecvec.LAPACK.Internal.Symmetric.Types
 import Vecvec.LAPACK.FFI                      qualified as C
 
 
@@ -83,18 +83,6 @@ instance s ~ s' => InHermitian s (MHermitian s') where
 ----------------------------------------------------------------
 --
 ----------------------------------------------------------------
-
--- | Hermitian matrix. It uses same memory layout as general dense
---   matrix but only diagonal and elements above it are referenced.
-newtype MHermitian s a = MHermitian (MSymView a)
-
-deriving newtype instance (Slice1D i, Storable a) => Slice i (MHermitian s a)
-
-type instance Rank (MHermitian s) = 2
-
-instance HasShape (MHermitian s) a where
-  shapeAsCVec (MHermitian MSymView{..}) = FC.mk2 size size
-  {-# INLINE shapeAsCVec #-}
 
 instance (NormedScalar a, Storable a) => NDMutable MHermitian a where
   -- FIXME: What to do with diagonal???

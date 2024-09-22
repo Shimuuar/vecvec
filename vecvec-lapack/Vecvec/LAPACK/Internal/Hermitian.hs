@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 module Vecvec.LAPACK.Internal.Hermitian
   ( -- * Immutable matrix
@@ -28,7 +29,6 @@ import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Vector.Generic         qualified as VG
 import Data.Vector.Generic.Mutable qualified as MVG
-import Data.Vector.Fixed.Cont      qualified as FC
 import Foreign.Storable
 import Foreign.Marshal.Array
 import System.IO.Unsafe
@@ -43,6 +43,7 @@ import Vecvec.LAPACK.Internal.Hermitian.Mutable  qualified as MSym
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.LAPACK.Internal.Symmetric.Types
 import Vecvec.LAPACK.FFI                           qualified as C
 import Vecvec.LAPACK.Utils
 
@@ -50,27 +51,12 @@ import Vecvec.LAPACK.Utils
 --
 ----------------------------------------------------------------
 
--- | Hermitian matrix
-data Hermitian a = Hermitian () (MSym.MSymView a)
-
-instance (Slice1D i, Storable a) => Slice i (Hermitian a) where
-  {-# INLINE sliceMaybe #-}
-  sliceMaybe i (Hermitian flag view) = do
-    view' <- sliceMaybe i view
-    pure $ Hermitian flag view'
-
 instance (Show a, Storable a) => Show (Hermitian a) where
   show = show . toDense
 
 instance MSym.InHermitian s Hermitian where
   {-# INLINE symmetricRepr #-}
   symmetricRepr (Hermitian _ mat) = pure mat
-
-type instance Rank Hermitian = 2
-
-instance HasShape Hermitian a where
-  shapeAsCVec (Hermitian _ MSym.MSymView{..}) = FC.mk2 size size
-  {-# INLINE shapeAsCVec #-}
 
 instance (NormedScalar a, Storable a) => NDArray Hermitian a where
   basicUnsafeIndex mat (N2 i j)

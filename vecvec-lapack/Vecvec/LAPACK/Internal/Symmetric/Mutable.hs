@@ -1,5 +1,6 @@
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 -- Symmetric matrices.
 module Vecvec.LAPACK.Internal.Symmetric.Mutable
@@ -37,7 +38,6 @@ import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Coerce
 import Data.Foldable
-import Data.Vector.Fixed.Cont                qualified as FC
 import Data.Vector.Generic.Mutable           qualified as MVG
 import Data.Vector.Generic                   qualified as VG
 import Foreign.Storable
@@ -53,7 +53,7 @@ import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MMat
 import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), InMatrix(..))
-import Vecvec.LAPACK.Internal.Symmetric.Types (MSymView(..))
+import Vecvec.LAPACK.Internal.Symmetric.Types
 import Vecvec.LAPACK.FFI                     qualified as C
 
 
@@ -83,18 +83,6 @@ instance s ~ s' => InSymmetric s (MSymmetric s') where
 ----------------------------------------------------------------
 --
 ----------------------------------------------------------------
-
--- | Symmetric matrix. It uses same memory layout as general dense
---   matrix but only diagonal and elements above it are referenced.
-newtype MSymmetric s a = MSymmetric (MSymView a)
-
-deriving newtype instance (Slice1D i, Storable a) => Slice i (MSymmetric s a)
-
-type instance Rank (MSymmetric s) = 2
-
-instance HasShape (MSymmetric s) a where
-  shapeAsCVec (MSymmetric MSymView{..}) = FC.mk2 size size
-  {-# INLINE shapeAsCVec #-}
 
 instance Storable a => NDMutable MSymmetric a where
   basicUnsafeReadArr mat (N2 i j)

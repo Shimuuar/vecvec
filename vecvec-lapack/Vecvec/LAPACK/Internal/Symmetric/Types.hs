@@ -1,8 +1,16 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 -- |
 -- Data types used for both symmetric and hermitian matrices
-module Vecvec.LAPACK.Internal.Symmetric.Types where
+module Vecvec.LAPACK.Internal.Symmetric.Types
+  ( MSymView(..)
+  , MHermitian(..)
+  , Hermitian(..)
+  , MSymmetric(..)
+  , Symmetric(..)
+  ) where
 
+import Data.Vector.Fixed.Cont qualified as FC
 import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
@@ -10,6 +18,10 @@ import Foreign.Marshal.Array
 import Vecvec.Classes.NDMutable
 import Vecvec.LAPACK.Internal.Compat
 
+
+----------------------------------------------------------------
+-- Representation
+----------------------------------------------------------------
 
 -- | Internal representation of symmetric or hermitian matrix. It's
 --   distinct from 'MMat.MView' because symmetric matrix is always
@@ -30,3 +42,69 @@ instance (Slice1D i, Storable a) => Slice i (MSymView a) where
                     , leadingDim = leadingDim
                     , buffer     = updPtr (`advancePtr` (i * (leadingDim + 1))) buffer
                     }
+
+
+----------------------------------------------------------------
+-- Hermitian matrices
+----------------------------------------------------------------
+
+-- | Hermitian matrix. It uses same memory layout as general dense
+--   matrix but only diagonal and elements above it are referenced.
+newtype MHermitian s a = MHermitian (MSymView a)
+
+deriving newtype instance (Slice1D i, Storable a) => Slice i (MHermitian s a)
+
+type instance Rank (MHermitian s) = 2
+
+instance HasShape (MHermitian s) a where
+  shapeAsCVec (MHermitian MSymView{..}) = FC.mk2 size size
+  {-# INLINE shapeAsCVec #-}
+
+
+-- | Hermitian matrix
+data Hermitian a = Hermitian () (MSymView a)
+
+instance (Slice1D i, Storable a) => Slice i (Hermitian a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe i (Hermitian flag view) = do
+    view' <- sliceMaybe i view
+    pure $ Hermitian flag view'
+
+type instance Rank Hermitian = 2
+
+instance HasShape Hermitian a where
+  shapeAsCVec (Hermitian _ MSymView{..}) = FC.mk2 size size
+  {-# INLINE shapeAsCVec #-}
+
+
+----------------------------------------------------------------
+-- Symmetric matrices
+----------------------------------------------------------------x
+
+-- | Symmetric matrix. It uses same memory layout as general dense
+--   matrix but only diagonal and elements above it are referenced.
+newtype MSymmetric s a = MSymmetric (MSymView a)
+
+deriving newtype instance (Slice1D i, Storable a) => Slice i (MSymmetric s a)
+
+type instance Rank (MSymmetric s) = 2
+
+instance HasShape (MSymmetric s) a where
+  shapeAsCVec (MSymmetric MSymView{..}) = FC.mk2 size size
+  {-# INLINE shapeAsCVec #-}
+
+
+-- | Symmetric matrix
+data Symmetric a = Symmetric () (MSymView a)
+
+instance (Slice1D i, Storable a) => Slice i (Symmetric a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe i (Symmetric flag view) = do
+    view' <- sliceMaybe i view
+    pure $ Symmetric flag view'
+
+type instance Rank Symmetric = 2
+
+instance HasShape Symmetric a where
+  shapeAsCVec (Symmetric _ MSymView{..}) = FC.mk2 size size
+  {-# INLINE shapeAsCVec #-}
