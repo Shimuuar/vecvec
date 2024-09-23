@@ -10,6 +10,7 @@ module Vecvec.LAPACK.LinAlg
     -- ** Solvers
   , solveLinEq
   , solveLinEqSym
+  , solveLinEqHer
     -- * Matrix inversion
   , invertMatrix
     -- * Matrix decomposition
@@ -30,10 +31,13 @@ import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Matrix
 import Vecvec.LAPACK.Internal.Symmetric         (Symmetric)
+import Vecvec.LAPACK.Internal.Hermitian         (Hermitian)
 import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MMat
 import Vecvec.LAPACK.Internal.Matrix.Mutable    (MMatrix(..), MView(..))
 import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MSym
 import Vecvec.LAPACK.Internal.Symmetric.Mutable (MSymmetric(..), MSymView(..))
+import Vecvec.LAPACK.Internal.Hermitian.Mutable qualified as MHer
+import Vecvec.LAPACK.Internal.Hermitian.Mutable (MHermitian(..))
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
@@ -122,6 +126,13 @@ class LinearEq m a where
 instance LAPACKy a => LinearEq Matrix a where
   (\\\) = solveLinEq
 
+-- | See 'solveLinEqSym'
+instance LAPACKy a => LinearEq Symmetric a where
+  (\\\) = solveLinEqSym
+
+-- | See 'solveLinEqHer'
+instance LAPACKy a => LinearEq Hermitian a where
+  (\\\) = solveLinEqHer
 
 -- | When solving linear equations like \(Ax=b\) most of the work is
 --   spent on factoring matrix. Thus it's computationally advantageous
@@ -233,6 +244,39 @@ solveLinEqSym a0 rhs = unsafePerformIO $ do
     unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
     allocaArray n                   $ \ptr_ipiv ->
       sysv (toCEnum RowMajor) (toCEnum FortranUP)
+        (toL n) (toL (ncols b))
+        ptr_a (toL a.leadingDim)
+        ptr_ipiv
+        ptr_b (toL b.leadingDim)
+  case info of
+    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+    _       -> error "solveLinEqSym failed"
+
+-- | Simple solver for linear equation of the form \(Ax=b\) where
+--   \(A\) is hermitian matrix
+--
+--   Note that this function does not check whether matrix is
+--   ill-conditioned and may return nonsensical answers in this case.
+--
+--   /Uses _HESV LAPACK routine internally/
+solveLinEqHer
+  :: (LinearEqRHS rhs a, LAPACKy a)
+  => Hermitian a -- ^ Matrix \(A\)
+  -> rhs a       -- ^ Right hand side(s) \(b\)
+  -> rhs a
+solveLinEqHer a0 rhs = unsafePerformIO $ do
+  -- Clone A it gets destroyed during solution
+  MHermitian a <- MHer.clone a0
+  -- Prepare right hand side and check sizes. We also need to clone
+  let n = a.size
+  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  when (nrows b /= n) $ error "Right hand dimensions don't match"
+  -- Solve equation
+  info <-
+    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
+    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
+    allocaArray n                   $ \ptr_ipiv ->
+      hesv (toCEnum RowMajor) (toCEnum FortranUP)
         (toL n) (toL (ncols b))
         ptr_a (toL a.leadingDim)
         ptr_ipiv

@@ -24,7 +24,7 @@ import Vecvec.LAPACK.Vector          (Vec)
 import Vecvec.LAPACK.Matrix          (Matrix)
 import Vecvec.LAPACK.Matrix          qualified as Mat
 import Vecvec.LAPACK.Symmetric       (Symmetric)
--- import Vecvec.LAPACK.Symmetric       qualified as Sym
+import Vecvec.LAPACK.Hermitian       (Hermitian)
 import Vecvec.LAPACK.LinAlg
 
 import TST.Tools.MatModel
@@ -44,6 +44,7 @@ tests = testGroup "LinAlg"
     ]
   , testGroup "solveLinEqSym"
     [ testSymmSolve @Vec
+    , testHerSolve  @Vec
     ]
   , testGroup "invertMatrix"
     [ testProperty "S" $ prop_invertMatrix @S
@@ -86,6 +87,22 @@ testSymmSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
   , testProperty "Z" $ prop_SymmSolve @rhs @Z
   ]
 
+-- | Run tests for simple solver for each possible scalar type
+testHerSolve
+  :: forall rhs.
+     ( ArbitraryRHS rhs S, ArbitraryRHS rhs D, ArbitraryRHS rhs C, ArbitraryRHS rhs Z
+     , LinearEqRHS  rhs S, LinearEqRHS  rhs D, LinearEqRHS  rhs C, LinearEqRHS  rhs Z
+     , Show (rhs S), Show (rhs D), Show (rhs C), Show (rhs Z)
+     , Typeable rhs
+     )
+  => TestTree  
+testHerSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
+  [ testProperty "S" $ prop_HerSolve @rhs @S
+  , testProperty "D" $ prop_HerSolve @rhs @D
+  , testProperty "C" $ prop_HerSolve @rhs @C
+  , testProperty "Z" $ prop_HerSolve @rhs @Z
+  ]
+
 
 -- | Inverse is indeed inverse
 prop_invertMatrix
@@ -116,6 +133,14 @@ prop_SymmSolve
 prop_SymmSolve (LinSimple a rhs)
   = checkLinEq a (solveLinEqSym a rhs) rhs
 
+-- | Test that solution of linear system is indeed solution
+prop_HerSolve
+  :: forall rhs a. (ArbitraryRHS rhs a, LinearEqRHS rhs a, VV.LAPACKy a)
+  => LinSimple Hermitian rhs a
+  -> Property
+prop_HerSolve (LinSimple a rhs)
+  = checkLinEq a (solveLinEqHer a rhs) rhs
+
 -- | Simple linear equation @Ax = b@ for a given right hand side
 data LinSimple mat rhs a = LinSimple (mat a) (rhs a)
 
@@ -135,6 +160,14 @@ instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
   arbitrary = do
     sz  <- genSize @Int
     a   <- genNonsingularSymmetric sz
+    rhs <- arbitraryRHS sz
+    pure $ LinSimple a rhs
+
+instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
+         ) => Arbitrary (LinSimple Hermitian rhs a) where
+  arbitrary = do
+    sz  <- genSize @Int
+    a   <- genNonsingularHermitian sz
     rhs <- arbitraryRHS sz
     pure $ LinSimple a rhs
 
