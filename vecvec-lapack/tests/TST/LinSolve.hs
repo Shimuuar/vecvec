@@ -1,27 +1,10 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PartialTypeSignatures      #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |
 -- Tests for solving linear systems. Here we want to tests that we
 -- indeed produce solution for linear system and call LAPACK
 -- correctly. But we don't care about numerical properties much
-module TST.LinSolve where
+module TST.LinSolve (tests) where
 
 import Control.Monad
 import Data.Typeable
@@ -97,10 +80,10 @@ testSymmSolve
      )
   => TestTree  
 testSymmSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
-  [ testProperty "S" $ prop_SimpleSolve @rhs @S
-  , testProperty "D" $ prop_SimpleSolve @rhs @D
-  , testProperty "C" $ prop_SimpleSolve @rhs @C
-  , testProperty "Z" $ prop_SimpleSolve @rhs @Z
+  [ testProperty "S" $ prop_SymmSolve @rhs @S
+  , testProperty "D" $ prop_SymmSolve @rhs @D
+  , testProperty "C" $ prop_SymmSolve @rhs @C
+  , testProperty "Z" $ prop_SymmSolve @rhs @Z
   ]
 
 
@@ -108,7 +91,7 @@ testSymmSolve = testGroup ("RHS = " ++ qualTypeName @rhs)
 prop_invertMatrix
   :: forall a.
      ( VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a))
-  => Nonsingular a
+  => Nonsingular Matrix a
   -> Property
 prop_invertMatrix (Nonsingular m)
   = property
@@ -168,7 +151,7 @@ instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
          ) => ArbitraryRHS Matrix a where
   arbitraryRHS sz = do
     n <- choose (1,4)
-    fromModel <$> arbitraryShape (sz,n)
+    arbitraryShape (sz,n)
   checkLinEq a (Mat.toColList -> xs) (Mat.toColList -> bs)
     | length xs /= length bs = error "Lengths do not match"
     | otherwise              = property $ all nearZero deltas

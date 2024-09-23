@@ -2,49 +2,40 @@
 {-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 -- Tools for writing tests for linear algebra.
 module TST.Tools.MatModel
   ( -- * Arbitrary extensions
-    -- ** Scalars
     SmallScalar(..)
-  , X(..)
-    -- ** ND-arrays
   , ArbitraryShape(..)
-  , Size2D(..)
   , genSize
-    -- ** Matrices
-  , Nonsingular(..)
   , genNonsingularMatrix
   , genNonsingularSymmetric
+  , genNonsingularHermitian
+    -- ** Newtypes for selecting instances
+  , X(..)
+  , Size2D(..)
+  , Nonsingular(..)
+  , Pair1(..)
     -- * Models
-  , TestMatrix
-  , TestMatrix1
-  , ModelM
-  , Model1M
-  , TagMat(..)
-  , fromModel
-  , plainEq
-  , val
-  , eq1
-  , eq1V
-  , mdl1
-  , (=~=)
-  , ModelVec(..)
+  , TestMat(..)
+  , HasModel
+  , M(..)
+  , pattern (:>:)
+    -- * Concrete models    
   , ModelMat(..)
+  , pattern ModelMat'
   , ModelSym(..)
   , ModelHer(..)
-  , mkMat
-    -- * Helpers
-  , Pair(..)
-  , Pair1(..)
   ) where
 
 import Control.Monad
 import Data.Complex          (Complex(..))
 import Data.Function         (on)
 import Data.Typeable
+import Data.Kind
 import Data.List             (transpose)
 import Foreign.Storable      (Storable)
 import Linear.Matrix         ((!*), (!*!))
@@ -69,10 +60,10 @@ import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
 import Vecvec.LAPACK.Internal.Symmetric qualified as TSym
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
-import TST.Tools.Model
+
 
 ----------------------------------------------------------------
--- Scalar-related utils
+-- QuickCheck-related utils
 ----------------------------------------------------------------
 
 -- | We want to test that multiplication return correct result without
@@ -112,19 +103,7 @@ instance (RealFloat a, SmallScalar a) => SmallScalar (Complex a) where
 maxGenScacar :: Num a => a
 maxGenScacar = 10
 
--- | Scalar which uses @SmallScalar@ for generation
-newtype X a = X a
-  deriving newtype (Show, TestEquiv)
 
-deriving via ModelSelf (X a) instance TestData t (X a)
-instance SmallScalar a => Arbitrary (X a) where
-  arbitrary = X <$> genScalar
-
-
-
-----------------------------------------------------------------
--- ND-arrays
-----------------------------------------------------------------
 
 -- | Generate random NDarray with specified shape
 class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
@@ -141,9 +120,14 @@ class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
 newtype Size2D = Size2D { getSize2D :: (Int,Int) }
   deriving stock Show
 
-deriving via ModelSelf Size2D instance TestData t Size2D
 instance Arbitrary Size2D where
   arbitrary = Size2D <$> ((,) <$> genSize <*> genSize)
+
+
+
+----------------------------------------------------------------
+-- Newtypes for selecting Arbitrary
+----------------------------------------------------------------
 
 -- | Generate size for N-dimensional array
 genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape
@@ -158,18 +142,34 @@ genOffset :: Gen Int
 genOffset = choose (0,3)
 
 
-----------------------------------------------------------------
--- Matrices
-----------------------------------------------------------------
+-- | Scalar which uses @SmallScalar@ for generation
+newtype X a = X a
+  deriving newtype (Show)
 
-newtype Nonsingular a = Nonsingular { getNonsingular :: Matrix a }
+instance SmallScalar a => Arbitrary (X a) where
+  arbitrary = X <$> genScalar
+
+
+-- | Newtype wrapper for generation of nonsingular matrix.  In order
+--   to ensure nonsingularity we generate matrix with diagonal
+--   dominance.
+newtype Nonsingular m a = Nonsingular { get :: m a }
   deriving newtype Show
 
-instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a) => Arbitrary (Nonsingular a) where
+
+instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+         ) => Arbitrary (Nonsingular Matrix a) where
   arbitrary = Nonsingular <$> (genNonsingularMatrix =<< genSize)
 
--- | Generate nonsingular square matrix. In order to ensure
---   nonsingularity we generate matrix with diagonal dominance
+instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+         ) => Arbitrary (Nonsingular Symmetric a) where
+  arbitrary = Nonsingular <$> (genNonsingularSymmetric =<< genSize)
+
+instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+         ) => Arbitrary (Nonsingular Hermitian a) where
+  arbitrary = Nonsingular <$> (genNonsingularHermitian =<< genSize)
+
+
 genNonsingularMatrix
   :: (SmallScalar a, VV.LAPACKy a)
   => Int -> Gen (Matrix a)
@@ -178,8 +178,6 @@ genNonsingularMatrix sz = do
   pure $  (2 * maxGenScacar * fromIntegral sz) *. Mat.eye sz
       .+. mat
 
--- | Generate nonsingular square matrix. In order to ensure
---   nonsingularity we generate matrix with diagonal dominance
 genNonsingularSymmetric
   :: (SmallScalar a, VV.LAPACKy a)
   => Int -> Gen (Symmetric a)
@@ -188,8 +186,6 @@ genNonsingularSymmetric sz = do
   pure $  (2 * maxGenScacar * fromIntegral sz) *. TSym.eye sz
       .+. mat
 
--- | Generate nonsingular square matrix. In order to ensure
---   nonsingularity we generate matrix with diagonal dominance
 genNonsingularHermitian
   :: (SmallScalar a, VV.LAPACKy a)
   => Int -> Gen (Hermitian a)
@@ -198,219 +194,155 @@ genNonsingularHermitian sz = do
   pure $  (2 * maxGenScacar * fromIntegral sz) *. Sym.eye sz
       .+. mat
 
+
+-- | Pair of values with same size
+data Pair1 v a = Pair1 (v a) (v a)
+  deriving stock (Show)
+
+instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
+  arbitrary = do
+    sz <- genSize @(FC.ContVec _ _)
+    Pair1 <$> arbitraryShape sz <*> arbitraryShape sz
+
+
 ----------------------------------------------------------------
--- Models
+-- Model type class and instances
 ----------------------------------------------------------------
 
--- | Compare two values using equivalence
-plainEq :: (TestEquiv a) => a -> a -> Property
-plainEq a b = property $ equiv a b
+-- | Type class which establish isomorphism and its model which is
+--   used in reference implementations
+class TestMat v a where
+  type Model1M v :: Type -> Type
+  unmodelMat :: Model1M v a -> v a
+  modelMat   :: v a -> Model1M v a
 
--- | Compare value and its model using equivalence
-eq1 :: forall v a. (TestEquiv (v a), TestMatrix1 v a)
-    => v a         -- ^ Implementation
-    -> Model1M v a -- ^ Model
-    -> Property
-eq1 a m = property $ equiv a (liftUnmodel TagMat id m)
+type HasModel v a = ( TestMat v a
+                    , a ~ Scalar (v a)
+                    , a ~ Scalar (Model1M v a)
+                    , Show a
+                    , Show (v a)
+                    , Show (Model1M v a)
+                    )
 
--- | Verbose variant of 'eq1'
-eq1V :: forall v a. (TestEquiv (v a), TestMatrix1 v a, Show (v a), Show (Model1M v a))
-     => v a         -- ^ Implementation
-     -> Model1M v a -- ^ Model
-     -> Property
-eq1V a m
-  = counterexample ("MODEL = " ++ show m)
-  $ counterexample ("IMPL  = " ++ show a)
-  $ property $ equiv a (liftUnmodel TagMat id m)
+-- | Newtype wrapper which provides injectivity
+newtype M v a = M (Model1M v a)
 
--- | Create compare function where both implementation under test and
---   model take same arguments
-val :: forall a impl model. (Arbitrary a, Show a)
-    => (impl -> model -> Property) -- ^ Rest of comparator
-    -> (a -> impl)                 -- ^ Implementation
-    -> (a -> model)                -- ^ Model
-    -> Property
-val eqv f g = property $ \a -> f a `eqv` g a
+deriving newtype instance Show      (Model1M v a) => Show      (M v a)
+deriving newtype instance Arbitrary (Model1M v a) => Arbitrary (M v a)
+instance ( ArbitraryShape (Model1M v) a
+         , Arbitrary a
+         ) => ArbitraryShape (M v) a where
+  type CreationRank (M v) = CreationRank (Model1M v)
+  arbitraryShape = fmap M . arbitraryShape
+  arbitraryNCols = fmap M . arbitraryNCols
+  arbitraryNRows = fmap M . arbitraryNRows
 
--- | Create comparator for implementation and model where we use input
---   for model to generate samples
-mdl1 :: forall v a impl model. (TestMatrix1 v a, Arbitrary (Model1M v a), Show (Model1M v a))
-     => (impl -> model -> Property) -- ^ Rest of the comparator
-     -> (v a -> impl)               -- ^ Implementation
-     -> (Model1M v a -> model)      -- ^ Model
-     -> Property
-mdl1 eqv f g = property $ \m -> f (liftUnmodel TagMat id m) `eqv` g m
+pattern (:>:) :: TestMat v a => v a -> Model1M v a -> M v a
+pattern v :>: m <- ((\(M x) -> (unmodelMat x, x)) -> (v,m))
+{-# COMPLETE (:>:) #-}
 
 
-(=~=) :: LiftTestEq TagMat a => a -> ModelM a -> P a
-(=~=) = equivalent TagMat
-infix 4 =~=
 
--- | Tag for testing @vecvec@ routines
-data TagMat = TagMat
-
-type TestMatrix  = TestData TagMat
-type TestMatrix1 = TestData1 TagMat
-
-type ModelM a = Model TagMat a
-
-type Model1M v = Model1 TagMat v
-
-fromModel :: TestData TagMat a => Model TagMat a -> a
-fromModel = unmodel TagMat
-
-
-type instance Model1 TagMat VV.Vec    = ModelVec
-type instance Model1 TagMat V.Vector  = ModelVec
-type instance Model1 TagMat VS.Vector = ModelVec
-type instance Model1 TagMat VU.Vector = ModelVec
-
-instance (Storable a, Num a) => TestData1 TagMat VV.Vec a where
-  liftUnmodel _ f (ModelVec stride xs)
+instance (Storable a, Num a) => TestMat VV.Vec a where
+  type Model1M VV.Vec = ModelVec
+  unmodelMat (ModelVec stride xs)
     = slice ((0,End) `Strided` stride)
     $ VG.fromList
-    $ (\n -> n : replicate (stride-1) 0) =<< (f <$> xs)
-  liftModel _ f xs = ModelVec { modelVecStride = 1
-                              , unModelVec     = f <$> VG.toList xs
-                              }
+    $ (\n -> n : replicate (stride-1) 0) =<< xs
+  modelMat xs = ModelVec { stride = 1
+                         , vec    = VG.toList xs
+                         }
 
-instance TestData1 TagMat V.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
-  liftModel _ f xs = ModelVec { modelVecStride = 1
-                              , unModelVec     = f <$> VG.toList xs
-                              }
+instance TestMat V.Vector a where
+  type Model1M V.Vector = ModelVec
+  unmodelMat = VG.fromList . (.vec)
+  modelMat   = ModelVec' . VG.toList
 
-instance (VU.Unbox a) => TestData1 TagMat VU.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
-  liftModel _ f xs = ModelVec { modelVecStride = 1
-                              , unModelVec     = f <$> VG.toList xs
-                              }
+instance (VU.Unbox a) => TestMat VU.Vector a where
+  type Model1M VU.Vector = ModelVec
+  unmodelMat = VG.fromList . (.vec)
+  modelMat   = ModelVec' . VG.toList
 
-instance (Storable a) => TestData1 TagMat VS.Vector a where
-  liftUnmodel _ f  = VG.fromList . map f . (.unModelVec)
-  liftModel _ f xs = ModelVec { modelVecStride = 1
-                              , unModelVec     = f <$> VG.toList xs
-                              }
+instance (Storable a) => TestMat VS.Vector a where
+  type Model1M VS.Vector = ModelVec
+  unmodelMat = VG.fromList . (.vec)
+  modelMat   = ModelVec' . VG.toList
 
+instance (TestMat v a) => TestMat (Tr v) a where
+  type Model1M (Tr v) = Tr (Model1M v)
+  unmodelMat (Tr v) = Tr $ unmodelMat v
+  modelMat   (Tr v) = Tr $ modelMat v
 
+instance (TestMat v a) => TestMat (Conj v) a where
+  type Model1M (Conj v) = Conj (Model1M v)
+  unmodelMat (Conj v) = Conj $ unmodelMat v
+  modelMat   (Conj v) = Conj $ modelMat v
 
-
-
-instance (Storable a, Num a) => TestData TagMat (VV.Vec a) where
-  type Model TagMat (VV.Vec a) = ModelVec a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance TestData TagMat (V.Vector a) where
-  type Model TagMat (V.Vector a) = ModelVec a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance (VU.Unbox a) => TestData TagMat (VU.Vector a) where
-  type Model TagMat (VU.Vector a) = ModelVec a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance (Storable a) => TestData TagMat (VS.Vector a) where
-  type Model TagMat (VS.Vector a) = ModelVec a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-
-type instance Model1 TagMat Matrix = ModelMat
-
-instance (Storable a, Num a) => TestData1 TagMat Matrix a where
-  liftUnmodel _ f m@ModelMat{unModelMat=mat, ..}
-    = slice ((padRows,End), (padCols,End))
+instance (Storable a, Num a) => TestMat Matrix a where
+  type Model1M Matrix = ModelMat
+  unmodelMat m
+    = slice ((m.padRows,End), (m.padCols,End))
     $ fromRowsFF
-    $ replicate padRows (replicate (nC + padCols) 0)
-   ++ map (replicate padCols 0 ++) ((fmap . fmap) f mat)
+    $ replicate m.padRows (replicate (nC + m.padCols) 0)
+   ++ map (replicate m.padCols 0 ++) m.mat
     where
       nC = nCols m
-  liftModel _ f m = ModelMat
-    { padRows    = 0
-    , padCols    = 0
-    , unModelMat = (fmap . fmap) f $ fmap VG.toList $ Mat.toRowList m
+  modelMat m = ModelMat
+    { padRows = 0
+    , padCols = 0
+    , mat     = fmap VG.toList $ Mat.toRowList m
     }
 
-instance (Storable a, Num a) => TestData TagMat (Matrix a) where
-  type Model TagMat (Matrix a) = ModelMat a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance (Storable a, Eq a) => TestEquiv (Matrix a) where
-  equiv = (==)
-
-
-type instance Model1 TagMat Hermitian = ModelHer
-
-instance (Storable a, NormedScalar a) => TestData1 TagMat Hermitian a where
-  liftModel _ f m = ModelHer
-    { pad = 0
-    , unModelHer = [ [ f (m ! (i,j)) | j <- [i .. n-1]]
-                   | i <- [0 .. n-1]
-                   ]
-    } where (n,_) = shape m
+instance (Storable a) => TestMat Symmetric a where
+  type Model1M Symmetric = ModelSym
   -- FIXME: add padding
-  liftUnmodel _ f (ModelHer _pad xs)
-    = Sym.fromRowsFF
-    $ (fmap . fmap) f xs
-
-instance (Storable a, NormedScalar a) => TestData TagMat (Hermitian a) where
-  type Model TagMat (Hermitian a) = ModelHer a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance (Storable a, Eq a, NormedScalar a) => TestEquiv (Hermitian a) where
-  equiv = (==)
-
-
-type instance Model1 TagMat Symmetric = ModelSym
-
-instance (Storable a, NormedScalar a) => TestData1 TagMat Symmetric a where
-  liftModel _ f m = ModelSym
+  unmodelMat (ModelSym _pad xs)
+    = TSym.fromRowsFF xs
+  modelMat m = ModelSym
     { pad = 0
-    , unModelSym = [ [ f (m ! (i,j)) | j <- [i .. n-1]]
-                   | i <- [0 .. n-1]
-                   ]
+    , mat = [ [ m ! (i,j) | j <- [i .. n-1]]
+              | i <- [0 .. n-1]
+              ]
     } where (n,_) = shape m
+
+instance (Storable a, NormedScalar a) => TestMat Hermitian a where
+  type Model1M Hermitian = ModelHer
   -- FIXME: add padding
-  liftUnmodel _ f (ModelSym _pad xs)
-    = TSym.fromRowsFF
-    $ (fmap . fmap) f xs
-
-
-instance (Storable a, NormedScalar a) => TestData TagMat (Symmetric a) where
-  type Model TagMat (Symmetric a) = ModelSym a
-  unmodel t = liftUnmodel t id
-  model   t = liftModel   t id
-
-instance (Storable a, Eq a, NormedScalar a) => TestEquiv (Symmetric a) where
-  equiv = (==)
+  unmodelMat (ModelHer _pad xs)
+    = Sym.fromRowsFF xs
+  modelMat m = ModelHer
+    { pad = 0
+    , mat = [ [ m ! (i,j) | j <- [i .. n-1]]
+            | i <- [0 .. n-1]
+            ]
+    } where (n,_) = shape m
 
 
 ----------------------------------------------------------------
--- Model for vectors
+-- Model implementations
 ----------------------------------------------------------------
 
 -- | We use lists as model for vectors.
 data ModelVec a = ModelVec
-  { modelVecStride :: !Int -- ^ Stride for vector. Ignored if not supported
-  , unModelVec     :: [a]  -- ^ Data for vectors
+  { stride :: !Int -- ^ Stride for vector. Ignored if not supported
+  , vec    :: [a]  -- ^ Data for vectors
   }
   deriving stock (Show)
+
+pattern ModelVec' :: [a] -> ModelVec a
+pattern ModelVec' xs = ModelVec 1 xs
 
 type instance Rank ModelVec = 1
 
 instance HasShape ModelVec a where
-  shapeAsCVec = FC.mk1 . length . (.unModelVec)
+  shapeAsCVec = FC.mk1 . length . (.vec)
 
 instance Num a => AdditiveSemigroup (ModelVec a) where
-  a .+. b = ModelVec 1 $ (zipWithX (+) `on` (.unModelVec)) a b
+  a .+. b = ModelVec 1 $ (zipWithX (+) `on` (.vec)) a b
 
 instance Num a => AdditiveQuasigroup (ModelVec a) where
-  a .-. b = ModelVec 1 $ (zipWithX (-) `on` (.unModelVec)) a b
-  negateV = ModelVec 1 . map negate . (.unModelVec)
+  a .-. b = ModelVec 1 $ (zipWithX (-) `on` (.vec)) a b
+  negateV = ModelVec 1 . map negate . (.vec)
 
 instance Num a => VectorSpace (ModelVec a) where
   type Scalar (ModelVec a) = a
@@ -421,124 +353,198 @@ instance NormedScalar a => InnerSpace (ModelVec a) where
   ModelVec _ xs <.> ModelVec _ ys = sum $ zipWithX (\x y -> conjugate x * y) xs ys
   magnitudeSq (ModelVec _ xs) = sum $ scalarNormSq <$> xs
 
+instance SmallScalar a => Arbitrary (ModelVec a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  shrink (ModelVec n xs) = do
+    n' <- case n of 1 -> [1]
+                    _ -> [1,n]
+    x  <- shrinkList (const []) xs
+    return $ ModelVec n' x
+
+instance SmallScalar a => ArbitraryShape ModelVec a where
+  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = error "arbitraryNCols is not defined for ModelVec"
 
 
 ----------------------------------------------------------------
--- Model for general dense matrix
-----------------------------------------------------------------
-
-mkMat :: [[a]] -> ModelMat a
-mkMat = ModelMat 0 0
 
 -- | Model for general dense matrices
 data ModelMat a = ModelMat
-  { padRows    :: !Int  -- ^ Extra padding for rows
-  , padCols    :: !Int  -- ^ Extra padding for columns
-  , unModelMat :: [[a]]
+  { padRows :: !Int  -- ^ Extra padding for rows
+  , padCols :: !Int  -- ^ Extra padding for columns
+  , mat     :: [[a]]
   }
   deriving stock (Show,Eq)
+
+pattern ModelMat' :: [[a]] -> ModelMat a
+pattern ModelMat' xs = ModelMat 0 0 xs
 
 type instance Rank ModelMat = 2
 
 instance HasShape ModelMat a where
-  shapeAsCVec ModelMat{unModelMat=mat} = FC.mk2 (length mat) (length (head mat))
+  shapeAsCVec ModelMat{mat} = FC.mk2 (length mat) (length (head mat))
 
 instance Num a => AdditiveSemigroup (ModelMat a) where
-  a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelMat)) a b
+  a .+. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (+) `on` (.mat)) a b
 
 instance Num a => AdditiveQuasigroup (ModelMat a) where
-  a .-. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelMat)) a b
-  negateV = ModelMat 0 0 . ((map . map) negate) . (.unModelMat)
+  a .-. b = ModelMat 0 0 $ ((zipWithX . zipWithX) (-) `on` (.mat)) a b
+  negateV = ModelMat 0 0 . ((map . map) negate) . (.mat)
 
 instance Num a => VectorSpace (ModelMat a) where
   type Scalar (ModelMat a) = a
   a *. ModelMat _ _ xs = ModelMat 0 0 $ (fmap . fmap) (a*) xs
   (.*) = flip (*.)
 
+instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
+  arbitrary = arbitraryShape =<< genSize @(Int,Int)
+  shrink mat0 = do
+    p_r <- case mat0.padRows of 0 -> [0]; _ -> [0,mat0.padRows]
+    p_c <- case mat0.padCols of 0 -> [0]; _ -> [0,mat0.padCols]
+    p_elem <- (traverse . traverse) shrinkScalar mat0.mat
+    let mat = ModelMat p_r p_c p_elem
+    guard (mat /= mat0)
+    return mat
+
+instance (SmallScalar a) => ArbitraryShape ModelMat a where
+  arbitraryShape (N2 m n)
+     =  ModelMat
+    <$> genOffset
+    <*> genOffset
+    <*> replicateM m (replicateM n genScalar)
+  arbitraryNRows n = do k <- genSize
+                        arbitraryShape (n,k)
+  arbitraryNCols k = do n <- genSize
+                        arbitraryShape (n,k)
+
+
+----------------------------------------------------------------
 
 -- | Model for symmetric matrix
 data ModelHer a = ModelHer
-  { pad        :: !Int  -- ^ Padding
-  , unModelHer :: [[a]] -- ^ Rows above diagonal
+  { pad :: !Int  -- ^ Padding
+  , mat :: [[a]] -- ^ Rows above diagonal
   }
   deriving stock (Show, Eq)
 
 type instance Rank ModelHer = 2
 
 instance HasShape ModelHer a where
-  shapeAsCVec ModelHer{unModelHer=mat} = let n = length mat in FC.mk2 n n
+  shapeAsCVec m = let n = length m.mat in FC.mk2 n n
 
 instance Num a => AdditiveSemigroup (ModelHer a) where
-  a .+. b = ModelHer 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelHer)) a b
+  a .+. b = ModelHer 0 $ ((zipWithX . zipWithX) (+) `on` (.mat)) a b
 
 instance Num a => AdditiveQuasigroup (ModelHer a) where
-  a .-. b = ModelHer 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelHer)) a b
-  negateV = ModelHer 0 . ((map . map) negate) . (.unModelHer)
+  a .-. b = ModelHer 0 $ ((zipWithX . zipWithX) (-) `on` (.mat)) a b
+  negateV = ModelHer 0 . ((map . map) negate) . (.mat)
 
 instance Num a => VectorSpace (ModelHer a) where
   type Scalar (ModelHer a) = a
   a *. ModelHer _ xs = ModelHer 0 $ (fmap . fmap) (a*) xs
   ModelHer _ xs .* a = ModelHer 0 $ (fmap . fmap) (*a) xs
 
+instance (SmallScalar a) => Arbitrary (ModelHer a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  
+instance (SmallScalar a) => ArbitraryShape ModelHer a where
+  type CreationRank ModelHer = 1
+  arbitraryShape (N1 n)
+    =  ModelHer
+   <$> genOffset
+   <*> sequence [ sequence [ if i == j then genRealScalar else genScalar
+                           | j <- [i .. n-1]]
+                | i <- [0 .. n-1]
+                ]
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = arbitraryShape
+
+
+----------------------------------------------------------------
 
 -- | Model for symmetric matrix
 data ModelSym a = ModelSym
-  { pad        :: !Int  -- ^ Padding
-  , unModelSym :: [[a]] -- ^ Rows above diagonal
+  { pad :: !Int  -- ^ Padding
+  , mat :: [[a]] -- ^ Rows above diagonal
   }
   deriving stock (Show, Eq)
 
 type instance Rank ModelSym = 2
 
 instance HasShape ModelSym a where
-  shapeAsCVec ModelSym{unModelSym=mat} = let n = length mat in FC.mk2 n n
+  shapeAsCVec m = let n = length m.mat in FC.mk2 n n
 
 instance Num a => AdditiveSemigroup (ModelSym a) where
-  a .+. b = ModelSym 0 $ ((zipWithX . zipWithX) (+) `on` (.unModelSym)) a b
+  a .+. b = ModelSym 0 $ ((zipWithX . zipWithX) (+) `on` (.mat)) a b
 
 instance Num a => AdditiveQuasigroup (ModelSym a) where
-  a .-. b = ModelSym 0 $ ((zipWithX . zipWithX) (-) `on` (.unModelSym)) a b
-  negateV = ModelSym 0 . ((map . map) negate) . (.unModelSym)
+  a .-. b = ModelSym 0 $ ((zipWithX . zipWithX) (-) `on` (.mat)) a b
+  negateV = ModelSym 0 . ((map . map) negate) . (.mat)
 
 instance Num a => VectorSpace (ModelSym a) where
   type Scalar (ModelSym a) = a
   a *. ModelSym _ xs = ModelSym 0 $ (fmap . fmap) (a*) xs
   ModelSym _ xs .* a = ModelSym 0 $ (fmap . fmap) (*a) xs
 
+instance (SmallScalar a) => Arbitrary (ModelSym a) where
+  arbitrary = arbitraryShape =<< genSize @Int
+  
+instance (SmallScalar a) => ArbitraryShape ModelSym a where
+  type CreationRank ModelSym = 1
+  arbitraryShape (N1 n)
+    =  ModelSym
+   <$> genOffset
+   <*> sequence [ sequence [ genScalar | _ <- [i .. n-1]]
+                | i <- [0 .. n-1]
+                ]
+  arbitraryNRows = arbitraryShape
+  arbitraryNCols = arbitraryShape
 
--- | Data types which could be converted to matrix model
+
+----------------------------------------------------------------
+-- Matrix multiplication for models
+----------------------------------------------------------------
+
+-- | Data types which could be converted to matrix model. All
+--   computation with models of specialized matrices are done using
+--   'ModelMat'
 class IsModelMat m a where
   toModelMat :: m a -> ModelMat a
 
+
+instance IsModelMat m a => IsModelMat (Tr m) a where
+  toModelMat (Tr m) = ModelMat' $ transpose $ (toModelMat m).mat
+
+instance (NormedScalar a, IsModelMat m a) => IsModelMat (Conj m) a where
+  toModelMat (Conj m) = ModelMat' $ (fmap . fmap) conjugate
+                                  $ transpose
+                                  $ (toModelMat m).mat
+
 instance IsModelMat ModelMat a where
   toModelMat = id
-instance IsModelMat (Tr ModelMat) a where
-  toModelMat (Tr m) = (ModelMat 0 0 . transpose . (.unModelMat)) m
-instance (NormedScalar a) => IsModelMat (Conj ModelMat) a where
-  toModelMat (Conj m) = (ModelMat 0 0 . (fmap . fmap) conjugate . transpose . (.unModelMat)) m
 
 instance NormedScalar a => IsModelMat ModelHer a where
   toModelMat (ModelHer _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
     sym     = zipWith row [0..] xs
     row n _ = [ (if i < n then conjugate else id) $ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
 
-instance NormedScalar a => IsModelMat (Conj ModelHer) a where
-  toModelMat (Conj m) = toModelMat m
-
-
-instance NormedScalar a => IsModelMat ModelSym a where
+instance IsModelMat ModelSym a where
   toModelMat (ModelSym _ xs) = ModelMat 0 0 $ zipWith (++) sym xs where
     sym     = zipWith row [0..] xs
     row n _ = [ (xs !! i) !! (n-i) | i <- [0 .. n-1]]
 
-instance NormedScalar a => IsModelMat (Tr ModelSym) a where
-  toModelMat (Tr m) = toModelMat m
 
-
-instance (NormedScalar a) => MatMul      (ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+-- Matrix × Vector
+instance (NormedScalar a) => MatMul (     ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 instance (NormedScalar a) => MatMul (Conj ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (     ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Tr   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (     ModelHer a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul (Conj ModelHer a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
 
+-- Matrix × Matrix
 instance (NormedScalar a) => MatMul      (ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Tr   ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Conj ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
@@ -548,59 +554,27 @@ instance (NormedScalar a) => MatMul (Conj ModelMat a) (Tr   ModelMat a) (ModelMa
 instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-
-instance (NormedScalar a) => MatMul (   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Tr ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-
+--
 instance (NormedScalar a) => MatMul (ModelSym a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (ModelMat a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (ModelSym a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
-
+--
 instance (NormedScalar a) => MatMul (ModelHer a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (ModelMat a) (ModelHer a) (ModelMat a) where (@@) = defaultMulMM
 instance (NormedScalar a) => MatMul (ModelHer a) (ModelHer a) (ModelMat a) where (@@) = defaultMulMM
 
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a
-defaultMulMM m1 m2 = ModelMat 0 0 $ (.unModelMat) (toModelMat m1) !*! (.unModelMat) (toModelMat m2)
+defaultMulMM m1 m2 = ModelMat 0 0 $ (toModelMat m1).mat !*! (toModelMat m2).mat
 
 -- Default model implementation of matrix-vector multiplication
 defaultMulMV :: (Num a, IsModelMat m a) => m a -> ModelVec a -> ModelVec a
-defaultMulMV m v = ModelVec 1 $ ((.unModelMat) . toModelMat) m !* v.unModelVec
+defaultMulMV m v = ModelVec 1 $ ((.mat) . toModelMat) m !* v.vec
 
-
-----------------------------------------------------------------
--- Helpers
-----------------------------------------------------------------
-
--- | Pair of models with same size
-data Pair v = Pair v v
-  deriving stock    (Show,Functor)
-
-deriving via ModelFunctor Pair a instance TestData t a => TestData t (Pair a)
-
-instance (ArbitraryShape v a) => Arbitrary (Pair (v a)) where
-  arbitrary = do
-    sz <- genSize @(FC.ContVec _ _)
-    Pair <$> arbitraryShape sz <*> arbitraryShape sz
-
--- | Pair of models with same size
-data Pair1 v a = Pair1 (v a) (v a)
-  deriving stock (Show)
-
-type instance Model1 TagMat (Pair1 v) = Pair1 (Model1 TagMat v)
-instance TestData1 TagMat v a => TestData1 TagMat (Pair1 v) a where
-  liftModel   t f (Pair1 a b) = Pair1 (liftModel   t f a) (liftModel   t f b)
-  liftUnmodel t f (Pair1 a b) = Pair1 (liftUnmodel t f a) (liftUnmodel t f b)
-
-instance (ArbitraryShape v a) => Arbitrary (Pair1 v a) where
-  arbitrary = do
-    sz <- genSize @(FC.ContVec _ _)
-    Pair1 <$> arbitraryShape sz <*> arbitraryShape sz
 
 
 ----------------------------------------------------------------
--- Orphans & Arbitrary
+-- Arbitrary instances
 ----------------------------------------------------------------
 
 class FC.Arity n => TransposeShape n where
@@ -646,138 +620,33 @@ instance ( Rank arr ~ 2
   arbitraryNRows = fmap Conj . arbitraryNCols
 
 
+instance (SmallScalar a, Storable a, Num a
+         ) => ArbitraryShape Matrix a where
+  arbitraryShape = fmap unmodelMat . arbitraryShape
+  arbitraryNCols = fmap unmodelMat . arbitraryNCols
+  arbitraryNRows = fmap unmodelMat . arbitraryNRows
 
+instance (SmallScalar a, Storable a
+         ) => ArbitraryShape Symmetric a where
+  type CreationRank Symmetric = 1
+  arbitraryShape = fmap unmodelMat . arbitraryShape
+  arbitraryNCols = fmap unmodelMat . arbitraryNCols
+  arbitraryNRows = fmap unmodelMat . arbitraryNRows
 
-----------------------------------------
--- Matrix
-
-instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
-  arbitrary = arbitraryShape =<< genSize @(Int,Int)
-  shrink mat0@ModelMat{..} = do
-    p_r <- case padRows of 0 -> [0]; _ -> [0,padRows]
-    p_c <- case padCols of 0 -> [0]; _ -> [0,padCols]
-    p_elem <- (traverse . traverse) shrinkScalar unModelMat
-    let mat = ModelMat p_r p_c p_elem
-    guard (mat /= mat0)
-    return mat
-
-instance (SmallScalar a) => ArbitraryShape ModelMat a where
-  arbitraryShape (N2 m n)
-     =  ModelMat
-    <$> genOffset
-    <*> genOffset
-    <*> replicateM m (replicateM n genScalar)
-  arbitraryNRows n = do k <- genSize
-                        arbitraryShape (n,k)
-  arbitraryNCols k = do n <- genSize
-                        arbitraryShape (n,k)
-
-instance (SmallScalar a) => Arbitrary (ModelHer a) where
-  arbitrary = arbitraryShape =<< genSize @Int
-  
-instance (SmallScalar a) => ArbitraryShape ModelHer a where
-  type CreationRank ModelHer = 1
-  arbitraryShape (N1 n)
-    =  ModelHer
-   <$> genOffset
-   <*> sequence [ sequence [ if i == j then genRealScalar else genScalar
-                           | j <- [i .. n-1]]
-                | i <- [0 .. n-1]
-                ]
-  arbitraryNRows = arbitraryShape
-  arbitraryNCols = arbitraryShape
-
-
-instance (SmallScalar a) => Arbitrary (ModelSym a) where
-  arbitrary = arbitraryShape =<< genSize @Int
-  
-instance (SmallScalar a) => ArbitraryShape ModelSym a where
-  type CreationRank ModelSym = 1
-  arbitraryShape (N1 n)
-    =  ModelSym
-   <$> genOffset
-   <*> sequence [ sequence [ genScalar | j <- [i .. n-1]]
-                | i <- [0 .. n-1]
-                ]
-  arbitraryNRows = arbitraryShape
-  arbitraryNCols = arbitraryShape
+instance (SmallScalar a, Storable a, NormedScalar a
+         ) => ArbitraryShape Hermitian a where
+  type CreationRank Hermitian = 1
+  arbitraryShape = fmap unmodelMat . arbitraryShape
+  arbitraryNCols = fmap unmodelMat . arbitraryNCols
+  arbitraryNRows = fmap unmodelMat . arbitraryNRows
 
 
 instance (SmallScalar a, Storable a, Num a
          ) => Arbitrary (Matrix a) where
   arbitrary = arbitraryShape =<< genSize @(Int,Int)
 
-instance (SmallScalar a, Storable a, Num a
-         ) => ArbitraryShape Matrix a where
-  arbitraryShape = fmap fromModel . arbitraryShape
-  arbitraryNCols = fmap fromModel . arbitraryNCols
-  arbitraryNRows = fmap fromModel . arbitraryNRows
-
-instance (SmallScalar a, Storable a, NormedScalar a
-         ) => ArbitraryShape Symmetric a where
-  type CreationRank Symmetric = 1
-  arbitraryShape = fmap fromModel . arbitraryShape
-  arbitraryNCols = fmap fromModel . arbitraryNCols
-  arbitraryNRows = fmap fromModel . arbitraryNRows
-
-instance (SmallScalar a, Storable a, NormedScalar a
-         ) => ArbitraryShape Hermitian a where
-  type CreationRank Hermitian = 1
-  arbitraryShape = fmap fromModel . arbitraryShape
-  arbitraryNCols = fmap fromModel . arbitraryNCols
-  arbitraryNRows = fmap fromModel . arbitraryNRows
-
-----------------------------------------
--- Vectors
-
-instance SmallScalar a => Arbitrary (ModelVec a) where
+instance (SmallScalar a, Storable a, NormedScalar a) => Arbitrary (Symmetric a) where
   arbitrary = arbitraryShape =<< genSize @Int
-  shrink (ModelVec n xs) = do
-    n' <- case n of 1 -> [1]
-                    _ -> [1,n]
-    x  <- shrinkList (const []) xs
-    return $ ModelVec n' x
 
-instance SmallScalar a => ArbitraryShape ModelVec a where
-  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
-  arbitraryNRows = arbitraryShape
-  arbitraryNCols = error "arbitraryNCols is not defined for ModelVec"
-
-
-----------------------------------------
--- Vecvec
-
-
-type instance Model1 TagMat (Tr   v) = Tr   (Model1 TagMat v)
-type instance Model1 TagMat (Conj v) = Conj (Model1 TagMat v)
-
-instance (TestMatrix1 v a) => TestData1 TagMat (Tr v) a where
-  liftUnmodel t f (Tr v) = Tr $ liftUnmodel t f v
-  liftModel   t f (Tr v) = Tr $ liftModel   t f v
-
-instance (TestMatrix1 v a) => TestData1 TagMat (Conj v) a where
-  liftUnmodel t f (Conj v) = Conj $ liftUnmodel t f v
-  liftModel   t f (Conj v) = Conj $ liftModel   t f v
-
-deriving newtype instance TestEquiv (v a) => TestEquiv (Tr   v a)
-deriving newtype instance TestEquiv (v a) => TestEquiv (Conj v a)
-
-
-
-
-
--- qm :: ModelMat (Complex Double)
--- qm = ModelMat {padRows = 1, padCols = 1, unModelMat = [[ 1.0 :+ 1.0, 2.0 :+ 2.0]]}
--- qs :: ModelSym (Complex Double)
--- qs = ModelSym {pad = 0, unModelSym = [[ 2.0 :+ 0.0, 0 :+ 1.0],
---                                       [ 1.0 :+ 0.0]]}
-
--- mm :: Matrix (Complex Double)
--- mm = unmodel TagMat qm
--- ms :: Symmetric (Complex Double)
--- ms = unmodel TagMat qs
-
--- go :: IO ()
--- go = do
---   print $ qm @@ qs
---   print $ mm @@ ms
+instance (SmallScalar a, Storable a, NormedScalar a) => Arbitrary (Hermitian a) where
+  arbitrary = arbitraryShape =<< genSize @Int

@@ -1,21 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 -- | Tests for matrix-vector and matrix-matrix multiplication.
 module TST.MatMul (tests) where
 
@@ -31,7 +14,6 @@ import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
 import Vecvec.LAPACK.FFI                (S,D,C,Z)
 
 import TST.Tools.MatModel
-import TST.Tools.Model                  (TestData1(..))
 import TST.Tools.Util
 
 tests :: TestTree
@@ -129,7 +111,7 @@ tests = testGroup "MatMul"
 -- Test for generalized matrix-vector multiplication.
 prop_matmul
   :: forall v1 v2 a vR.
-     ( TestMatrix1 v1 a, TestMatrix1 v2 a, TestMatrix1 vR a
+     ( TestMat v1 a, TestMat v2 a, TestMat vR a
      , MatMul (Model1M v1 a) (Model1M v2 a) (Model1M vR a)
      , MatMul (v1 a)         (v2 a)         (vR a)
      , Typeable v1, Typeable v2, Typeable a
@@ -145,13 +127,13 @@ prop_matmul
 prop_matmul
   = testProperty (qualTypeName @v1 ++ " x " ++ qualTypeName @v2 ++ " / " ++ qualTypeName @a)
   $ \(MM (m1 :: Model1M v1 a) (m2 :: Model1M v2 a)) ->
-      let v1 = liftUnmodel TagMat id m1 :: v1 a
-          v2 = liftUnmodel TagMat id m2 :: v2 a
+      let v1 = unmodelMat m1 :: v1 a
+          v2 = unmodelMat m2 :: v2 a
           m  = m1 @@ m2
           v  = v1 @@ v2
       in id $ counterexample ("MODEL = " ++ show m)
             $ counterexample ("IMPL  = " ++ show v)
-            $ v == liftUnmodel TagMat id m
+            $ v == unmodelMat m
 
 
 

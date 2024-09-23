@@ -1,6 +1,5 @@
 module TST.Memory (tests) where
 
-
 import           Control.Monad.ST
 import           Data.Foldable                         (for_)
 import qualified Data.Vector.Generic                   as VG
