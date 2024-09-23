@@ -71,7 +71,21 @@ Library
     Vecvec.LAPACK.Internal.Symmetric.Types
 
 test-suite vecvec-lapack-tests
-  default-language: Haskell2010
+  default-language: GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DerivingStrategies
+                        DataKinds
+                        ViewPatterns
+                        MultiWayIf
+                        LambdaCase
+                        DerivingVia
+                        LexicalNegation
+                        PatternSynonyms
+                        -- Records
+                        DuplicateRecordFields
+                        OverloadedRecordDot
+  --
   type:             exitcode-stdio-1.0
   ghc-options:      -O2 -Wall -Wredundant-constraints -threaded
   hs-source-dirs:   tests
