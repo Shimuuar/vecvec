@@ -4,8 +4,6 @@
 module TST.Tools.Model
   ( -- * Model-related classes
     TestData(..)
-  , Model1
-  , TestData1(..)
   , TestEquiv(..)
   , EqTest
   , LiftTestEq(..)
@@ -16,7 +14,6 @@ module TST.Tools.Model
     -- * Deriving and special instances
   , ModelSelf(..)
   , ModelFunctor(..)
-    -- * Vector
   )  where
 
 import Control.Monad.Trans.Writer
@@ -24,7 +21,6 @@ import Data.Bifunctor
 import Data.Coerce
 import Data.Complex
 import Data.Function
-import Data.Kind
 import Data.Functor.Identity
 import Data.Functor.Classes
 import Data.Vector           qualified as DV
@@ -48,14 +44,6 @@ class TestData a where
   type Model a
   model   :: a -> Model a
   unmodel :: Model a -> a
-
-type family Model1 (v :: Type -> Type) :: Type -> Type
-
--- | Analog of 'TestData' for @* -> *@ kinded types.
-class TestData1 v a where
-  liftModel   :: (a -> b) -> v a -> Model1 v b
-  liftUnmodel :: (b -> a) -> Model1 v b -> v a
-
 
 -- | Equivalence relation between data types. It's same as 'Eq' except
 --   for treatment of NaNs.
