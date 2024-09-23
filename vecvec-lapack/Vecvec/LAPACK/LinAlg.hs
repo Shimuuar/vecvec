@@ -30,9 +30,9 @@ import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Internal.Compat
 import Vecvec.LAPACK.Internal.Matrix
 import Vecvec.LAPACK.Internal.Symmetric         (Symmetric)
-import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MM
+import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MMat
 import Vecvec.LAPACK.Internal.Matrix.Mutable    (MMatrix(..), MView(..))
-import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MMS
+import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MSym
 import Vecvec.LAPACK.Internal.Symmetric.Mutable (MSymmetric(..), MSymView(..))
 import Vecvec.LAPACK.Internal.Vector
 import Vecvec.LAPACK.Internal.Vector.Mutable
@@ -55,12 +55,12 @@ decomposeSVD
 decomposeSVD a = unsafePerformIO $ do
   -- We need to clone matrix A since is get destroyed when computing
   -- SVD. We need to allocate buffers for products
-  MMatrix mat_A  <- MM.clone a
+  MMatrix mat_A  <- MMat.clone a
   let n_col = ncols mat_A
       n_row = nrows mat_A
-  MMatrix mat_U   <- MM.unsafeNew   (n_row, n_row)
+  MMatrix mat_U   <- MMat.unsafeNew   (n_row, n_row)
   MVec    vec_Sig <- MVG.unsafeNew (min n_row n_col)
-  MMatrix mat_VT  <- MM.unsafeNew   (n_col, n_col)
+  MMatrix mat_VT  <- MMat.unsafeNew   (n_col, n_col)
   -- Run SVD
   info <-
     unsafeWithForeignPtr (mat_A.buffer)      $ \ptr_A ->
@@ -90,7 +90,7 @@ invertMatrix :: LAPACKy a => Matrix a -> Matrix a
 invertMatrix m
   | nCols m /= nRows m = error "Matrix must be square"
   | otherwise          = unsafePerformIO $ do
-      MMatrix inv@MView{..} <- MM.clone m
+      MMatrix inv@MView{..} <- MMat.clone m
       id $
         unsafeWithForeignPtr buffer $ \ptr_a    ->
         allocaArray ncols           $ \ptr_ipiv -> do
@@ -145,31 +145,31 @@ class LinearEqRHS rhs a where
 
 
 instance LinearEqRHS Matrix a where
-  rhsToMatrix     = MM.clone
+  rhsToMatrix     = MMat.clone
   rhsGetSolutions = const id
 
 instance LinearEqRHS [] a where
-  rhsToMatrix v = MM.fromColsFF [v]
+  rhsToMatrix v = MMat.fromColsFF [v]
   rhsGetSolutions _ m = VG.toList $ getCol m 0
 
 instance LinearEqRHS Vec a where
-  rhsToMatrix v = MM.fromColsFV [v]
+  rhsToMatrix v = MMat.fromColsFV [v]
   rhsGetSolutions _ m = getCol m 0
 
 instance LinearEqRHS V.Vector a where
-  rhsToMatrix v = MM.fromColsFV [v]
+  rhsToMatrix v = MMat.fromColsFV [v]
   rhsGetSolutions _ m = VG.convert $ getCol m 0
 
 instance VS.Storable a => LinearEqRHS VS.Vector a where
-  rhsToMatrix v = MM.fromColsFV [v]
+  rhsToMatrix v = MMat.fromColsFV [v]
   rhsGetSolutions _ m = VG.convert $ getCol m 0
 
 instance VP.Prim a => LinearEqRHS VP.Vector a where
-  rhsToMatrix v = MM.fromColsFV [v]
+  rhsToMatrix v = MMat.fromColsFV [v]
   rhsGetSolutions _ m = VG.convert $ getCol m 0
 
 instance VU.Unbox a => LinearEqRHS VU.Vector a where
-  rhsToMatrix v = MM.fromColsFV [v]
+  rhsToMatrix v = MMat.fromColsFV [v]
   rhsGetSolutions _ m = VG.convert $ getCol m 0
 
 
@@ -189,7 +189,7 @@ solveLinEq a _
 solveLinEq a0 rhs = unsafePerformIO $ do
   -- Prepare right hand side and check sizes. We also need to clone
   -- A. It gets destroyed during solution
-  MMatrix a <- MM.clone a0
+  MMatrix a <- MMat.clone a0
   let n = ncols a
   MMatrix b <- stToPrim $ rhsToMatrix rhs
   when (nrows b /= n) $ error "Right hand dimensions don't match"
@@ -208,7 +208,8 @@ solveLinEq a0 rhs = unsafePerformIO $ do
     _       -> error "solveLinEq failed"
 
 
--- | Simple solver for linear equation of the form \(Ax=b\).
+-- | Simple solver for linear equation of the form \(Ax=b\) where
+--   \(A\) is symmetric matrix.
 --
 --   Note that this function does not check whether matrix is
 --   ill-conditioned and may return nonsensical answers in this case.
@@ -221,7 +222,7 @@ solveLinEqSym
   -> rhs a
 solveLinEqSym a0 rhs = unsafePerformIO $ do
   -- Clone A it gets destroyed during solution
-  MSymmetric a <- MMS.clone a0
+  MSymmetric a <- MSym.clone a0
   -- Prepare right hand side and check sizes. We also need to clone
   let n = a.size
   MMatrix b <- stToPrim $ rhsToMatrix rhs
