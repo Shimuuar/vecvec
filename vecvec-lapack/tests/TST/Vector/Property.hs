@@ -8,7 +8,7 @@
 -- NOTE Since this file is almost entirely copied from `vector`,
 -- we almost don't edit it, but just silence the warnings.
 -- In the hope that the tests from `vector` will be separated into a separate package.
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-missing-signatures -Wno-simplifiable-class-constraints #-}
 module TST.Vector.Property (tests) where
 
 import TST.Vector.Boilerplater
