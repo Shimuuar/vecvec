@@ -1,7 +1,7 @@
 -- |
-module Vecvec.LAPACK.Symmetric
+module Vecvec.LAPACK.Hermitian
   ( -- * Immutable matrix
-    Symmetric(..)
+    Hermitian(..)
   , LAPACKy
     -- * Operations
     -- ** Conversion to\/from mutable
@@ -9,7 +9,7 @@ module Vecvec.LAPACK.Symmetric
   , freeze
   , thaw
   , toDense
-  , asHermitian
+  , asSymmetric
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
@@ -21,8 +21,10 @@ module Vecvec.LAPACK.Symmetric
   , diagF
   , replicate
   , generate
+    -- * Modification
+  , multipleByReal
   ) where
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Symmetric
+import Vecvec.LAPACK.Internal.Hermitian

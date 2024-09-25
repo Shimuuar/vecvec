@@ -174,15 +174,19 @@ normalizeMag v = (v ./ fromR n, n) where n = magnitude v
 -- | Scalar for which we could compute norm. In fact we need this type
 --   class in order to be able to compute norm of vector over complex
 --   field.
+--
+--   > isReal (a * conjugate a) == True
 class (Num v, Num (R v)) => NormedScalar v where
-  -- | Type representing norm of scalar
+  -- | Type representing norm of scalar. @R@ stands for real
   type R v
-  -- | Complex conjugation for complex values and identity for real
+  -- | Conjugate value.
   conjugate    :: v -> v
-  -- | Square of norm of a value
+  -- | Square of norm of a value.
   scalarNormSq :: v -> R v
   -- | Convert norm to a scalar
   fromR        :: R v -> v
+  -- | Check whether value is pure real.
+  isReal       :: v -> Bool
 
 scalarNorm :: (Floating (R v), NormedScalar v) => v -> R v
 {-# INLINE scalarNorm #-}
@@ -195,10 +199,7 @@ scalarNorm = sqrt . scalarNormSq
 -- | Matrix and vector multiplication. There are a lot of possible
 --   representations of matrices: dense, banded, etc. Thus we have to
 --   make this class extremely generic.
-class ( VectorSpace a
-      , VectorSpace b, Scalar b ~ Scalar a
-      , VectorSpace r, Scalar r ~ Scalar a
-      ) => MatMul a b r | a b -> r where
+class MatMul a b r | a b -> r where
   (@@) :: a -> b -> r
 
 infixl 7 @@
@@ -482,18 +483,21 @@ instance NormedScalar Float where
   conjugate = id
   scalarNormSq x = x * x
   fromR = id
+  isReal _ = True
 
 instance NormedScalar Double where
   type R Double = Double
   conjugate = id
   scalarNormSq x = x * x
   fromR = id
+  isReal _ = True
 
 instance RealFloat a => NormedScalar (Complex a) where
   type R (Complex a) = a
   conjugate = Complex.conjugate
   scalarNormSq (r1 :+ i1) = r1*r1 + i1*i1
   fromR x = x :+ 0
+  isReal (_ :+ im) = im == 0
 
 
 ----------------------------------------------------------------

@@ -22,7 +22,21 @@ source-repository head
 
 Library
   Ghc-options:          -Wall
-  Default-Language:     Haskell2010
+  Default-Language:     GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DerivingStrategies
+                        DataKinds
+                        ViewPatterns
+                        MultiWayIf
+                        LambdaCase
+                        DerivingVia
+                        LexicalNegation
+                        PatternSynonyms
+                        -- Records
+                        DuplicateRecordFields
+                        OverloadedRecordDot
+  --
   Build-Depends:        base             >=4.12 && <5
                       , vecvec-classes
                       , vecvec-lapack-ffi
@@ -32,13 +46,14 @@ Library
                       , deepseq          >=1.4.3
                       , primitive        >=0.7
   Exposed-modules:
-    Vecvec.LAPACK
     Vecvec.LAPACK.Vector
     Vecvec.LAPACK.Vector.Mutable
     Vecvec.LAPACK.Matrix
     Vecvec.LAPACK.Matrix.Mutable
     Vecvec.LAPACK.Symmetric
     Vecvec.LAPACK.Symmetric.Mutable
+    Vecvec.LAPACK.Hermitian
+    Vecvec.LAPACK.Hermitian.Mutable
     Vecvec.LAPACK.LinAlg
     Vecvec.LAPACK.Utils
     --
@@ -48,12 +63,28 @@ Library
     Vecvec.LAPACK.Internal.Matrix.Mutable
     Vecvec.LAPACK.Internal.Symmetric
     Vecvec.LAPACK.Internal.Symmetric.Mutable
+    Vecvec.LAPACK.Internal.Hermitian
+    Vecvec.LAPACK.Internal.Hermitian.Mutable
   Other-modules:
     Vecvec.LAPACK.Internal.Compat
-
+    Vecvec.LAPACK.Internal.Symmetric.Types
 
 test-suite vecvec-lapack-tests
-  default-language: Haskell2010
+  default-language: GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DerivingStrategies
+                        DataKinds
+                        ViewPatterns
+                        MultiWayIf
+                        LambdaCase
+                        DerivingVia
+                        LexicalNegation
+                        PatternSynonyms
+                        -- Records
+                        DuplicateRecordFields
+                        OverloadedRecordDot
+  --
   type:             exitcode-stdio-1.0
   ghc-options:      -O2 -Wall -Wredundant-constraints -threaded
   hs-source-dirs:   tests

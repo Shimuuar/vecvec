@@ -4,6 +4,7 @@
 module Vecvec.LAPACK.Matrix
   ( -- * Matrix
     Matrix(..)
+  , LAPACKy
   , pattern AsVec
     -- * Operations
     -- ** Conversion to\/from mutable

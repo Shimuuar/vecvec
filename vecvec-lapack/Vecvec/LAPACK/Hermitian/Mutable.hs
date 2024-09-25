@@ -1,11 +1,11 @@
 -- |
-module Vecvec.LAPACK.Symmetric.Mutable
+module Vecvec.LAPACK.Hermitian.Mutable
   ( -- * Data types
-    MSymmetric
-  , InSymmetric
+    MHermitian
+  , InHermitian
   , LAPACKy
-    -- * Conversion
-  , asMHermitian
+    -- * Conversions
+  , asMSymmetric
     -- * Operations
     -- ** Creation
   , clone
@@ -25,4 +25,4 @@ module Vecvec.LAPACK.Symmetric.Mutable
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Symmetric.Mutable
+import Vecvec.LAPACK.Internal.Hermitian.Mutable

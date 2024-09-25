@@ -6,6 +6,7 @@ module Vecvec.LAPACK.Matrix.Mutable
     MMatrix
   , pattern AsMVec
   , InMatrix
+  , LAPACKy
     -- * Operations
     -- ** Construction
   , clone

@@ -1,22 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE PartialTypeSignatures      #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 -- |
 -- Tests for matrix decomposition
 module TST.Decomposition (tests) where
@@ -29,9 +11,8 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                 qualified as VV
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
-import Vecvec.LAPACK.Matrix          (Matrix,gdiag)
+import Vecvec.LAPACK.Matrix          (Matrix,LAPACKy,gdiag)
 import Vecvec.LAPACK.Matrix          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
@@ -50,7 +31,7 @@ tests = testGroup "Decomposition"
   ]
 
 
-testSVD :: forall a. ( VV.LAPACKy a, Typeable a, SmallScalar a, Eq a, Show a
+testSVD :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a
                      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
                      )
         => TestTree
@@ -61,12 +42,15 @@ testSVD = testGroup (show (typeOf (undefined :: a)))
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_valid
-  :: ( VV.LAPACKy a, Show a
-     , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
+  :: ( LAPACKy a, Show a
+     , Storable (R a)
+     , Epsilon (R a)
+     , Ord (R a)
+     , Floating (R a)
      )
-  => ModelM (Matrix a)
+  => Matrix a
   -> Property
-prop_SVD_valid (fromModel -> mat)
+prop_SVD_valid mat
   = counterexample ("mat   = \n" ++ show mat)
   $ counterexample ("mat'  = \n" ++ show mat')
   $ counterexample ("delta = \n" ++ show delta)
@@ -79,12 +63,12 @@ prop_SVD_valid (fromModel -> mat)
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_unitarity
-  :: ( VV.LAPACKy a, Show a
+  :: ( LAPACKy a, Show a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
-  => ModelM (Matrix a)
+  => Matrix a
   -> Property
-prop_SVD_unitarity (fromModel -> mat)
+prop_SVD_unitarity mat
   = counterexample ("mat   = \n" ++ show mat)
   $ counterexample ("delta U = \n" ++ show deltaU)
   $ counterexample ("delta V = \n" ++ show deltaV)
