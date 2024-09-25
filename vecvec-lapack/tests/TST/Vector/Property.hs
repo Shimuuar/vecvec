@@ -4,11 +4,12 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 -- NOTE Since this file is almost entirely copied from `vector`,
 -- we almost don't edit it, but just silence the warnings.
 -- In the hope that the tests from `vector` will be separated into a separate package.
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-missing-signatures -Wno-simplifiable-class-constraints #-}
 module TST.Vector.Property (tests) where
 
 import TST.Vector.Boilerplater
@@ -37,7 +38,7 @@ import           Test.QuickCheck
 import           Test.Tasty
 import           Test.Tasty.QuickCheck hiding (testProperties)
 
-import           Vecvec.LAPACK.Internal.Vector
+import           Vecvec.LAPACK.Vector
 import           TST.Tools.Orphanage ()
 import           TST.Tools.Model
 
@@ -735,9 +736,9 @@ testDataFunctions _ = $(testProperties ['prop_glength])
 
 
 testGeneralStorableVector
-  :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
+  :: forall a. ( CommonContext a Vecvec.LAPACK.Vector.Vec
                , VS.Storable a, Ord a {-, Data a -})
-  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
+  => Vecvec.LAPACK.Vector.Vec a -> [TestTree]
 testGeneralStorableVector dummy = concatMap ($ dummy)
   [
     testSanity
@@ -751,9 +752,9 @@ testGeneralStorableVector dummy = concatMap ($ dummy)
 
 
 testNumericStorableVector
-  :: forall a . ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
+  :: forall a . ( CommonContext a Vecvec.LAPACK.Vector.Vec
                , VS.Storable a, Ord a, Num a, Enum a, Random a {-, Data a-})
-  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
+  => Vecvec.LAPACK.Vector.Vec a -> [TestTree]
 testNumericStorableVector dummy = concatMap ($ dummy)
   [ testGeneralStorableVector
   , testNumFunctions
@@ -762,9 +763,9 @@ testNumericStorableVector dummy = concatMap ($ dummy)
 
 
 testNumericStorableVectorNoOrd
-  :: forall a. ( CommonContext a Vecvec.LAPACK.Internal.Vector.Vec
+  :: forall a. ( CommonContext a Vecvec.LAPACK.Vector.Vec
                , Num a)
-  => Vecvec.LAPACK.Internal.Vector.Vec a -> [TestTree]
+  => Vecvec.LAPACK.Vector.Vec a -> [TestTree]
 testNumericStorableVectorNoOrd dummy = concatMap ($ dummy)
   [ testSanity
   , inline testPolymorphicFunctions
@@ -774,8 +775,8 @@ testNumericStorableVectorNoOrd dummy = concatMap ($ dummy)
 
 tests :: TestTree
 tests = testGroup "property"
-  [ testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Double)" $
-    testNumericStorableVector (undefined :: Vecvec.LAPACK.Internal.Vector.Vec Double)
-  , testGroup "Vecvec.LAPACK.Internal.Vector.Vec (Complex Double)" $
-    testNumericStorableVectorNoOrd (undefined :: Vecvec.LAPACK.Internal.Vector.Vec (Complex Double))
+  [ testGroup "Vecvec.LAPACK.Vector.Vec (Double)" $
+    testNumericStorableVector (undefined :: Vecvec.LAPACK.Vector.Vec Double)
+  , testGroup "Vecvec.LAPACK.Vector.Vec (Complex Double)" $
+    testNumericStorableVectorNoOrd (undefined :: Vecvec.LAPACK.Vector.Vec (Complex Double))
   ]

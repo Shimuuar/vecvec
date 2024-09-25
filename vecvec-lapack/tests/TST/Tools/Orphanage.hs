@@ -21,7 +21,7 @@ import Data.Vector.Fusion.Bundle qualified as S
 import Test.Tasty.QuickCheck
 
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Internal.Vector as VV
+import Vecvec.LAPACK.Vector as VV
 
 
 ----------------------------------------------------------------

@@ -37,5 +37,5 @@ module Vecvec.LAPACK.Matrix
   , unsafeGetCol
   ) where
 
-import Vecvec.LAPACK.Internal.Matrix
+import Vecvec.LAPACK.Unsafe.Matrix
 import Prelude ()

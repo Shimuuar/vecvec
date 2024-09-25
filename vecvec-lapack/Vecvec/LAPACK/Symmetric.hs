@@ -25,4 +25,4 @@ module Vecvec.LAPACK.Symmetric
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Symmetric
+import Vecvec.LAPACK.Unsafe.Symmetric

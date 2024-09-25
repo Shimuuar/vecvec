@@ -28,18 +28,18 @@ import Data.Vector.Unboxed       qualified as VU
 import Data.Vector.Storable      qualified as VS
 import Data.Vector.Primitive     qualified as VP
 import Data.Vector.Generic       qualified as VG
-import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Matrix
-import Vecvec.LAPACK.Internal.Symmetric         (Symmetric)
-import Vecvec.LAPACK.Internal.Hermitian         (Hermitian)
-import Vecvec.LAPACK.Internal.Matrix.Mutable    qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Mutable    (MMatrix(..), MView(..))
-import Vecvec.LAPACK.Internal.Symmetric.Mutable qualified as MSym
-import Vecvec.LAPACK.Internal.Symmetric.Mutable (MSymmetric(..), MSymView(..))
-import Vecvec.LAPACK.Internal.Hermitian.Mutable qualified as MHer
-import Vecvec.LAPACK.Internal.Hermitian.Mutable (MHermitian(..))
-import Vecvec.LAPACK.Internal.Vector
-import Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.LAPACK.Unsafe.Compat
+import Vecvec.LAPACK.Unsafe.Matrix
+import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
+import Vecvec.LAPACK.Unsafe.Hermitian         (Hermitian)
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable    qualified as MMat
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable    (MMatrix(..), MView(..))
+import Vecvec.LAPACK.Unsafe.Symmetric.Mutable qualified as MSym
+import Vecvec.LAPACK.Unsafe.Symmetric.Mutable (MSymmetric(..), MSymView(..))
+import Vecvec.LAPACK.Unsafe.Hermitian.Mutable qualified as MHer
+import Vecvec.LAPACK.Unsafe.Hermitian.Mutable (MHermitian(..))
+import Vecvec.LAPACK.Unsafe.Vector
+import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
 import Vecvec.LAPACK.FFI
 import Vecvec.Classes

@@ -10,4 +10,4 @@ module Vecvec.LAPACK.Vector
   , LAPACKy
   ) where
 
-import Vecvec.LAPACK.Internal.Vector
+import Vecvec.LAPACK.Unsafe.Vector

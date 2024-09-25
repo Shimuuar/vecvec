@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- |
 -- We want to test that we correctly defined all instances for vectors
 -- and matrices. However testing floating point arithmetics is
@@ -17,11 +18,11 @@ import Data.Vector.Unboxed  qualified as VU
 import Data.Vector.Storable qualified as VS
 
 import Vecvec.Classes
-import Vecvec.LAPACK.Vector             (Vec)
-import Vecvec.LAPACK.Internal.Matrix    (Matrix)
-import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
-import Vecvec.LAPACK.Internal.Hermitian (Hermitian)
-import Vecvec.LAPACK.FFI                (S,D,C,Z)
+import Vecvec.LAPACK.Vector    (Vec)
+import Vecvec.LAPACK.Matrix    (Matrix)
+import Vecvec.LAPACK.Symmetric (Symmetric)
+import Vecvec.LAPACK.Hermitian (Hermitian)
+import Vecvec.LAPACK.FFI       (S,D,C,Z)
 import TST.Tools.MatModel
 import TST.Tools.Util
 

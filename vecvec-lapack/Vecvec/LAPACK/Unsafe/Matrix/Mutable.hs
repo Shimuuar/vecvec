@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
 -- |
-module Vecvec.LAPACK.Internal.Matrix.Mutable
+module Vecvec.LAPACK.Unsafe.Matrix.Mutable
   ( -- * Data types
     MMatrix(..)
   , MView(..)
@@ -58,8 +58,8 @@ import Vecvec.Classes.NDArray
 import Vecvec.Classes.NDMutable
 import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Utils
-import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
+import Vecvec.LAPACK.Unsafe.Compat
+import Vecvec.LAPACK.Unsafe.Vector.Mutable hiding (clone)
 import Vecvec.LAPACK.FFI                     qualified as C
 import Vecvec.LAPACK.FFI                     (MatrixTranspose(..))
 

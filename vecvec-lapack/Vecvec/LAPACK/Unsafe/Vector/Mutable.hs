@@ -6,7 +6,7 @@
 -- own risk.
 --
 -- This module considered to bepart of public API.
-module Vecvec.LAPACK.Internal.Vector.Mutable
+module Vecvec.LAPACK.Unsafe.Vector.Mutable
   ( -- * Representation
     VecRepr(..)
   , InVector(..)
@@ -53,7 +53,7 @@ import Vecvec.LAPACK.FFI             (LAPACKy)
 import Vecvec.LAPACK.FFI             qualified as C
 import Vecvec.LAPACK.Utils
 
-import Vecvec.LAPACK.Internal.Compat
+import Vecvec.LAPACK.Unsafe.Compat
 
 
 ----------------------------------------------------------------
