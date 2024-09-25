@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- |
 -- We want to test that we correctly defined all instances for vectors
 -- and matrices. However testing floating point arithmetics is
