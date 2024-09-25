@@ -17,7 +17,7 @@ import Data.Vector.Unboxed  qualified as VU
 import Data.Vector.Storable qualified as VS
 
 import Vecvec.Classes
-import Vecvec.LAPACK                    qualified as VV
+import Vecvec.LAPACK.Vector             (Vec)
 import Vecvec.LAPACK.Internal.Matrix    (Matrix)
 import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
 import Vecvec.LAPACK.FFI                (S,D,C,Z)
@@ -26,10 +26,10 @@ import TST.Tools.Util
 
 tests :: TestTree
 tests = testGroup "VectorSpace instances"
-  [ props_inner_space @VV.Vec @S
-  , props_inner_space @VV.Vec @D
-  , props_inner_space @VV.Vec @C
-  , props_inner_space @VV.Vec @Z
+  [ props_inner_space @Vec @S
+  , props_inner_space @Vec @D
+  , props_inner_space @Vec @C
+  , props_inner_space @Vec @Z
     -- Matrix
   , props_vector_space @Matrix @S
   , props_vector_space @Matrix @D

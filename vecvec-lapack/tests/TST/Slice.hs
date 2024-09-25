@@ -13,8 +13,8 @@ import Data.Vector.Storable  qualified as VS
 import Data.Vector.Primitive qualified as VP
 
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK         qualified as VV
-import Vecvec.LAPACK.Internal.Vector.Mutable (Strided(..))
+import Vecvec.LAPACK.Vector         (Vec)
+import Vecvec.LAPACK.Vector.Mutable (Strided(..))
 
 tests :: TestTree
 tests = testGroup "slice"
@@ -22,7 +22,7 @@ tests = testGroup "slice"
   , sliceProperties @VU.Vector
   , sliceProperties @VS.Vector
   , sliceProperties @VP.Vector
-  , sliceProperties @VV.Vec
+  , sliceProperties @Vec
   , testProperty "strided slice" prop_slice_stride
   ]
 
@@ -92,7 +92,7 @@ prop_slice_stride = do
                      _ -> choose (0, len-1)
   j   <- choose (0, len)
   s   <- choose (1,5)
-  let vec   = VG.generate @VV.Vec len id
+  let vec   = VG.generate @Vec len id
       vec'  = VG.toList $ slice ((i :.. j) `Strided` s) vec
       model = [i, i+s .. j-1]
   pure $ property

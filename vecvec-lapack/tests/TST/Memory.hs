@@ -5,12 +5,11 @@ import           Data.Foldable                         (for_)
 import qualified Data.Vector.Generic                   as VG
 import qualified Data.Vector.Generic.Mutable           as MVG
 
-import           Vecvec.Classes.NDArray                (Length (..), slice)
-import qualified Vecvec.LAPACK                         as VV
-import           Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.Classes.NDArray                (Length (..), slice)
+import Vecvec.LAPACK.Vector
 
-import           Test.Tasty
-import           Test.Tasty.HUnit
+import Test.Tasty
+import Test.Tasty.HUnit
 
 
 tests :: TestTree
@@ -36,7 +35,7 @@ tests = testGroup "memory"
                 -- copied to the target vector."
                 -- So for the test, we compare the result after using `basicUnafeMove` and
                 -- after using the intermediate buffer for copying -- the results should match.
-                let (carrier1', carrier2', target1', target2' :: VV.Vec Int) = runST $ do
+                let (carrier1', carrier2', target1', target2' :: Vec Int) = runST $ do
                       carrier1    <- MVG.generateM carrierLength pure
                       let source1 = slice sliceSrc carrier1
                       let target1 = slice sliceTgt carrier1

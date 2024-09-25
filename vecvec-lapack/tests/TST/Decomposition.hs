@@ -11,9 +11,8 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                 qualified as VV
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
-import Vecvec.LAPACK.Matrix          (Matrix,gdiag)
+import Vecvec.LAPACK.Matrix          (Matrix,LAPACKy,gdiag)
 import Vecvec.LAPACK.Matrix          qualified as Mat
 import Vecvec.LAPACK.LinAlg
 
@@ -32,7 +31,7 @@ tests = testGroup "Decomposition"
   ]
 
 
-testSVD :: forall a. ( VV.LAPACKy a, Typeable a, SmallScalar a, Show a
+testSVD :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a
                      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
                      )
         => TestTree
@@ -43,7 +42,7 @@ testSVD = testGroup (show (typeOf (undefined :: a)))
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_valid
-  :: ( VV.LAPACKy a, Show a
+  :: ( LAPACKy a, Show a
      , Storable (R a)
      , Epsilon (R a)
      , Ord (R a)
@@ -64,7 +63,7 @@ prop_SVD_valid mat
 
 -- | Check that SVD decomposition of matrix is really decomposition
 prop_SVD_unitarity
-  :: ( VV.LAPACKy a, Show a
+  :: ( LAPACKy a, Show a
      , Storable (R a), Epsilon (R a), Ord (R a), Floating (R a)
      )
   => Matrix a

@@ -7,11 +7,11 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
-import Vecvec.LAPACK                    qualified as VV
-import Vecvec.LAPACK.Internal.Matrix    (Matrix)
-import Vecvec.LAPACK.Internal.Hermitian (Hermitian)
-import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
-import Vecvec.LAPACK.FFI                (S,D,C,Z)
+import Vecvec.LAPACK.Vector    (Vec)
+import Vecvec.LAPACK.Matrix    (Matrix)
+import Vecvec.LAPACK.Hermitian (Hermitian)
+import Vecvec.LAPACK.Symmetric (Symmetric)
+import Vecvec.LAPACK.FFI       (S,D,C,Z)
 
 import TST.Tools.MatModel
 import TST.Tools.Util
@@ -19,27 +19,27 @@ import TST.Tools.Util
 tests :: TestTree
 tests = testGroup "MatMul"
   [ -- Matrix-vector
-    prop_matmul @Matrix        @VV.Vec @S
-  , prop_matmul @Matrix        @VV.Vec @D
-  , prop_matmul @Matrix        @VV.Vec @C
-  , prop_matmul @Matrix        @VV.Vec @Z
-  , prop_matmul @(Tr Matrix)   @VV.Vec @S
-  , prop_matmul @(Tr Matrix)   @VV.Vec @D
-  , prop_matmul @(Tr Matrix)   @VV.Vec @C
-  , prop_matmul @(Tr Matrix)   @VV.Vec @Z
-  , prop_matmul @(Conj Matrix) @VV.Vec @S
-  , prop_matmul @(Conj Matrix) @VV.Vec @D
-  , prop_matmul @(Conj Matrix) @VV.Vec @C
-  , prop_matmul @(Conj Matrix) @VV.Vec @Z
+    prop_matmul @Matrix        @Vec @S
+  , prop_matmul @Matrix        @Vec @D
+  , prop_matmul @Matrix        @Vec @C
+  , prop_matmul @Matrix        @Vec @Z
+  , prop_matmul @(Tr Matrix)   @Vec @S
+  , prop_matmul @(Tr Matrix)   @Vec @D
+  , prop_matmul @(Tr Matrix)   @Vec @C
+  , prop_matmul @(Tr Matrix)   @Vec @Z
+  , prop_matmul @(Conj Matrix) @Vec @S
+  , prop_matmul @(Conj Matrix) @Vec @D
+  , prop_matmul @(Conj Matrix) @Vec @C
+  , prop_matmul @(Conj Matrix) @Vec @Z
   -- Symmetric-vector
-  , prop_matmul @Symmetric        @VV.Vec @S
-  , prop_matmul @Symmetric        @VV.Vec @D
-  , prop_matmul @Symmetric        @VV.Vec @C
-  , prop_matmul @Symmetric        @VV.Vec @Z
-  , prop_matmul @(Tr Symmetric)   @VV.Vec @S
-  , prop_matmul @(Tr Symmetric)   @VV.Vec @D
-  , prop_matmul @(Tr Symmetric)   @VV.Vec @C
-  , prop_matmul @(Tr Symmetric)   @VV.Vec @Z
+  , prop_matmul @Symmetric        @Vec @S
+  , prop_matmul @Symmetric        @Vec @D
+  , prop_matmul @Symmetric        @Vec @C
+  , prop_matmul @Symmetric        @Vec @Z
+  , prop_matmul @(Tr Symmetric)   @Vec @S
+  , prop_matmul @(Tr Symmetric)   @Vec @D
+  , prop_matmul @(Tr Symmetric)   @Vec @C
+  , prop_matmul @(Tr Symmetric)   @Vec @Z
     -- Matrix-matrix
     -- 1.
   , prop_matmul @Matrix        @Matrix @S

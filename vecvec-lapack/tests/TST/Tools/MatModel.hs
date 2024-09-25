@@ -50,14 +50,13 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                    (Strided(..))
-import Vecvec.LAPACK                    qualified as VV
-import Vecvec.LAPACK.Internal.Matrix    (Matrix, fromRowsFF)
-import Vecvec.LAPACK.Internal.Matrix    qualified as Mat
-import Vecvec.LAPACK.Internal.Hermitian (Hermitian)
-import Vecvec.LAPACK.Internal.Hermitian qualified as Sym
-import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
-import Vecvec.LAPACK.Internal.Symmetric qualified as TSym
+import Vecvec.LAPACK.Vector             (Vec,LAPACKy,Strided(..))
+import Vecvec.LAPACK.Matrix    (Matrix, fromRowsFF)
+import Vecvec.LAPACK.Matrix    qualified as Mat
+import Vecvec.LAPACK.Hermitian (Hermitian)
+import Vecvec.LAPACK.Hermitian qualified as Sym
+import Vecvec.LAPACK.Symmetric (Symmetric)
+import Vecvec.LAPACK.Symmetric qualified as TSym
 import TST.Tools.Util
 import TST.Tools.Orphanage ()
 
@@ -157,21 +156,21 @@ newtype Nonsingular m a = Nonsingular { get :: m a }
   deriving newtype Show
 
 
-instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+instance (SmallScalar a, LAPACKy a, Typeable a, Show a, Eq a
          ) => Arbitrary (Nonsingular Matrix a) where
   arbitrary = Nonsingular <$> (genNonsingularMatrix =<< genSize)
 
-instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+instance (SmallScalar a, LAPACKy a, Typeable a, Show a, Eq a
          ) => Arbitrary (Nonsingular Symmetric a) where
   arbitrary = Nonsingular <$> (genNonsingularSymmetric =<< genSize)
 
-instance (SmallScalar a, VV.LAPACKy a, Typeable a, Show a, Eq a
+instance (SmallScalar a, LAPACKy a, Typeable a, Show a, Eq a
          ) => Arbitrary (Nonsingular Hermitian a) where
   arbitrary = Nonsingular <$> (genNonsingularHermitian =<< genSize)
 
 
 genNonsingularMatrix
-  :: (SmallScalar a, VV.LAPACKy a)
+  :: (SmallScalar a, LAPACKy a)
   => Int -> Gen (Matrix a)
 genNonsingularMatrix sz = do
   mat <- arbitraryShape (sz,sz)
@@ -179,7 +178,7 @@ genNonsingularMatrix sz = do
       .+. mat
 
 genNonsingularSymmetric
-  :: (SmallScalar a, VV.LAPACKy a)
+  :: (SmallScalar a, LAPACKy a)
   => Int -> Gen (Symmetric a)
 genNonsingularSymmetric sz = do
   mat <- arbitraryShape (sz)
@@ -187,7 +186,7 @@ genNonsingularSymmetric sz = do
       .+. mat
 
 genNonsingularHermitian
-  :: (SmallScalar a, VV.LAPACKy a)
+  :: (SmallScalar a, LAPACKy a)
   => Int -> Gen (Hermitian a)
 genNonsingularHermitian sz = do
   mat <- arbitraryShape (sz)
@@ -243,8 +242,8 @@ pattern v :>: m <- ((\(M x) -> (unmodelMat x, x)) -> (v,m))
 
 
 
-instance (Storable a, Num a) => TestMat VV.Vec a where
-  type Model1M VV.Vec = ModelVec
+instance (Storable a, Num a) => TestMat Vec a where
+  type Model1M Vec = ModelVec
   unmodelMat (ModelVec stride xs)
     = slice ((0,End) `Strided` stride)
     $ VG.fromList

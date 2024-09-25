@@ -18,9 +18,8 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK                 qualified as VV
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
-import Vecvec.LAPACK.Vector          (Vec)
+import Vecvec.LAPACK.Vector          (Vec,LAPACKy)
 import Vecvec.LAPACK.Matrix          (Matrix)
 import Vecvec.LAPACK.Matrix          qualified as Mat
 import Vecvec.LAPACK.Symmetric       (Symmetric)
@@ -84,7 +83,7 @@ testSimpleSolve = testGroup ("Mat = "++qualTypeName @mat ++ "  ; RHS = " ++ qual
 -- | Inverse is indeed inverse
 prop_invertMatrix
   :: forall a.
-     ( VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a))
+     ( LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a))
   => Nonsingular Matrix a
   -> Property
 prop_invertMatrix (Nonsingular m)
@@ -114,7 +113,7 @@ data LinSimple mat rhs a = LinSimple (Nonsingular mat a) (rhs a)
 instance (Show a, Show (mat a), Show (rhs a), VS.Storable a) => Show (LinSimple mat rhs a) where
   show (LinSimple a rhs) = "A = \n"++show a++"\nb =\n"++show rhs
 
-instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
+instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
          ) => Arbitrary (LinSimple Matrix rhs a) where
   arbitrary = do
     sz  <- genSize @Int
@@ -122,7 +121,7 @@ instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
     rhs <- arbitraryRHS sz
     pure $ LinSimple (Nonsingular a) rhs
 
-instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
+instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
          ) => Arbitrary (LinSimple Symmetric rhs a) where
   arbitrary = do
     sz  <- genSize @Int
@@ -130,7 +129,7 @@ instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
     rhs <- arbitraryRHS sz
     pure $ LinSimple (Nonsingular a) rhs
 
-instance ( Show a,Eq a,VV.LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
+instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
          ) => Arbitrary (LinSimple Hermitian rhs a) where
   arbitrary = do
     sz  <- genSize @Int
@@ -147,7 +146,7 @@ class ArbitraryRHS rhs a where
                   , MatMul (mat a) (Vec a) (Vec a)
                   ) => mat a -> rhs a -> rhs a -> Property
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
+instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
          ) => ArbitraryRHS Matrix a where
   arbitraryRHS sz = do
     n <- choose (1,4)
@@ -159,32 +158,32 @@ instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
       deltas = [ a @@ x .-. b | (x,b) <- xs `zip` bs]
 
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS Vec a where
+instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS Vec a where
   arbitraryRHS n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ x .-. b
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS V.Vector a where
+instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS V.Vector a where
   arbitraryRHS n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VU.Unbox a, VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VU.Vector a where
+instance (VU.Unbox a, LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VU.Vector a where
   arbitraryRHS n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VS.Vector a where
+instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VS.Vector a where
   arbitraryRHS n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VP.Prim a, VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VP.Vector a where
+instance (VP.Prim a, LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VP.Vector a where
   arbitraryRHS n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VV.LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS [] a where
+instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS [] a where
   arbitraryRHS n = replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.fromList x :: Vec a) .-. (VG.fromList b :: Vec a)
