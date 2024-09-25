@@ -46,7 +46,6 @@ Library
                       , deepseq          >=1.4.3
                       , primitive        >=0.7
   Exposed-modules:
-    Vecvec.LAPACK
     Vecvec.LAPACK.Vector
     Vecvec.LAPACK.Vector.Mutable
     Vecvec.LAPACK.Matrix
