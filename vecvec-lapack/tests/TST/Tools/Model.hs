@@ -1,5 +1,6 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DefaultSignatures    #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |
 module TST.Tools.Model
   ( -- * Model-related classes
