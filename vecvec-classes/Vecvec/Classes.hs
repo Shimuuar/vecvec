@@ -199,10 +199,7 @@ scalarNorm = sqrt . scalarNormSq
 -- | Matrix and vector multiplication. There are a lot of possible
 --   representations of matrices: dense, banded, etc. Thus we have to
 --   make this class extremely generic.
-class ( VectorSpace a
-      , VectorSpace b, Scalar b ~ Scalar a
-      , VectorSpace r, Scalar r ~ Scalar a
-      ) => MatMul a b r | a b -> r where
+class MatMul a b r | a b -> r where
   (@@) :: a -> b -> r
 
 infixl 7 @@

@@ -230,9 +230,16 @@ instance C.LAPACKy a => AdditiveQuasigroup (Hermitian a) where
         unsafeFreeze r
     where
       n = nRows m1
-  negateV m = -1 *. m
+  negateV m@(Hermitian _ mat) = runST $ do
+    r@(MSym.MHermitian res) <- MSym.new n
+    loop0_ n $ \i -> do
+          unsafeBlasAxpy -1 (Vec  $ unsafeColumnPart mat i)
+                            (MVec $ unsafeColumnPart res i)
+    unsafeFreeze r
+    where
+      n = nRows m
 
-instance C.LAPACKy a => VectorSpace (Hermitian a) where
+instance (C.LAPACKy a, R a ~ a) => VectorSpace (Hermitian a) where
   type Scalar (Hermitian a) = a
   a *. m@(Hermitian _ mat) = runST $ do
     r@(MSym.MHermitian res) <- MSym.new n
