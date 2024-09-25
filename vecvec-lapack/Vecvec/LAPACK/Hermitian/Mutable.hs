@@ -25,4 +25,4 @@ module Vecvec.LAPACK.Hermitian.Mutable
 
 import Prelude hiding (replicate)
 
-import Vecvec.LAPACK.Internal.Hermitian.Mutable
+import Vecvec.LAPACK.Unsafe.Hermitian.Mutable

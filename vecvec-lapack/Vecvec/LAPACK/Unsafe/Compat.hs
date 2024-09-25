@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 -- |
-module Vecvec.LAPACK.Internal.Compat
+module Vecvec.LAPACK.Unsafe.Compat
   ( getPtr
   , updPtr
   , unsafeWithForeignPtr

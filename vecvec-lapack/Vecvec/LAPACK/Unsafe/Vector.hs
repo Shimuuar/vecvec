@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- |
 -- Definition of strided storable vectors
-module Vecvec.LAPACK.Internal.Vector
+module Vecvec.LAPACK.Unsafe.Vector
   ( Vec(..)
   , Strided(..)
   , LAPACKy
@@ -26,8 +26,8 @@ import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..), Strided(..)
+import Vecvec.LAPACK.Unsafe.Compat
+import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..), Strided(..)
                                              ,blasDotc, blasScal, blasAxpy, clone
                                              )
 

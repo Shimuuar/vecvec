@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
-module Vecvec.LAPACK.Internal.Hermitian
+module Vecvec.LAPACK.Unsafe.Hermitian
   ( -- * Immutable matrix
     Hermitian(..)
   , LAPACKy
@@ -40,14 +40,14 @@ import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Internal.Matrix.Mutable     qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix             qualified as Mat
-import Vecvec.LAPACK.Internal.Matrix             (Matrix)
-import Vecvec.LAPACK.Internal.Hermitian.Mutable  qualified as MSym
-import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector
-import Vecvec.LAPACK.Internal.Vector.Mutable
-import Vecvec.LAPACK.Internal.Symmetric.Types
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable     qualified as MMat
+import Vecvec.LAPACK.Unsafe.Matrix             qualified as Mat
+import Vecvec.LAPACK.Unsafe.Matrix             (Matrix)
+import Vecvec.LAPACK.Unsafe.Hermitian.Mutable  qualified as MSym
+import Vecvec.LAPACK.Unsafe.Compat
+import Vecvec.LAPACK.Unsafe.Vector
+import Vecvec.LAPACK.Unsafe.Vector.Mutable
+import Vecvec.LAPACK.Unsafe.Symmetric.Types
 import Vecvec.LAPACK.FFI                           qualified as C
 import Vecvec.LAPACK.Utils
 

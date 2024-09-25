@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- |
 -- Symmetric matrices.
-module Vecvec.LAPACK.Internal.Symmetric.Mutable
+module Vecvec.LAPACK.Unsafe.Symmetric.Mutable
   ( -- * Data types
     MSymmetric(..)
   , MSymView(..)
@@ -51,11 +51,11 @@ import Prelude hiding (read,replicate)
 import Vecvec.Classes.NDMutable
 import Vecvec.Classes
 import Vecvec.LAPACK.Utils
-import Vecvec.LAPACK.Internal.Compat
-import Vecvec.LAPACK.Internal.Vector.Mutable hiding (clone)
-import Vecvec.LAPACK.Internal.Matrix.Mutable qualified as MMat
-import Vecvec.LAPACK.Internal.Matrix.Mutable (MMatrix(..), MView(..), InMatrix(..))
-import Vecvec.LAPACK.Internal.Symmetric.Types
+import Vecvec.LAPACK.Unsafe.Compat
+import Vecvec.LAPACK.Unsafe.Vector.Mutable hiding (clone)
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable qualified as MMat
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable (MMatrix(..), MView(..), InMatrix(..))
+import Vecvec.LAPACK.Unsafe.Symmetric.Types
 import Vecvec.LAPACK.FFI                     qualified as C
 
 

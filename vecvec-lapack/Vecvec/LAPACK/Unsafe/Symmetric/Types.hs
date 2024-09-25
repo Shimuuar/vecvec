@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 -- |
 -- Data types used for both symmetric and hermitian matrices
-module Vecvec.LAPACK.Internal.Symmetric.Types
+module Vecvec.LAPACK.Unsafe.Symmetric.Types
   ( MSymView(..)
   , MHermitian(..)
   , Hermitian(..)
@@ -16,7 +16,7 @@ import Foreign.Storable
 import Foreign.Marshal.Array
 
 import Vecvec.Classes.NDMutable
-import Vecvec.LAPACK.Internal.Compat
+import Vecvec.LAPACK.Unsafe.Compat
 
 
 ----------------------------------------------------------------

@@ -65,17 +65,17 @@ Library
     Vecvec.LAPACK.LinAlg
     Vecvec.LAPACK.Utils
     --
-    Vecvec.LAPACK.Internal.Vector
-    Vecvec.LAPACK.Internal.Vector.Mutable
-    Vecvec.LAPACK.Internal.Matrix
-    Vecvec.LAPACK.Internal.Matrix.Mutable
-    Vecvec.LAPACK.Internal.Symmetric
-    Vecvec.LAPACK.Internal.Symmetric.Mutable
-    Vecvec.LAPACK.Internal.Hermitian
-    Vecvec.LAPACK.Internal.Hermitian.Mutable
+    Vecvec.LAPACK.Unsafe.Vector
+    Vecvec.LAPACK.Unsafe.Vector.Mutable
+    Vecvec.LAPACK.Unsafe.Matrix
+    Vecvec.LAPACK.Unsafe.Matrix.Mutable
+    Vecvec.LAPACK.Unsafe.Symmetric
+    Vecvec.LAPACK.Unsafe.Symmetric.Mutable
+    Vecvec.LAPACK.Unsafe.Hermitian
+    Vecvec.LAPACK.Unsafe.Hermitian.Mutable
   Other-modules:
-    Vecvec.LAPACK.Internal.Compat
-    Vecvec.LAPACK.Internal.Symmetric.Types
+    Vecvec.LAPACK.Unsafe.Compat
+    Vecvec.LAPACK.Unsafe.Symmetric.Types
 
 test-suite vecvec-lapack-tests
   import: language

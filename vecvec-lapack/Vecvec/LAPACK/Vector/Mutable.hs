@@ -26,7 +26,7 @@ module Vecvec.LAPACK.Vector.Mutable
   , unsafeBlasDotc
   ) where
 
-import Vecvec.LAPACK.Internal.Vector.Mutable
+import Vecvec.LAPACK.Unsafe.Vector.Mutable
 
 -- $blas
 --

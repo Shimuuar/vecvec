@@ -38,5 +38,5 @@ module Vecvec.LAPACK.Matrix.Mutable
   , unsafeGetRow
   ) where
 
-import Vecvec.LAPACK.Internal.Matrix.Mutable
+import Vecvec.LAPACK.Unsafe.Matrix.Mutable
 import Prelude ()
