@@ -32,7 +32,7 @@ import Data.Vector.Unboxed   qualified as DVU
 
 import Test.QuickCheck
 
-import Vecvec.LAPACK.Internal.Vector as VV
+import Vecvec.LAPACK.Vector as VV
 import Vecvec.Classes.NDArray qualified as Slice
 
 ----------------------------------------------------------------
