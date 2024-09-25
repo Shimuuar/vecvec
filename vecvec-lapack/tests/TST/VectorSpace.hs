@@ -20,6 +20,7 @@ import Vecvec.Classes
 import Vecvec.LAPACK.Vector             (Vec)
 import Vecvec.LAPACK.Internal.Matrix    (Matrix)
 import Vecvec.LAPACK.Internal.Symmetric (Symmetric)
+import Vecvec.LAPACK.Internal.Hermitian (Hermitian)
 import Vecvec.LAPACK.FFI                (S,D,C,Z)
 import TST.Tools.MatModel
 import TST.Tools.Util
@@ -40,6 +41,11 @@ tests = testGroup "VectorSpace instances"
   , props_vector_space @Symmetric @D
   , props_vector_space @Symmetric @C
   , props_vector_space @Symmetric @Z
+    -- Hermitian
+  , props_vector_space @Hermitian @S
+  , props_vector_space @Hermitian @D
+  , props_vector_space @Hermitian @C
+  , props_vector_space @Hermitian @Z
     -- Vector instances
   , props_inner_space @V.Vector  @D
   , props_inner_space @VU.Vector @D
