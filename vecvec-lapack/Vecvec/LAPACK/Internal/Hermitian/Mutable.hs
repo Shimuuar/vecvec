@@ -9,6 +9,7 @@ module Vecvec.LAPACK.Internal.Hermitian.Mutable
   , asMSymmetric
   , MSymView(..)
   , InHermitian(..)
+  , LAPACKy
   , symmetrizeMSymView
     -- * Operations
     -- ** Creation

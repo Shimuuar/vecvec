@@ -7,6 +7,7 @@ module Vecvec.LAPACK.Internal.Matrix.Mutable
   , MView(..)
   , InMatrix(..)
   , pattern AsMVec
+  , LAPACKy
     -- * Operations
     -- ** Creation
   , clone

@@ -1,9 +1,10 @@
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Internal.Vector
   ( Vec(..)
   , Strided(..)
+  , LAPACKy
   ) where
 
 import Control.DeepSeq         (NFData(..), NFData1(..))

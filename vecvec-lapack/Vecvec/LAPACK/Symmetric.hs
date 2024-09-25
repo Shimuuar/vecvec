@@ -2,6 +2,7 @@
 module Vecvec.LAPACK.Symmetric
   ( -- * Immutable matrix
     Symmetric(..)
+  , LAPACKy
     -- * Operations
     -- ** Conversion to\/from mutable
   , unsafeFreeze

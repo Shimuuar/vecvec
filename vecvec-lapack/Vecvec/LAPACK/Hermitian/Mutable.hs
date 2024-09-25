@@ -3,6 +3,7 @@ module Vecvec.LAPACK.Hermitian.Mutable
   ( -- * Data types
     MHermitian
   , InHermitian
+  , LAPACKy
     -- * Conversions
   , asMSymmetric
     -- * Operations

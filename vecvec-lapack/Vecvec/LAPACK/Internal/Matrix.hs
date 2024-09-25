@@ -5,6 +5,7 @@ module Vecvec.LAPACK.Internal.Matrix
   ( -- * Immutable matrix
     Matrix(..)
   , pattern AsVec
+  , LAPACKy
     -- * Operations
     -- ** Conversion to\/from mutable
   , unsafeFreeze

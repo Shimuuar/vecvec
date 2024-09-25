@@ -5,6 +5,7 @@
 module Vecvec.LAPACK.Internal.Symmetric
   ( -- * Immutable matrix
     Symmetric(..)
+  , LAPACKy
     -- * Operations
     -- ** Conversion to\/from mutable
   , unsafeFreeze

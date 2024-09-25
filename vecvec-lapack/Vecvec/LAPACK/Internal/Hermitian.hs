@@ -5,6 +5,7 @@
 module Vecvec.LAPACK.Internal.Hermitian
   ( -- * Immutable matrix
     Hermitian(..)
+  , LAPACKy
     -- * Operations
     -- ** Conversion to\/from mutable
   , unsafeFreeze

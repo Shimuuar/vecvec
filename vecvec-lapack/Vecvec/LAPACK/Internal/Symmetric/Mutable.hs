@@ -8,6 +8,7 @@ module Vecvec.LAPACK.Internal.Symmetric.Mutable
     MSymmetric(..)
   , MSymView(..)
   , InSymmetric(..)
+  , LAPACKy
   , symmetrizeMSymView
   , asMHermitian
     -- * Operations

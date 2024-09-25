@@ -3,6 +3,7 @@ module Vecvec.LAPACK.Symmetric.Mutable
   ( -- * Data types
     MSymmetric
   , InSymmetric
+  , LAPACKy
     -- * Conversion
   , asMHermitian
     -- * Operations
