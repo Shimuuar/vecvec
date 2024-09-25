@@ -21,6 +21,8 @@ module Vecvec.LAPACK.Hermitian
   , diagF
   , replicate
   , generate
+    -- * Modification
+  , multipleByReal
   ) where
 
 import Prelude hiding (replicate)

@@ -42,10 +42,10 @@ tests = testGroup "VectorSpace instances"
   , props_vector_space @Symmetric @C
   , props_vector_space @Symmetric @Z
     -- Hermitian
-  , props_vector_space @Hermitian @S
-  , props_vector_space @Hermitian @D
-  , props_vector_space @Hermitian @C
-  , props_vector_space @Hermitian @Z
+  , props_vector_space   @Hermitian @S
+  , props_vector_space   @Hermitian @D
+  , props_additive_space @Hermitian @C
+  , props_additive_space @Hermitian @Z
     -- Vector instances
   , props_inner_space @V.Vector  @D
   , props_inner_space @VU.Vector @D
@@ -105,6 +105,24 @@ props_vector_space = testGroup (qualTypeName @v ++ " (" ++ qualTypeName @a ++ ")
   , prop_negation_correct    @v @a
   , prop_lmul_scalar         @v @a
   , prop_rmul_scalar         @v @a
+  ]
+
+-- Tests for vector space implementation
+props_additive_space
+  :: forall v a. (HasModel v a
+                 , AdditiveQuasigroup (v a)
+                 , AdditiveQuasigroup (Model1M v a)
+                 , ArbitraryShape (Model1M v) a
+                 , Arbitrary      (Model1M v a)
+                 , Eq (v a)
+                 , Typeable a
+                 , Typeable v
+                 )
+  => TestTree
+props_additive_space = testGroup (qualTypeName @v ++ " (" ++ qualTypeName @a ++ ")")
+  [ prop_addition_correct    @v @a
+  , prop_subtraction_correct @v @a
+  , prop_negation_correct    @v @a
   ]
 
 prop_addition_correct

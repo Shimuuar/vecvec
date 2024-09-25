@@ -24,6 +24,8 @@ module Vecvec.LAPACK.Internal.Hermitian
   , diagF
   , replicate
   , generate
+    -- * Modification
+  , multipleByReal
   ) where
 
 import Control.Monad
@@ -204,6 +206,22 @@ unsafeColumnPart MSym.MSymView{..} n = VecRepr
   , vecStride = 1
   }
 
+-- Multiply matrix by scalar. Scalar value must be real. This is not checked
+unsafeMultipleByScalar :: (C.LAPACKy a) => a -> Hermitian a -> Hermitian a
+unsafeMultipleByScalar a m@(Hermitian _ mat) = runST $ do
+  r@(MSym.MHermitian res) <- MSym.new n
+  loop0_ n $ \i -> do
+        unsafeBlasAxpy a (Vec  $ unsafeColumnPart mat i)
+                         (MVec $ unsafeColumnPart res i)
+  unsafeFreeze r
+  where
+    n = nRows m
+
+-- | Multiply matrix by real-valued scalar.
+multipleByReal :: (C.LAPACKy a) => R a -> Hermitian a -> Hermitian a
+multipleByReal = unsafeMultipleByScalar . fromR
+
+
 instance (C.LAPACKy a) => AdditiveSemigroup (Hermitian a) where
   m1 .+. m2@(Hermitian _ mat2)
     | nRows m2 /= n = error "Size mismatch"
@@ -230,25 +248,11 @@ instance C.LAPACKy a => AdditiveQuasigroup (Hermitian a) where
         unsafeFreeze r
     where
       n = nRows m1
-  negateV m@(Hermitian _ mat) = runST $ do
-    r@(MSym.MHermitian res) <- MSym.new n
-    loop0_ n $ \i -> do
-          unsafeBlasAxpy -1 (Vec  $ unsafeColumnPart mat i)
-                            (MVec $ unsafeColumnPart res i)
-    unsafeFreeze r
-    where
-      n = nRows m
+  negateV = unsafeMultipleByScalar -1
 
 instance (C.LAPACKy a, R a ~ a) => VectorSpace (Hermitian a) where
   type Scalar (Hermitian a) = a
-  a *. m@(Hermitian _ mat) = runST $ do
-    r@(MSym.MHermitian res) <- MSym.new n
-    loop0_ n $ \i -> do
-          unsafeBlasAxpy a (Vec  $ unsafeColumnPart mat i)
-                           (MVec $ unsafeColumnPart res i)
-    unsafeFreeze r
-    where
-      n = nRows m
+  (*.) = unsafeMultipleByScalar
   (.*) = flip (*.)
 
 instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Vec a') (Vec a) where

@@ -53,7 +53,7 @@ import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Vector             (Vec,LAPACKy,Strided(..))
 import Vecvec.LAPACK.Matrix    (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Matrix    qualified as Mat
-import Vecvec.LAPACK.Hermitian (Hermitian)
+import Vecvec.LAPACK.Hermitian (Hermitian,multipleByReal)
 import Vecvec.LAPACK.Hermitian qualified as Sym
 import Vecvec.LAPACK.Symmetric (Symmetric)
 import Vecvec.LAPACK.Symmetric qualified as TSym
@@ -190,7 +190,7 @@ genNonsingularHermitian
   => Int -> Gen (Hermitian a)
 genNonsingularHermitian sz = do
   mat <- arbitraryShape (sz)
-  pure $  (2 * maxGenScacar * fromIntegral sz) *. Sym.eye sz
+  pure $  multipleByReal (2 * maxGenScacar * fromIntegral sz) (Sym.eye sz)
       .+. mat
 
 
