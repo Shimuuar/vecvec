@@ -172,10 +172,10 @@ replicate sz a = runST $ unsafeFreeze =<< MSym.replicate sz a
 --
 -- ==== __Examples__
 --
--- >>> generate 3 (\i j -> 100*i + j)
--- [ [0,1,2]
--- , [1,101,102]
--- , [2,102,202]]
+-- >>> generate 3 (\i j -> fromIntegral (100*i + j) :: Double)
+-- [ [0.0,1.0,2.0]
+-- , [1.0,101.0,102.0]
+-- , [2.0,102.0,202.0]]
 generate :: (Storable a, NormedScalar a)
          => Int               -- ^ Matrix size
          -> (Int -> Int -> a) -- ^ Function that takes \(N_{row}\) and \(N_{column}\) as input
