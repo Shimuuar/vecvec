@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LexicalNegation            #-}
 {-# LANGUAGE NegativeLiterals           #-}
 {-# LANGUAGE QuantifiedConstraints      #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -155,13 +156,13 @@ propBoost1DInv (fmap realToFrac -> b) (realToFrac -> t, realToFrac -> x)
 
 
 approxEqCReal :: Int -> String -> String -> Bool
-approxEqCReal 0 _ _ = True
-approxEqCReal n ('.':s1) ('.':s2) = approxEqCReal n s1 s2
-approxEqCReal n (d1 :s1) (d2 :s2)
-  | d1 == d2  = approxEqCReal (n-1) s1 s2
-  | otherwise = False
-approxEqCReal _ [] [] = True
-approxEqCReal _ _  _  = False
+approxEqCReal n s_x s_y
+  | abs x < 1 = abs(x - y)     < ε
+  | otherwise = abs(x - y) / x < ε
+  where
+    ε = 10 ^^ -n
+    x = read s_x :: Double
+    y = read s_y :: Double
 
 
 
