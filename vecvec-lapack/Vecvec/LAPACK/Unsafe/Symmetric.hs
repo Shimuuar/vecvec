@@ -244,7 +244,7 @@ instance C.LAPACKy a => VectorSpace (Symmetric a) where
       n = nRows m
   (.*) = flip (*.)
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a Symmetric Vec Vec where
   m @@ v
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
@@ -252,11 +252,11 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Vec a') (Vec a) where
     MTSym.unsafeBlasSymv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Symmetric a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a (Tr Symmetric) Vec Vec where
   Tr m @@ v = m @@ v
 
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Symmetric Matrix Matrix where
   matA @@ matB
     | nCols matA /= n = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do
@@ -266,7 +266,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Matrix a') (Matrix a) wh
     where
       (n,k) = shape matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Symmetric a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Matrix Symmetric Matrix where
   matB @@ matA
     | nCols matA /= n = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do
@@ -276,7 +276,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Symmetric a') (Matrix a) wh
     where
       (k,n) = shape matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Symmetric a) (Symmetric a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Symmetric Symmetric Matrix where
   matA @@ matB
     | n /= nCols matB = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do

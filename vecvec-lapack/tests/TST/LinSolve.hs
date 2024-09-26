@@ -60,10 +60,10 @@ testSimpleSolve
      ( ArbitraryRHS rhs S, ArbitraryRHS rhs D, ArbitraryRHS rhs C, ArbitraryRHS rhs Z
      , LinearEqRHS  rhs S, LinearEqRHS  rhs D, LinearEqRHS  rhs C, LinearEqRHS  rhs Z
      , LinearEq     mat S, LinearEq     mat D, LinearEq     mat C, LinearEq     mat Z
-     , MatMul (mat S) (Vec S) (Vec S)
-     , MatMul (mat D) (Vec D) (Vec D)
-     , MatMul (mat C) (Vec C) (Vec C)
-     , MatMul (mat Z) (Vec Z) (Vec Z)
+     , MatMul S mat Vec Vec
+     , MatMul D mat Vec Vec
+     , MatMul C mat Vec Vec
+     , MatMul Z mat Vec Vec
      , Arbitrary (LinSimple mat rhs S)
      , Arbitrary (LinSimple mat rhs D)
      , Arbitrary (LinSimple mat rhs C)
@@ -99,7 +99,7 @@ prop_SimpleSolve
   :: forall mat rhs a. ( ArbitraryRHS rhs a
                        , LinearEqRHS  rhs a
                        , LinearEq     mat a
-                       , MatMul (mat a) (Vec a) (Vec a)
+                       , MatMul a mat Vec Vec
                        , a ~ Scalar (mat a)
                        )
   => LinSimple mat rhs a
@@ -144,7 +144,7 @@ instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
 class ArbitraryRHS rhs a where
   arbitraryRHS :: SmallScalar a => Int -> Gen (rhs a)
   checkLinEq   :: ( Scalar (mat a) ~ a
-                  , MatMul (mat a) (Vec a) (Vec a)
+                  , MatMul a mat Vec Vec
                   ) => mat a -> rhs a -> rhs a -> Property
 
 instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
