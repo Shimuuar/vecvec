@@ -36,10 +36,6 @@ tests = testGroup "MatMul"
   , prop_matmul @Symmetric        @Vec @D
   , prop_matmul @Symmetric        @Vec @C
   , prop_matmul @Symmetric        @Vec @Z
-  , prop_matmul @(Tr Symmetric)   @Vec @S
-  , prop_matmul @(Tr Symmetric)   @Vec @D
-  , prop_matmul @(Tr Symmetric)   @Vec @C
-  , prop_matmul @(Tr Symmetric)   @Vec @Z
   -- Symmetric-vector
   , prop_matmul @Hermitian        @Vec @S
   , prop_matmul @Hermitian        @Vec @D

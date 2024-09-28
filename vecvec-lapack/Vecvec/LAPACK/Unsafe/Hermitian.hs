@@ -263,8 +263,6 @@ instance (C.LAPACKy a) => MatMul a Hermitian Vec Vec where
     MSym.unsafeBlasHemv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a) => MatMul a (Tr Hermitian) Vec Vec where
-  Tr m @@ v = m @@ v
 
 
 instance (C.LAPACKy a) => MatMul a Hermitian Matrix Matrix where

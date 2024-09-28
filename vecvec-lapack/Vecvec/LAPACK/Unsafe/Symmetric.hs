@@ -252,8 +252,6 @@ instance (C.LAPACKy a) => MatMul a Symmetric Vec Vec where
     MTSym.unsafeBlasSymv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a) => MatMul a (Tr Symmetric) Vec Vec where
-  Tr m @@ v = m @@ v
 
 
 instance (C.LAPACKy a) => MatMul a Symmetric Matrix Matrix where
