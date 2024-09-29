@@ -34,50 +34,50 @@ instance (Num a, Element a) => VectorSpace (Matrix a) where
 ----------------------------------------------------------------
 -- Matrix-matrix
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Matrix a) (Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a Matrix Matrix Matrix where
   (@@) = (HM.<>)
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Tr Matrix a) (Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Tr Matrix) Matrix Matrix where
   Tr a @@ b = tr a HM.<> b
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Conj Matrix a) (Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Conj Matrix) Matrix Matrix where
   Conj a @@ b = tr' a HM.<> b
 
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Matrix a) (Tr Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a Matrix (Tr Matrix) Matrix where
   a @@ Tr b = a HM.<> tr b
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Tr Matrix a) (Tr Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Tr Matrix) (Tr Matrix) Matrix where
   Tr a @@ Tr b = tr a HM.<> tr b
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Conj Matrix a) (Tr Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Conj Matrix) (Tr Matrix) Matrix where
   Conj a @@ Tr b = tr' a HM.<> tr b
 
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Matrix a) (Conj Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a Matrix (Conj Matrix) Matrix where
   a @@ Conj b = a HM.<> tr' b
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Tr Matrix a) (Conj Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Tr Matrix) (Conj Matrix) Matrix where
   Tr a @@ Conj b = tr a HM.<> tr' b
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Conj Matrix a) (Conj Matrix b) (Matrix a) where
+instance (Num a, Numeric a) => MatMul a (Conj Matrix) (Conj Matrix) Matrix where
   Conj a @@ Conj b = tr' a HM.<> tr' b
 
 
 ----------------------------------------------------------------
 -- Matrix-vector
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Matrix a) (Vector b) (Vector a) where
+instance (Num a, Numeric a) => MatMul a Matrix Vector Vector where
   (@@) = (HM.#>)
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Tr Matrix a) (Vector b) (Vector a) where
+instance (Num a, Numeric a) => MatMul a (Tr Matrix) Vector Vector where
   Tr m @@ v = tr m HM.#> v
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Conj Matrix a) (Vector b) (Vector a) where
+instance (Num a, Numeric a) => MatMul a (Conj Matrix) Vector Vector where
   Conj m @@ v = tr' m HM.#> v
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Tr Vector a) (Matrix b) (Tr Vector a) where
+instance (Num a, Numeric a) => MatMul a (Tr Vector) Matrix (Tr Vector) where
   Tr v @@ m = Tr (tr m #> v)
 
-instance (a ~ b, Num a, Numeric a) => MatMul (Conj Vector a) (Matrix b) (Conj Vector a) where
+instance (Num a, Numeric a) => MatMul a (Conj Vector) Matrix (Conj Vector) where
   Conj v @@ m = Conj (tr' m #> v)
