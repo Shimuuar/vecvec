@@ -36,10 +36,11 @@ tests = testGroup "MatMul"
   , prop_matmul @Symmetric        @Vec @D
   , prop_matmul @Symmetric        @Vec @C
   , prop_matmul @Symmetric        @Vec @Z
-  , prop_matmul @(Tr Symmetric)   @Vec @S
-  , prop_matmul @(Tr Symmetric)   @Vec @D
-  , prop_matmul @(Tr Symmetric)   @Vec @C
-  , prop_matmul @(Tr Symmetric)   @Vec @Z
+  -- Symmetric-vector
+  , prop_matmul @Hermitian        @Vec @S
+  , prop_matmul @Hermitian        @Vec @D
+  , prop_matmul @Hermitian        @Vec @C
+  , prop_matmul @Hermitian        @Vec @Z
     -- Matrix-matrix
     -- 1.
   , prop_matmul @Matrix        @Matrix @S
@@ -112,8 +113,8 @@ tests = testGroup "MatMul"
 prop_matmul
   :: forall v1 v2 a vR.
      ( TestMat v1 a, TestMat v2 a, TestMat vR a
-     , MatMul (Model1M v1 a) (Model1M v2 a) (Model1M vR a)
-     , MatMul (v1 a)         (v2 a)         (vR a)
+     , MatMul a (Model1M v1) (Model1M v2) (Model1M vR)
+     , MatMul a  v1           v2           vR
      , Typeable v1, Typeable v2, Typeable a
      , Eq   (vR a)
      , Show (vR a)

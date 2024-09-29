@@ -155,7 +155,7 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
 -- Matrix-Vector
 ----------------------------------------------------------------
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a Matrix Vec Vec where
   m @@ v
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
@@ -163,7 +163,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Vec a') (Vec a) where
     M.unsafeBlasGemv C.NoTrans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a (Tr Matrix) Vec Vec where
   Tr m @@ v
     | nRows m /= VG.length v = error "matrix size mismatch"
   Tr mat @@ vecX = unsafePerformIO $ do
@@ -171,7 +171,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Vec a') (Vec a) where
     M.unsafeBlasGemv C.Trans 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a (Conj Matrix) Vec Vec where
   Conj m @@ v
     | nRows m /= VG.length v = error "matrix size mismatch"
   Conj mat @@ vecX = unsafePerformIO $ do
@@ -185,7 +185,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Vec a') (Vec a) where
 -- Matrix-Matrix (9 instances)
 ----------------------------------------------------------------
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Matrix Matrix Matrix where
   matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -198,7 +198,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Matrix a') (Matrix a) where
       n' = nRows matB
       k  = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Tr Matrix) Matrix Matrix where
   Tr matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -211,7 +211,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Matrix a') (Matrix a) wh
       n' = nRows matB
       k  = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Conj Matrix) Matrix Matrix where
   Conj matA @@ matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -226,7 +226,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Matrix a') (Matrix a) 
 
 
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Tr Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Matrix (Tr Matrix) Matrix where
   matA @@ Tr matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -239,7 +239,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Tr Matrix a') (Matrix a) wh
       k  = nRows matB
       n' = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Tr Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Tr Matrix) (Tr Matrix) Matrix where
   Tr matA @@ Tr matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -252,7 +252,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Tr Matrix a') (Matrix a)
       k  = nRows matB
       n' = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Tr Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Conj Matrix) (Tr Matrix) Matrix where
   Conj matA @@ Tr matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -266,7 +266,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Tr Matrix a') (Matrix 
       n' = nCols matB
 
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Conj Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Matrix (Conj Matrix) Matrix where
   matA @@ Conj matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -279,7 +279,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Conj Matrix a') (Matrix a) 
       k  = nRows matB
       n' = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Conj Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Tr Matrix) (Conj Matrix) Matrix where
   Tr matA @@ Conj matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do
@@ -292,7 +292,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Tr Matrix a) (Conj Matrix a') (Matrix 
       k  = nRows matB
       n' = nCols matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Conj Matrix a) (Conj Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a (Conj Matrix) (Conj Matrix) Matrix where
   Conj matA @@ Conj matB
     | n /= n'   = error "Matrix size mismatch"
     | otherwise = unsafePerformIO $ do

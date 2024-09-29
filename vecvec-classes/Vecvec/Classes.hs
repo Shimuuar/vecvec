@@ -196,11 +196,13 @@ scalarNorm = sqrt . scalarNormSq
 -- Matrix operations
 ----------------------------------------------------------------
 
--- | Matrix and vector multiplication. There are a lot of possible
---   representations of matrices: dense, banded, etc. Thus we have to
---   make this class extremely generic.
-class MatMul a b r | a b -> r where
-  (@@) :: a -> b -> r
+-- | This type class provides overloading for matrix-matrix and matrix
+--   vector multiplication. There are a lot of representations of
+--   matrices: general, symmetric, banded, etc. For convenience we
+--   need to provide overloads for all implemented operations.
+class MatMul a f g h | f g -> h where
+  -- | Apply linear map @f : g → h@ to element of some vector space @g@.
+  (@@) :: f a -> g a -> h a
 
 infixl 7 @@
 

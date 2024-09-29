@@ -535,32 +535,32 @@ instance IsModelMat ModelSym a where
 
 
 -- Matrix × Vector
-instance (NormedScalar a) => MatMul (     ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Tr   ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Conj ModelMat a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (     ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Tr   ModelSym a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (     ModelHer a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
-instance (NormedScalar a) => MatMul (Conj ModelHer a) (ModelVec a) (ModelVec a) where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (     ModelMat) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (Tr   ModelMat) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (Conj ModelMat) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (     ModelSym) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (Tr   ModelSym) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (     ModelHer) ModelVec ModelVec where (@@) = defaultMulMV
+instance (NormedScalar a) => MatMul a (Conj ModelHer) ModelVec ModelVec where (@@) = defaultMulMV
 
 -- Matrix × Matrix
-instance (NormedScalar a) => MatMul      (ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj ModelMat a)      (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul      (ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj ModelMat a) (Tr   ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul      (ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Tr   ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (Conj ModelMat a) (Conj ModelMat a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a       ModelMat        ModelMat  ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Tr   ModelMat)       ModelMat  ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Conj ModelMat)       ModelMat  ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a       ModelMat  (Tr   ModelMat) ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Tr   ModelMat) (Tr   ModelMat) ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Conj ModelMat) (Tr   ModelMat) ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a       ModelMat  (Conj ModelMat) ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Tr   ModelMat) (Conj ModelMat) ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a (Conj ModelMat) (Conj ModelMat) ModelMat where (@@) = defaultMulMM
 --
-instance (NormedScalar a) => MatMul (ModelSym a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (ModelMat a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (ModelSym a) (ModelSym a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelSym ModelMat ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelMat ModelSym ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelSym ModelSym ModelMat where (@@) = defaultMulMM
 --
-instance (NormedScalar a) => MatMul (ModelHer a) (ModelMat a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (ModelMat a) (ModelHer a) (ModelMat a) where (@@) = defaultMulMM
-instance (NormedScalar a) => MatMul (ModelHer a) (ModelHer a) (ModelMat a) where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelHer ModelMat ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelMat ModelHer ModelMat where (@@) = defaultMulMM
+instance (NormedScalar a) => MatMul a ModelHer ModelHer ModelMat where (@@) = defaultMulMM
 
 -- Default model implementation of matrix-matrix multiplication
 defaultMulMM :: (Num a, IsModelMat m1 a, IsModelMat m2 a) => m1 a -> m2 a -> ModelMat a

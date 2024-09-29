@@ -255,7 +255,7 @@ instance (C.LAPACKy a, R a ~ a) => VectorSpace (Hermitian a) where
   (*.) = unsafeMultipleByScalar
   (.*) = flip (*.)
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Vec a') (Vec a) where
+instance (C.LAPACKy a) => MatMul a Hermitian Vec Vec where
   m @@ v
     | nCols m /= VG.length v = error "matrix size mismatch"
   mat @@ vecX = unsafePerformIO $ do
@@ -263,11 +263,9 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Vec a') (Vec a) where
     MSym.unsafeBlasHemv 1 mat vecX 0 vecY
     VG.unsafeFreeze vecY
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Tr Hermitian a) (Vec a') (Vec a) where
-  Tr m @@ v = m @@ v
 
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Matrix a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Hermitian Matrix Matrix where
   matA @@ matB
     | nCols matA /= n = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do
@@ -277,7 +275,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Matrix a') (Matrix a) wh
     where
       (n,k) = shape matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Hermitian a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Matrix Hermitian Matrix where
   matB @@ matA
     | nCols matA /= n = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do
@@ -287,7 +285,7 @@ instance (C.LAPACKy a, a ~ a') => MatMul (Matrix a) (Hermitian a') (Matrix a) wh
     where
       (k,n) = shape matB
 
-instance (C.LAPACKy a, a ~ a') => MatMul (Hermitian a) (Hermitian a') (Matrix a) where
+instance (C.LAPACKy a) => MatMul a Hermitian Hermitian Matrix where
   matA @@ matB
     | n /= nCols matB = error "matrix size mismatch"
     | otherwise       = unsafePerformIO $ do
