@@ -175,7 +175,9 @@ normalizeMag v = (v ./ fromR n, n) where n = magnitude v
 --   class in order to be able to compute norm of vector over complex
 --   field.
 --
---   > isReal (a * conjugate a) == True
+--   > ∀x. isReal (x * conjugate x) == True
+--   > ∀x. isReal (fromR x)         == True
+--   > ∀x. isReal x  ⇒  x == conjugate x
 class (Num v, Num (R v)) => NormedScalar v where
   -- | Type representing norm of scalar. @R@ stands for real
   type R v
