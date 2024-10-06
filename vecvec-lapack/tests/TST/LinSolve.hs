@@ -17,7 +17,7 @@ import Data.Vector.Generic       qualified as VG
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-import Vecvec.Classes
+import Vecvec.Classes                hiding (C)
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
 import Vecvec.LAPACK.Vector          (Vec,LAPACKy)

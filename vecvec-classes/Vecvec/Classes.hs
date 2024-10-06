@@ -34,6 +34,7 @@ module Vecvec.Classes
   , VectorSpace(..)
   , (./)
   , NormedScalar(..)
+  , C
   , InnerSpace(..)
   , magnitude
   , normalize
@@ -192,6 +193,10 @@ class (Num v, Num (R v)) => NormedScalar v where
   fromR        :: R v -> v
   -- | Check whether value is pure real.
   isReal       :: v -> Bool
+
+
+-- | Type of complex number corresponding to real or complex number @a@.
+type family C a
 
 
 ----------------------------------------------------------------
@@ -504,6 +509,11 @@ instance RealFloat a => NormedScalar (Complex a) where
   scalarNormSq (r :+ i) = r*r + i*i
   fromR x               = x :+ 0
   isReal (_ :+ im)      = im == 0
+
+
+type instance C Float       = Complex Float
+type instance C Double      = Complex Double
+type instance C (Complex a) = Complex a
 
 
 ----------------------------------------------------------------
