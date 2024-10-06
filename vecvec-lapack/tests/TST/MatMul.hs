@@ -6,7 +6,7 @@ import Data.Typeable
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-import Vecvec.Classes
+import Vecvec.Classes          hiding (C)
 import Vecvec.LAPACK.Vector    (Vec)
 import Vecvec.LAPACK.Matrix    (Matrix)
 import Vecvec.LAPACK.Hermitian (Hermitian)

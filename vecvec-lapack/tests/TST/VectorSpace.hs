@@ -17,7 +17,7 @@ import Data.Vector          qualified as V
 import Data.Vector.Unboxed  qualified as VU
 import Data.Vector.Storable qualified as VS
 
-import Vecvec.Classes
+import Vecvec.Classes          hiding (C)
 import Vecvec.LAPACK.Vector    (Vec)
 import Vecvec.LAPACK.Matrix    (Matrix)
 import Vecvec.LAPACK.Symmetric (Symmetric)
