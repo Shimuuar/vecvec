@@ -16,6 +16,9 @@ module Vecvec.LAPACK.LinAlg
   , invertMatrix
     -- * Matrix decomposition
   , decomposeSVD
+    -- * Eigenvalues and eigenvectors
+  , eigvals
+  , eigvecs
   ) where
 
 import Control.Monad.ST
@@ -29,6 +32,7 @@ import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
 import Vecvec.LAPACK.Unsafe.Hermitian         (Hermitian)
+import Vecvec.LAPACK.Unsafe.Matrix            qualified as Mat
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable    qualified as MMat
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable    (MMatrix(..), MView(..))
 import Vecvec.LAPACK.Unsafe.Symmetric.Mutable qualified as MSym
@@ -38,8 +42,8 @@ import Vecvec.LAPACK.Unsafe.Hermitian.Mutable (MHermitian(..))
 import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
-import Vecvec.LAPACK.FFI
 import Vecvec.LAPACK.LinAlg.Types
+import Vecvec.LAPACK.FFI hiding (S,D,C,Z)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 
@@ -259,3 +263,53 @@ nullMatrix = unsafePerformIO $ do
     , leadingDim = 1
     , buffer     = buf
     }
+
+
+eigvals
+  :: (LAPACKy a, Storable (R a))
+  => Matrix a -> Vec (Complex (R a))
+eigvals mat0
+  | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
+eigvals mat0 = runST $ do
+  MMatrix mat <- MMat.clone mat0
+  MVec    vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+      geev RowMajor EigN EigN
+        (toL n) ptr_A (toL mat.leadingDim)
+        ptr_V
+        nullPtr (toL 1) nullPtr (toL 1)
+  case info of
+    LAPACK0 -> pure $ Vec vec
+    _       -> error "solveLinEqSym failed"
+  where
+    n = nRows mat0
+
+
+eigvecs
+  :: (LAPACKy a, Storable (R a))
+  => Matrix a
+  -- FIXME: What do we want to return???
+  -> (Vec (Complex (R a)), Matrix a)
+eigvecs mat0
+  | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
+eigvecs mat0 = runST $ do
+  MMatrix mat  <- MMat.clone mat0
+  MVec    vec  <- MVG.unsafeNew n
+  MMatrix vecR <- MMat.unsafeNew (n,n)
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+    unsafeWithForeignPtr vecR.buffer   $ \ptr_VR -> do
+      geev RowMajor EigN EigV
+        (toL n) ptr_A (toL mat.leadingDim)
+        ptr_V
+        nullPtr (toL 1)
+        ptr_VR  (toL n)
+  case info of
+    LAPACK0 -> pure ( Vec vec
+                    , Matrix vecR)
+    _       -> error "solveLinEqSym failed"
+  where
+    n = nRows mat0
