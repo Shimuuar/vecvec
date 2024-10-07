@@ -53,7 +53,6 @@ import Foreign.Storable
 import Foreign.Marshal
 import Foreign.Storable.Complex ()
 import Vecvec.Classes           (NormedScalar(..))
-import Vecvec.Classes           qualified as Classes
 
 
 -- We want to be able to easily switch how we do foreign calls. ccall
@@ -504,18 +503,18 @@ class (NormedScalar a, Storable a) => LAPACKy a where
 
   -- | Compute eigenvalues of a general matrix
   geev
-    :: MatrixLayout       -- ^ Matrix layout
-    -> EigJob             -- ^ Whether to compute left eigenvectors
-    -> EigJob             -- ^ Whether to compute right eigenvectors
-    -> LAPACKInt          -- ^ Size of a matrix
-    -> Ptr a              -- ^ @[IN,OUT]@ Buffer of a matrix. It will
-                          --   be overwritten on exit.
-    -> LAPACKInt          -- ^ Leading dimension of a matrix
-    -> Ptr (Classes.C a)  -- ^ @[OUT]@ buffer for eigenvalues
-    -> Ptr a              -- ^ Buffer for left eigenvectors.
-    -> LAPACKInt          -- ^ Leading dimension for left eigenvectors.
-    -> Ptr a              -- ^ Buffer for right eigenvectors.
-    -> LAPACKInt          -- ^ Leading dimension for right eigenvectors.
+    :: MatrixLayout        -- ^ Matrix layout
+    -> EigJob              -- ^ Whether to compute left eigenvectors
+    -> EigJob              -- ^ Whether to compute right eigenvectors
+    -> LAPACKInt           -- ^ Size of a matrix
+    -> Ptr a               -- ^ @[IN,OUT]@ Buffer of a matrix. It will
+                           --   be overwritten on exit.
+    -> LAPACKInt           -- ^ Leading dimension of a matrix
+    -> Ptr (Complex (R a)) -- ^ @[OUT]@ buffer for eigenvalues
+    -> Ptr a               -- ^ Buffer for left eigenvectors.
+    -> LAPACKInt           -- ^ Leading dimension for left eigenvectors.
+    -> Ptr a               -- ^ Buffer for right eigenvectors.
+    -> LAPACKInt           -- ^ Leading dimension for right eigenvectors.
     -> IO LAPACKInt
 
 instance LAPACKy Float where

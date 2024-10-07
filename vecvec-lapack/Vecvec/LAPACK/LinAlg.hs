@@ -28,6 +28,12 @@ import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Data.Char
+import Data.Complex
+import Data.Vector               qualified as V
+import Data.Vector.Unboxed       qualified as VU
+import Data.Vector.Storable      qualified as VS
+import Data.Vector.Primitive     qualified as VP
+import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
@@ -266,8 +272,8 @@ nullMatrix = unsafePerformIO $ do
 
 
 eigvals
-  :: (LAPACKy a, Storable (C a))
-  => Matrix a -> Vec (C a)
+  :: (LAPACKy a, Storable (R a))
+  => Matrix a -> Vec (Complex (R a))
 eigvals mat0
   | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
 eigvals mat0 = runST $ do
@@ -288,10 +294,10 @@ eigvals mat0 = runST $ do
 
 
 eigvecs
-  :: (LAPACKy a, Storable (C a))
+  :: (LAPACKy a, Storable (R a))
   => Matrix a
   -- FIXME: What do we want to return???
-  -> (Vec (C a), [Vec a])
+  -> (Vec (Complex (R a)), [Vec a])
 eigvecs mat0
   | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
 eigvecs mat0 = runST $ do
