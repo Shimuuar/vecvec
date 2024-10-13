@@ -152,6 +152,10 @@ instance (i ~ Int, Storable a) => Slice (Range i) (MVec s a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceMVector
 
+instance (Storable a) => Slice (Int,Int) (MVec s a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceMVector
+
 deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (MVec s a)
 
 

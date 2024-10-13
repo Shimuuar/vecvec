@@ -80,6 +80,9 @@ instance (i ~ Int, Storable a) => Slice (i, Length) (Vec a) where
 instance (i ~ Int, Storable a) => Slice (i, End) (Vec a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceVector
+instance (Storable a) => Slice (Int, Int) (Vec a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceVector
 instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceVector
