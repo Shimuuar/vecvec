@@ -44,6 +44,7 @@ module Vecvec.Classes.NDArray
   , Range(..)
   , End(..)
   , Length(..)
+  , Strided(..)
     -- * Unsafe functions
   , unsafeIndex
     -- * Default implementations

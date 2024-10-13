@@ -14,7 +14,6 @@ import Data.Vector.Primitive qualified as VP
 
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Vector         (Vec)
-import Vecvec.LAPACK.Vector.Mutable (Strided(..))
 
 tests :: TestTree
 tests = testGroup "slice"

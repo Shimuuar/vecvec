@@ -12,7 +12,6 @@ module Vecvec.LAPACK.Unsafe.Vector.Mutable
   , InVector(..)
     -- * Mutable vector
   , MVec(..)
-  , Strided(..)
   , LAPACKy
   , fromMVector
     -- * Mutable BLAS wrappersx
@@ -132,10 +131,6 @@ newtype MVec s a = MVec (VecRepr a)
 fromMVector :: MVS.MVector s a -> MVec s a
 fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
 
-
--- | Data type which is used for slicing which changes stride of a
---   vector.
-data Strided a = Strided a !Int
 
 
 type instance Rank (MVec s) = 1

@@ -6,7 +6,6 @@
 module Vecvec.LAPACK.Vector.Mutable
   ( -- * Data type and type classes
     MVec
-  , Strided(..)
     -- * Type classes
   , LAPACKy
   , InVector

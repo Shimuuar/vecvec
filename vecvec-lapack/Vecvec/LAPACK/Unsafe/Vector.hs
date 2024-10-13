@@ -3,7 +3,6 @@
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Unsafe.Vector
   ( Vec(..)
-  , Strided(..)
   , LAPACKy
   ) where
 
@@ -27,9 +26,8 @@ import Data.Vector.Fusion.Util      (liftBox)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Unsafe.Compat
-import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..), Strided(..)
-                                             ,blasDotc, blasScal, blasAxpy, clone
-                                             )
+import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..)
+                                           ,blasDotc, blasScal, blasAxpy, clone)
 
 
 ----------------------------------------------------------------

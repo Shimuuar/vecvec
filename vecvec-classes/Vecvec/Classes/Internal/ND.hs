@@ -35,6 +35,7 @@ module Vecvec.Classes.Internal.ND
   , Range(..)
   , End(..)
   , Length(..)
+  , Strided(..)
     -- ** Mutable arrays
   , NDMutable(..)
   , unsafeReadArr
@@ -216,6 +217,12 @@ data End = End
 -- | Use length of vector for a slice.
 newtype Length = Length { unLength :: Int }
   deriving stock (Show,Eq,Ord,Generic)
+
+-- | Slice specification for arrays which support striding (selecting
+--   every n'th element). @a `Strided` n@ means selecting slice @a@
+--   and every n'th element from it.
+data Strided a = Strided a !Int
+
 
 
 ----------------------------------------------------------------
