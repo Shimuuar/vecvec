@@ -10,6 +10,7 @@ module Vecvec.LAPACK.Matrix.Mutable
     -- * Operations
     -- ** Construction
   , clone
+  , copy
   , new
   , unsafeNew
   , fromRowsFF

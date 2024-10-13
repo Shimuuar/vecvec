@@ -11,6 +11,7 @@ module Vecvec.LAPACK.Unsafe.Matrix.Mutable
     -- * Operations
     -- ** Creation
   , clone
+  , copy
   , new
   , unsafeNew
   , fromRowsFF
@@ -40,7 +41,7 @@ module Vecvec.LAPACK.Unsafe.Matrix.Mutable
   , unsafeCast
   ) where
 
-import Control.Monad           (foldM)
+import Control.Monad           (foldM,when)
 import Control.Monad.Primitive
 import Control.Monad.ST
 import Data.Coerce
@@ -195,7 +196,6 @@ clone mat = stToPrim $ do
   MView{..} <- matrixRepr mat
   let n_elt = ncols * nrows
   unsafeIOToPrim $ do
-    return ()
     buf <- mallocForeignPtrArray n_elt
     unsafeWithForeignPtr buffer $ \src ->
       unsafeWithForeignPtr buf $ \dst ->
@@ -212,6 +212,32 @@ clone mat = stToPrim $ do
                          , leadingDim = ncols
                          , ..
                          }
+
+
+-- | Copy matrix to another matrix. They must have same dimensions
+copy :: forall a m mat s. (Storable a, PrimMonad m, s ~ PrimState m, InMatrix s mat)
+     => mat a       -- ^ Source
+     -> MMatrix s a -- ^ Destination
+     -> m ()
+copy src_mat (MMatrix dst) = stToPrim $ do
+  src <- matrixRepr src_mat
+  -- FIXME: We need Eq for ContVec
+  when (shape src /= (shape dst :: (Int,Int))) $
+    error "copy: Dimensions do not match"
+  --
+  unsafeIOToPrim $
+    unsafeWithForeignPtr src.buffer $ \p_src ->
+    unsafeWithForeignPtr dst.buffer $ \p_dst ->
+         -- Both source and destination are dense. We can copy in one go
+      if | src.ncols == src.leadingDim
+         , dst.ncols == dst.leadingDim
+         -> copyArray p_dst p_src (src.ncols * src.nrows)
+         | otherwise
+         -> loop0_ src.nrows $ \i -> do
+             copyArray
+               (p_dst `advancePtr` (i * dst.leadingDim))
+               (p_src `advancePtr` (i * src.leadingDim))
+               src.ncols
 
 
 -- | Create matrix from list of rows.
