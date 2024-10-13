@@ -199,7 +199,9 @@ instance (i ~ Int) => Slice1D (Range i) where
       j  = mirror j0
       sz = j - i
 
-
+instance Slice1D (Int,Int) where
+  {-# INLINE computeSlice1D #-}
+  computeSlice1D len (i,j) = computeSlice1D len (i:..j)
 
 -- | Semiopen range @a :.. b@
 data Range a = a :.. a
