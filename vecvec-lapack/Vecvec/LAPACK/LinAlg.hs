@@ -141,6 +141,28 @@ instance LAPACKy a => LinearEq Symmetric a where
 instance LAPACKy a => LinearEq Hermitian a where
   (\\\) = solveLinEqHer
 
+
+-- | Data type used for computing dimension of RHS of equations
+data RhsDim
+  = DimMismatch !Int !Int
+  -- ^ There're at least two vectors with different dimension
+  | UnknownDim
+  -- ^ Dimension is unknown (e.g. RHS is empty)
+  | Dim !Int
+  -- ^ All vectors on RHS have this dimension.
+  deriving (Show)
+
+instance Semigroup RhsDim where
+  Dim n           <> Dim k | n == k = Dim n
+                           | otherwise = DimMismatch n k
+  UnknownDim      <> d               = d
+  d               <> UnknownDim      = d
+  d@DimMismatch{} <> _               = d
+  _               <> d@DimMismatch{} = d
+
+instance Monoid RhsDim where
+  mempty = UnknownDim
+
 -- | When solving linear equations like \(Ax=b\) most of the work is
 --   spent on factoring matrix. Thus it's computationally advantageous
 --   to batch right hand sides of an equation. This type class exists
@@ -151,7 +173,7 @@ class LinearEqRHS rhs a where
   numberOfRhs :: Proxy a -> rhs -> Int
   -- | Compute dimension of right hand side. Should return @Nothing@
   --   if it's not possible to compute one or right sides have different sizes
-  dimensionOfRhs :: Proxy a -> rhs -> Maybe Int
+  dimensionOfRhs :: Proxy a -> rhs -> RhsDim
   -- | Store RHS to a matrix as columns.
   storeRhsToMatrix :: Storable a
                    => Int         -- ^ Offset in buffer
@@ -181,8 +203,9 @@ rhsToMatrix rhs = do
   return mat
   where
     n = numberOfRhs    (Proxy @a) rhs
-    k = maybe (error "No RHS dimension") id
-      $ dimensionOfRhs (Proxy @a) rhs
+    k = case dimensionOfRhs (Proxy @a) rhs of
+      Dim i -> i
+      _ -> error "TODO: how to handle this"
 
 -- | Extract solutions from matrix. First argument is used to retain
 --   information which isn't right hand sides.
@@ -194,13 +217,8 @@ rhsGetSolutions rhs solution = loadRhsFromMatrix rhs 0 solution
 
 
 instance (LinearEqRHS r1 a, LinearEqRHS r2 a) => LinearEqRHS (r1,r2) a where
-  numberOfRhs    p (r1,r2) = numberOfRhs p r1 + numberOfRhs p r2
-  dimensionOfRhs p (r1,r2)
-    | Just n1 <- dimensionOfRhs p r1
-    , Just n2 <- dimensionOfRhs p r2
-    , n1 == n2
-      = Just n1
-    | otherwise = Nothing
+  numberOfRhs    p (r1,r2) = numberOfRhs    p r1 +  numberOfRhs    p r2
+  dimensionOfRhs p (r1,r2) = dimensionOfRhs p r1 <> dimensionOfRhs p r2
   --
   storeRhsToMatrix i (r1,r2) dst = do
     storeRhsToMatrix i        r1 dst
@@ -218,7 +236,7 @@ instance (LinearEqRHS r1 a, LinearEqRHS r2 a) => LinearEqRHS (r1,r2) a where
 
 instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
   numberOfRhs    _ = nCols
-  dimensionOfRhs _ = Just . nRows
+  dimensionOfRhs _ = Dim . nRows
   --
   storeRhsToMatrix  i src dst = do
     MMat.copy src
@@ -229,35 +247,35 @@ instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
 
 instance (a ~ a', Storable a) => LinearEqRHS (Vec a) a' where
   numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Just . VG.length
+  dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix i v dst = do
     loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
   loadRhsFromMatrix _ i res = getCol res i
 
 instance (a ~ a', Storable a) => LinearEqRHS (V.Vector a) a' where
   numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Just . VG.length
+  dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix i v dst = do
     loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
   loadRhsFromMatrix _ i res = VG.convert $ getCol res i
 
 instance (a ~ a', Storable a) => LinearEqRHS (VS.Vector a) a' where
   numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Just . VG.length
+  dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix i v dst = do
     loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
   loadRhsFromMatrix _ i res = VG.convert $ getCol res i
 
 instance (a ~ a', Storable a, VU.Unbox a) => LinearEqRHS (VU.Vector a) a' where
   numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Just . VG.length
+  dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix i v dst = do
     loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
   loadRhsFromMatrix _ i res = VG.convert $ getCol res i
 
 instance (a ~ a', Storable a, VP.Prim a) => LinearEqRHS (VP.Vector a) a' where
   numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Just . VG.length
+  dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix i v dst = do
     loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
   loadRhsFromMatrix _ i res = VG.convert $ getCol res i
