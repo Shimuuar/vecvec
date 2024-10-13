@@ -143,16 +143,17 @@ inBoundsCVec idx size
 -- Slicing
 ----------------------------------------------------------------
 
--- | Very generic type class for slicing vectors, matrices etc. It's
---   expected that slice is done in /O(1)/. There are many possible
---   parameterizations of slice and different data structures require
---   different parameterizations. This type class is used to abstract
---   over this.
+-- | Very generic type class for slicing N-dimensional arrays. It's
+--   expected that slice is created in /O(1)/ and shares underlying
+--   buffer with parent array. @i@ is a specification of slice and @v@
+--   is array being sliced.
 class Slice i v where
   -- | Expected /O(1)/. Return slice of vector @v@ or @Nothing@ if
   --   required slice is not valid.
   sliceMaybe :: i -> v -> Maybe v
 
+-- | Compute slice of an array @v@. This function raises an exception
+--   if slice specification is not valid.
 slice :: Slice i v => i -> v -> v
 {-# INLINE slice #-}
 slice idx v = case sliceMaybe idx v of
