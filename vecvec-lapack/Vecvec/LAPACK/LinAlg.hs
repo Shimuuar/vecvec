@@ -7,6 +7,8 @@ module Vecvec.LAPACK.LinAlg
     -- ** Type classes
     LinearEq(..)
   , LinearEqRHS(..)
+  , rhsToMatrix
+  , rhsGetSolutions
     -- ** Solvers
   , solveLinEq
   , solveLinEqSym
@@ -23,6 +25,7 @@ import Control.Monad.Primitive
 import Foreign.Storable
 import Foreign.Marshal.Array
 import Data.Char
+import Data.Proxy
 import Data.Vector               qualified as V
 import Data.Vector.Unboxed       qualified as VU
 import Data.Vector.Storable      qualified as VS
@@ -42,10 +45,14 @@ import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
 import Vecvec.LAPACK.FFI
+import Vecvec.LAPACK.Utils
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.NDMutable
 
 import System.IO.Unsafe
+
+
 
 -- | Perform SVD decomposition of arbitrary matrix \(A\):
 --
@@ -120,7 +127,7 @@ invertMatrix m
 --   default algorithm for solving linear equations
 class LinearEq m a where
   -- | Solve linear equation \(Ax=b\)
-  (\\\) :: (LinearEqRHS rhs a) => m a -> rhs a -> rhs a
+  (\\\) :: (LinearEqRHS rhs a) => m a -> rhs -> rhs
 
 -- | See 'solveLinEq'
 instance LAPACKy a => LinearEq Matrix a where
@@ -139,49 +146,123 @@ instance LAPACKy a => LinearEq Hermitian a where
 --   to batch right hand sides of an equation. This type class exists
 --   in order to built such batches in form of matrices from haskell
 --   data structures
---
---   Type class is traversal like and should obey following law:
---
---   > rhsGetSolutions rhs (runST (rhsToMatrix rhs >>= unsafeFreeze))
---   >   == rhs
 class LinearEqRHS rhs a where
-  -- | Convert right hand of equation to matrix where each \(b\) is
-  --   arranged as column. We need to create mutable matrix in order
-  --   to ensure that fresh buffer is allocated since LAPACK routines
-  --   frequently reuse storage.
-  rhsToMatrix     :: Storable a => rhs a -> ST s (MMatrix s a)
-  -- | Extract solutions from matrix. First argument is used to retain
-  --   information which isn't right hand sides.
-  rhsGetSolutions :: Storable a => rhs a -> Matrix a -> rhs a
+  -- | Number of right hand sides in a container.
+  numberOfRhs :: Proxy a -> rhs -> Int
+  -- | Compute dimension of right hand side. Should return @Nothing@
+  --   if it's not possible to compute one or right sides have different sizes
+  dimensionOfRhs :: Proxy a -> rhs -> Maybe Int
+  -- | Store RHS to a matrix as columns.
+  storeRhsToMatrix :: Storable a
+                   => Int         -- ^ Offset in buffer
+                   -> rhs         -- ^ Right hand side of equation
+                   -> MMatrix s a -- ^ Output buffer
+                   -> ST s ()
+  -- | Read solution from a matrix. Original right hand side provides
+  --   information about shape of RHS.
+  loadRhsFromMatrix
+    :: Storable a
+    => rhs      -- ^ Original RHS
+    -> Int      -- ^ Offset in a buffer
+    -> Matrix a -- ^ Solution
+    -> rhs
 
 
-instance LinearEqRHS Matrix a where
-  rhsToMatrix     = MMat.clone
-  rhsGetSolutions = const id
+-- | Convert right hand of equation to matrix where each \(b\) is
+--   arranged as column. We need to create mutable matrix in order
+--   to ensure that fresh buffer is allocated since LAPACK routines
+--   frequently reuse storage.
+rhsToMatrix
+  :: forall a rhs s. (LinearEqRHS rhs a, Storable a)
+  => rhs -> ST s (MMatrix s a)
+rhsToMatrix rhs = do
+  mat <- MMat.new (k, n)
+  storeRhsToMatrix 0 rhs mat
+  return mat
+  where
+    n = numberOfRhs    (Proxy @a) rhs
+    k = maybe (error "No RHS dimension") id
+      $ dimensionOfRhs (Proxy @a) rhs
 
-instance LinearEqRHS [] a where
-  rhsToMatrix v = MMat.fromColsFF [v]
-  rhsGetSolutions _ m = VG.toList $ getCol m 0
+-- | Extract solutions from matrix. First argument is used to retain
+--   information which isn't right hand sides.
+rhsGetSolutions
+  :: forall a rhs. (LinearEqRHS rhs a, Storable a)
+  => rhs -> Matrix a -> rhs
+rhsGetSolutions rhs solution = loadRhsFromMatrix rhs 0 solution
 
-instance LinearEqRHS Vec a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = getCol m 0
 
-instance LinearEqRHS V.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
 
-instance VS.Storable a => LinearEqRHS VS.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
+instance (LinearEqRHS r1 a, LinearEqRHS r2 a) => LinearEqRHS (r1,r2) a where
+  numberOfRhs    p (r1,r2) = numberOfRhs p r1 + numberOfRhs p r2
+  dimensionOfRhs p (r1,r2)
+    | Just n1 <- dimensionOfRhs p r1
+    , Just n2 <- dimensionOfRhs p r2
+    , n1 == n2
+      = Just n1
+    | otherwise = Nothing
+  --
+  storeRhsToMatrix i (r1,r2) dst = do
+    storeRhsToMatrix i        r1 dst
+    storeRhsToMatrix (i + n1) r2 dst
+    where
+      n1 = numberOfRhs (Proxy @a) r1
+  --
+  loadRhsFromMatrix (r1,r2) i res =
+    ( loadRhsFromMatrix r1  i       res
+    , loadRhsFromMatrix r2 (i + n1) res
+    ) where
+    n1 = numberOfRhs (Proxy @a) r1
 
-instance VP.Prim a => LinearEqRHS VP.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
 
-instance VU.Unbox a => LinearEqRHS VU.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
+
+instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
+  numberOfRhs    _ = nCols
+  dimensionOfRhs _ = Just . nRows
+  --
+  storeRhsToMatrix  i src dst = do
+    MMat.copy src
+              (((0,End), (i, Length (nCols src))) `slice` dst)
+  --
+  loadRhsFromMatrix rhs i = slice ((0,End), (i, Length (nCols rhs)))
+
+
+instance (a ~ a', Storable a) => LinearEqRHS (Vec a) a' where
+  numberOfRhs    _ _ = 1
+  dimensionOfRhs _   = Just . VG.length
+  storeRhsToMatrix i v dst = do
+    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
+  loadRhsFromMatrix _ i res = getCol res i
+
+instance (a ~ a', Storable a) => LinearEqRHS (V.Vector a) a' where
+  numberOfRhs    _ _ = 1
+  dimensionOfRhs _   = Just . VG.length
+  storeRhsToMatrix i v dst = do
+    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
+  loadRhsFromMatrix _ i res = VG.convert $ getCol res i
+
+instance (a ~ a', Storable a) => LinearEqRHS (VS.Vector a) a' where
+  numberOfRhs    _ _ = 1
+  dimensionOfRhs _   = Just . VG.length
+  storeRhsToMatrix i v dst = do
+    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
+  loadRhsFromMatrix _ i res = VG.convert $ getCol res i
+
+instance (a ~ a', Storable a, VU.Unbox a) => LinearEqRHS (VU.Vector a) a' where
+  numberOfRhs    _ _ = 1
+  dimensionOfRhs _   = Just . VG.length
+  storeRhsToMatrix i v dst = do
+    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
+  loadRhsFromMatrix _ i res = VG.convert $ getCol res i
+
+instance (a ~ a', Storable a, VP.Prim a) => LinearEqRHS (VP.Vector a) a' where
+  numberOfRhs    _ _ = 1
+  dimensionOfRhs _   = Just . VG.length
+  storeRhsToMatrix i v dst = do
+    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
+  loadRhsFromMatrix _ i res = VG.convert $ getCol res i
+
+
 
 
 -- | Simple solver for linear equation of the form \(Ax=b\).
@@ -193,8 +274,8 @@ instance VU.Unbox a => LinearEqRHS VU.Vector a where
 solveLinEq
   :: (LinearEqRHS rhs a, LAPACKy a)
   => Matrix a -- ^ Matrix \(A\)
-  -> rhs a    -- ^ Right hand side(s) \(b\)
-  -> rhs a
+  -> rhs      -- ^ Right hand side(s) \(b\)
+  -> rhs
 solveLinEq a _
   | nRows a /= nCols a = error "Matrix A is not square"
 solveLinEq a0 rhs = runST $ do
@@ -230,8 +311,8 @@ solveLinEq a0 rhs = runST $ do
 solveLinEqSym
   :: (LinearEqRHS rhs a, LAPACKy a)
   => Symmetric a -- ^ Matrix \(A\)
-  -> rhs a       -- ^ Right hand side(s) \(b\)
-  -> rhs a
+  -> rhs         -- ^ Right hand side(s) \(b\)
+  -> rhs
 solveLinEqSym a0 rhs = runST $ do
   -- Clone A it gets destroyed during solution
   MSymmetric a <- MSym.clone a0
@@ -264,8 +345,8 @@ solveLinEqSym a0 rhs = runST $ do
 solveLinEqHer
   :: (LinearEqRHS rhs a, LAPACKy a)
   => Hermitian a -- ^ Matrix \(A\)
-  -> rhs a       -- ^ Right hand side(s) \(b\)
-  -> rhs a
+  -> rhs         -- ^ Right hand side(s) \(b\)
+  -> rhs
 solveLinEqHer a0 rhs = runST $ do
   -- Clone A it gets destroyed during solution
   MHermitian a <- MHer.clone a0
