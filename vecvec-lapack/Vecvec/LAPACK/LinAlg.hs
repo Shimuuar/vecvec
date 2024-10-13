@@ -197,15 +197,16 @@ solveLinEq
   -> rhs a
 solveLinEq a _
   | nRows a /= nCols a = error "Matrix A is not square"
-solveLinEq a0 rhs = unsafePerformIO $ do
+solveLinEq a0 rhs = runST $ do
   -- Prepare right hand side and check sizes. We also need to clone
   -- A. It gets destroyed during solution
   MMatrix a <- MMat.clone a0
   let n = ncols a
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  MMatrix b <- rhsToMatrix rhs
   when (nrows b /= n) $ error "Right hand dimensions don't match"
   -- Solve equation
   info <-
+    unsafeIOToPrim                $
     unsafeWithForeignPtr a.buffer $ \ptr_a    ->
     unsafeWithForeignPtr b.buffer $ \ptr_b    ->
     allocaArray n                 $ \ptr_ipiv ->
@@ -231,18 +232,19 @@ solveLinEqSym
   => Symmetric a -- ^ Matrix \(A\)
   -> rhs a       -- ^ Right hand side(s) \(b\)
   -> rhs a
-solveLinEqSym a0 rhs = unsafePerformIO $ do
+solveLinEqSym a0 rhs = runST $ do
   -- Clone A it gets destroyed during solution
   MSymmetric a <- MSym.clone a0
   -- Prepare right hand side and check sizes. We also need to clone
   let n = a.size
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  MMatrix b <- rhsToMatrix rhs
   when (nrows b /= n) $ error "Right hand dimensions don't match"
   -- Solve equation
   info <-
-    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
-    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
-    allocaArray n                   $ \ptr_ipiv ->
+    unsafeIOToPrim                $
+    unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+    unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+    allocaArray n                 $ \ptr_ipiv ->
       sysv (toCEnum RowMajor) (toCEnum FortranUP)
         (toL n) (toL (ncols b))
         ptr_a (toL a.leadingDim)
@@ -264,18 +266,19 @@ solveLinEqHer
   => Hermitian a -- ^ Matrix \(A\)
   -> rhs a       -- ^ Right hand side(s) \(b\)
   -> rhs a
-solveLinEqHer a0 rhs = unsafePerformIO $ do
+solveLinEqHer a0 rhs = runST $ do
   -- Clone A it gets destroyed during solution
   MHermitian a <- MHer.clone a0
   -- Prepare right hand side and check sizes. We also need to clone
   let n = a.size
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
+  MMatrix b <- rhsToMatrix rhs
   when (nrows b /= n) $ error "Right hand dimensions don't match"
   -- Solve equation
   info <-
-    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
-    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
-    allocaArray n                   $ \ptr_ipiv ->
+    unsafeIOToPrim                $
+    unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+    unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+    allocaArray n                 $ \ptr_ipiv ->
       hesv (toCEnum RowMajor) (toCEnum FortranUP)
         (toL n) (toL (ncols b))
         ptr_a (toL a.leadingDim)
