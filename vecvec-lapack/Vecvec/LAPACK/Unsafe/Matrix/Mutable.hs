@@ -90,6 +90,13 @@ instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
                  , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
                  }
 
+type instance Rank MView = 2
+
+instance HasShape MView a where
+  shapeAsCVec MView{..} = FC.mk2 nrows ncols
+  {-# INLINE shapeAsCVec #-}
+
+
 -- | This type class allows to use both mutable and immutable vector
 --   as input parameters to functions operating in 'PrimMonad' with
 --   state token @s@.
