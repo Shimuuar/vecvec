@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg
@@ -95,18 +94,16 @@ invertMatrix :: LAPACKy a => Matrix a -> Matrix a
 invertMatrix m
   | nCols m /= nRows m = error "Matrix must be square"
   | otherwise          = unsafePerformIO $ do
-      MMatrix inv@MView{..} <- MMat.clone m
+      MMatrix inv <- MMat.clone m
       id $
-        unsafeWithForeignPtr buffer $ \ptr_a    ->
-        allocaArray ncols           $ \ptr_ipiv -> do
-          info_trf <- getrf
-            (toCEnum RowMajor) (toL ncols) (toL ncols)
-            ptr_a (toL leadingDim) ptr_ipiv
+        unsafeWithForeignPtr inv.buffer $ \ptr_a    ->
+        allocaArray inv.ncols           $ \ptr_ipiv -> do
+          let n   = toL inv.ncols
+              lda = toL inv.leadingDim
+          info_trf <- getrf (toCEnum RowMajor) n n ptr_a lda ptr_ipiv
           case info_trf of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
-          info_tri <- getri
-            (toCEnum RowMajor) (toL ncols)
-            ptr_a (toL leadingDim) ptr_ipiv
+          info_tri <- getri (toCEnum RowMajor) n ptr_a lda ptr_ipiv
           case info_tri of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
       --
