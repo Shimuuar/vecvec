@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 -- |
 -- Data types which are necessary for defining APIs for solving linear
 -- systems etc. But ones that aren't needed in standard

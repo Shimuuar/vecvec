@@ -137,14 +137,6 @@ instance LAPACKy a => LinearEq Hermitian a where
 
 
 
-
-
-
-
-
-
-
-
 -- | Simple solver for linear equation of the form \(Ax=b\).
 --
 --   Note that this function does not check whether matrix is
