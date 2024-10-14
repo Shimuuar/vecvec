@@ -63,6 +63,7 @@ Library
     Vecvec.LAPACK.Hermitian
     Vecvec.LAPACK.Hermitian.Mutable
     Vecvec.LAPACK.LinAlg
+    Vecvec.LAPACK.LinAlg.Types
     Vecvec.LAPACK.Utils
     --
     Vecvec.LAPACK.Unsafe.Vector

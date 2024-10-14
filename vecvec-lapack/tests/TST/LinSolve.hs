@@ -35,15 +35,55 @@ import TST.Tools.Util
 tests :: TestTree
 tests = testGroup "LinAlg"
   [ testGroup "solveLinEq"
-    [ testSimpleSolve @Matrix @Vec
-    , testSimpleSolve @Matrix @V.Vector
-    , testSimpleSolve @Matrix @VS.Vector
-    , testSimpleSolve @Matrix @VU.Vector
-    , testSimpleSolve @Matrix @Matrix
-    , testSimpleSolve @Matrix @[]
-      -- No need to test all possible combinations matrix/RHS
-    , testSimpleSolve @Symmetric @Vec
-    , testSimpleSolve @Hermitian @Vec
+    [ testGroup "General"
+      [ testSimpleSolve @Matrix @(Vec S) @S
+      , testSimpleSolve @Matrix @(Vec D) @D
+      , testSimpleSolve @Matrix @(Vec C) @C
+      , testSimpleSolve @Matrix @(Vec Z) @Z
+        --
+      , testSimpleSolve @Matrix @(V.Vector S) @S
+      , testSimpleSolve @Matrix @(V.Vector D) @D
+      , testSimpleSolve @Matrix @(V.Vector C) @C
+      , testSimpleSolve @Matrix @(V.Vector Z) @Z
+        --
+      , testSimpleSolve @Matrix @(VS.Vector S) @S
+      , testSimpleSolve @Matrix @(VS.Vector D) @D
+      , testSimpleSolve @Matrix @(VS.Vector C) @C
+      , testSimpleSolve @Matrix @(VS.Vector Z) @Z
+        --
+      , testSimpleSolve @Matrix @(VU.Vector S) @S
+      , testSimpleSolve @Matrix @(VU.Vector D) @D
+      , testSimpleSolve @Matrix @(VU.Vector C) @C
+      , testSimpleSolve @Matrix @(VU.Vector Z) @Z
+        --
+      , testSimpleSolve @Matrix @(VP.Vector S) @S
+      , testSimpleSolve @Matrix @(VP.Vector D) @D
+      , testSimpleSolve @Matrix @(VP.Vector C) @C
+      , testSimpleSolve @Matrix @(VP.Vector Z) @Z
+        --
+      , testSimpleSolve @Matrix @(Matrix S) @S
+      , testSimpleSolve @Matrix @(Matrix D) @D
+      , testSimpleSolve @Matrix @(Matrix C) @C
+      , testSimpleSolve @Matrix @(Matrix Z) @Z
+        -- Tuples
+      , testSimpleSolve @Matrix @(Matrix S, V.Vector S) @S
+      , testSimpleSolve @Matrix @(Matrix D, V.Vector D) @D
+        -- Lists
+      , testSimpleSolve @Matrix @[Matrix S] @S
+      , testSimpleSolve @Matrix @[Matrix D] @D
+      ]
+    , testGroup "Symmetric"
+      [ testSimpleSolve @Symmetric @(Matrix S) @S
+      , testSimpleSolve @Symmetric @(Matrix D) @D
+      , testSimpleSolve @Symmetric @(Matrix C) @C
+      , testSimpleSolve @Symmetric @(Matrix Z) @Z
+      ]
+    , testGroup "Hermitian"
+      [ testSimpleSolve @Hermitian @(Matrix S) @S
+      , testSimpleSolve @Hermitian @(Matrix D) @D
+      , testSimpleSolve @Hermitian @(Matrix C) @C
+      , testSimpleSolve @Hermitian @(Matrix Z) @Z
+      ]
     ]
   , testGroup "invertMatrix"
     [ testProperty "S" $ prop_invertMatrix @S
@@ -54,32 +94,26 @@ tests = testGroup "LinAlg"
   ]
 
 
--- | Run tests for simple solver for each possible scalar type
+-- | Run tests for simple solver
 testSimpleSolve
-  :: forall mat rhs.
-     ( ArbitraryRHS rhs S, ArbitraryRHS rhs D, ArbitraryRHS rhs C, ArbitraryRHS rhs Z
-     , LinearEqRHS  rhs S, LinearEqRHS  rhs D, LinearEqRHS  rhs C, LinearEqRHS  rhs Z
-     , LinearEq     mat S, LinearEq     mat D, LinearEq     mat C, LinearEq     mat Z
-     , MatMul S mat Vec Vec
-     , MatMul D mat Vec Vec
-     , MatMul C mat Vec Vec
-     , MatMul Z mat Vec Vec
-     , Arbitrary (LinSimple mat rhs S)
-     , Arbitrary (LinSimple mat rhs D)
-     , Arbitrary (LinSimple mat rhs C)
-     , Arbitrary (LinSimple mat rhs Z)
-     , Show (rhs S), Show (rhs D), Show (rhs C), Show (rhs Z)
-     , Show (mat S), Show (mat D), Show (mat C), Show (mat Z)
-     , S ~ Scalar (mat S), D ~ Scalar (mat D), C ~ Scalar (mat C), Z ~ Scalar (mat Z)
-     , Typeable rhs, Typeable mat
+  :: forall mat rhs a.
+     ( ArbitraryRHS rhs a
+     , EquationRHS  rhs a
+     , LinearEq     mat a
+     , MatMul a mat Vec Vec
+     , Scalar (mat a) ~ a
+     , Arbitrary (LinSimple mat rhs a)
+     , VS.Storable a
+     , Show (mat a), Show rhs, Show a
+     , Typeable rhs, Typeable mat, Typeable a
      )
   => TestTree
-testSimpleSolve = testGroup ("Mat = "++qualTypeName @mat ++ "  ; RHS = " ++ qualTypeName @rhs)
-  [ testProperty "S" $ prop_SimpleSolve @mat @rhs @S
-  , testProperty "D" $ prop_SimpleSolve @mat @rhs @D
-  , testProperty "C" $ prop_SimpleSolve @mat @rhs @C
-  , testProperty "Z" $ prop_SimpleSolve @mat @rhs @Z
-  ]
+testSimpleSolve
+  = testProperty ("Mat = "++qualTypeName @mat
+               ++ " ; RHS = " ++ qualTypeName @rhs
+               ++ " ; a = " ++ qualTypeName @a  )
+  $ prop_SimpleSolve @mat @rhs @a
+
 
 -- | Inverse is indeed inverse
 prop_invertMatrix
@@ -97,7 +131,7 @@ prop_invertMatrix (Nonsingular m)
 -- | Test that solution of linear system is indeed solution
 prop_SimpleSolve
   :: forall mat rhs a. ( ArbitraryRHS rhs a
-                       , LinearEqRHS  rhs a
+                       , EquationRHS  rhs a
                        , LinearEq     mat a
                        , MatMul a mat Vec Vec
                        , a ~ Scalar (mat a)
@@ -109,9 +143,9 @@ prop_SimpleSolve (LinSimple (Nonsingular a) rhs)
 
 
 -- | Simple linear equation @Ax = b@ for a given right hand side
-data LinSimple mat rhs a = LinSimple (Nonsingular mat a) (rhs a)
+data LinSimple mat rhs a = LinSimple (Nonsingular mat a) rhs
 
-instance (Show a, Show (mat a), Show (rhs a), VS.Storable a) => Show (LinSimple mat rhs a) where
+instance (Show a, Show (mat a), Show rhs, VS.Storable a) => Show (LinSimple mat rhs a) where
   show (LinSimple a rhs) = "A = \n"++show a++"\nb =\n"++show rhs
 
 instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
@@ -119,7 +153,7 @@ instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
   arbitrary = do
     sz  <- genSize @Int
     a   <- genNonsingularMatrix sz
-    rhs <- arbitraryRHS sz
+    rhs <- arbitraryRHS (Proxy @a) sz
     pure $ LinSimple (Nonsingular a) rhs
 
 instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
@@ -127,7 +161,7 @@ instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
   arbitrary = do
     sz  <- genSize @Int
     a   <- genNonsingularSymmetric sz
-    rhs <- arbitraryRHS sz
+    rhs <- arbitraryRHS (Proxy @a) sz
     pure $ LinSimple (Nonsingular a) rhs
 
 instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
@@ -135,21 +169,21 @@ instance ( Show a,Eq a,LAPACKy a,SmallScalar a,Typeable a,ArbitraryRHS rhs a
   arbitrary = do
     sz  <- genSize @Int
     a   <- genNonsingularHermitian sz
-    rhs <- arbitraryRHS sz
+    rhs <- arbitraryRHS (Proxy @a) sz
     pure $ LinSimple (Nonsingular a) rhs
 
 
 
 -- | Generate arbitrary right hand side for equation and check it for validity
 class ArbitraryRHS rhs a where
-  arbitraryRHS :: SmallScalar a => Int -> Gen (rhs a)
+  arbitraryRHS :: SmallScalar a => Proxy a -> Int -> Gen rhs
   checkLinEq   :: ( Scalar (mat a) ~ a
                   , MatMul a mat Vec Vec
-                  ) => mat a -> rhs a -> rhs a -> Property
+                  ) => mat a -> rhs -> rhs -> Property
 
-instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
-         ) => ArbitraryRHS Matrix a where
-  arbitraryRHS sz = do
+
+instance (a ~ a', LAPACKy a, ComparableN a) => ArbitraryRHS (Matrix a) a' where
+  arbitraryRHS _ sz = do
     n <- choose (1,4)
     arbitraryShape (sz,n)
   checkLinEq a (Mat.toColList -> xs) (Mat.toColList -> bs)
@@ -159,38 +193,54 @@ instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)
       deltas = [ a @@ x .-. b | (x,b) <- xs `zip` bs]
 
 
-instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS Vec a where
-  arbitraryRHS n = VG.replicateM n genScalar
+instance (a ~ a', LAPACKy a, ComparableN a) => ArbitraryRHS (Vec a) a' where
+  arbitraryRHS _ n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ x .-. b
 
-instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS V.Vector a where
-  arbitraryRHS n = VG.replicateM n genScalar
+instance (a ~ a', LAPACKy a, ComparableN a) => ArbitraryRHS (V.Vector a) a' where
+  arbitraryRHS _ n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VU.Unbox a, LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VU.Vector a where
-  arbitraryRHS n = VG.replicateM n genScalar
+instance (a ~ a', VU.Unbox a, LAPACKy a, ComparableN a) => ArbitraryRHS (VU.Vector a) a' where
+  arbitraryRHS _ n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VS.Vector a where
-  arbitraryRHS n = VG.replicateM n genScalar
+instance (a ~ a', LAPACKy a, ComparableN a) => ArbitraryRHS (VS.Vector a) a' where
+  arbitraryRHS _ n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (VP.Prim a, LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS VP.Vector a where
-  arbitraryRHS n = VG.replicateM n genScalar
+instance (a ~ a', VP.Prim a, LAPACKy a, ComparableN a) => ArbitraryRHS (VP.Vector a) a' where
+  arbitraryRHS _ n = VG.replicateM n genScalar
   checkLinEq a x b = property $ nearZero delta where
     delta = a @@ (VG.convert x :: Vec a) .-. (VG.convert b :: Vec a)
 
-instance (LAPACKy a, Epsilon (R a), Floating (R a), Ord (R a)) => ArbitraryRHS [] a where
-  arbitraryRHS n = replicateM n genScalar
-  checkLinEq a x b = property $ nearZero delta where
-    delta = a @@ (VG.fromList x :: Vec a) .-. (VG.fromList b :: Vec a)
+instance ( ArbitraryRHS r1 a, ArbitraryRHS r2 a
+         ) => ArbitraryRHS (r1,r2) a where
+  arbitraryRHS p n = (,) <$> arbitraryRHS p n <*> arbitraryRHS p n
+  checkLinEq a (x1,x2) (r1,r2)
+    =    checkLinEq a x1 r1
+    .&&. checkLinEq a x2 r2
 
-nearZero :: (VG.Vector v a, Epsilon (R a), NormedScalar a, Floating (R a), Ord (R a)) => v a -> Bool
+instance (ArbitraryRHS r a) => ArbitraryRHS [r] a where
+  arbitraryRHS p n = do
+    l <- choose (0,3)
+    replicateM l (arbitraryRHS p n)
+  checkLinEq _ []     []     = property True
+  checkLinEq _ []     _      = property False
+  checkLinEq _ _      []     = property False
+  checkLinEq a (x:xs) (b:bs) = checkLinEq a x  b
+                          .&&. checkLinEq a xs bs
+
+
+
+type ComparableN a = (Epsilon (R a), Floating (R a), Ord (R a))
+
+nearZero :: (VG.Vector v a, ComparableN a, NormedScalar a) => v a -> Bool
 nearZero = VG.all (\d -> scalarNorm d < epsilon)
 
-matrixNearZero :: (VS.Storable a, Epsilon (R a), NormedScalar a, Floating (R a), Ord (R a)) => Matrix a -> Bool
+matrixNearZero :: (VS.Storable a, ComparableN a, NormedScalar a) => Matrix a -> Bool
 matrixNearZero = Mat.all (\d -> scalarNorm d < epsilon)

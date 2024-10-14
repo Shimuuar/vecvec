@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 -- |
 -- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg
@@ -6,7 +5,9 @@ module Vecvec.LAPACK.LinAlg
     -- $linear_eq
     -- ** Type classes
     LinearEq(..)
-  , LinearEqRHS(..)
+  , EquationRHS
+  , rhsToMatrix
+  , rhsGetSolutions
     -- ** Solvers
   , solveLinEq
   , solveLinEqSym
@@ -17,17 +18,13 @@ module Vecvec.LAPACK.LinAlg
   , decomposeSVD
   ) where
 
-import Control.Monad
 import Control.Monad.ST
 import Control.Monad.Primitive
 import Foreign.Storable
 import Foreign.Marshal.Array
+import Foreign.ForeignPtr
+import Foreign.Ptr
 import Data.Char
-import Data.Vector               qualified as V
-import Data.Vector.Unboxed       qualified as VU
-import Data.Vector.Storable      qualified as VS
-import Data.Vector.Primitive     qualified as VP
-import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
@@ -42,10 +39,13 @@ import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
 import Vecvec.LAPACK.FFI
+import Vecvec.LAPACK.LinAlg.Types
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 
 import System.IO.Unsafe
+
+
 
 -- | Perform SVD decomposition of arbitrary matrix \(A\):
 --
@@ -94,18 +94,16 @@ invertMatrix :: LAPACKy a => Matrix a -> Matrix a
 invertMatrix m
   | nCols m /= nRows m = error "Matrix must be square"
   | otherwise          = unsafePerformIO $ do
-      MMatrix inv@MView{..} <- MMat.clone m
+      MMatrix inv <- MMat.clone m
       id $
-        unsafeWithForeignPtr buffer $ \ptr_a    ->
-        allocaArray ncols           $ \ptr_ipiv -> do
-          info_trf <- getrf
-            (toCEnum RowMajor) (toL ncols) (toL ncols)
-            ptr_a (toL leadingDim) ptr_ipiv
+        unsafeWithForeignPtr inv.buffer $ \ptr_a    ->
+        allocaArray inv.ncols           $ \ptr_ipiv -> do
+          let n   = toL inv.ncols
+              lda = toL inv.leadingDim
+          info_trf <- getrf (toCEnum RowMajor) n n ptr_a lda ptr_ipiv
           case info_trf of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
-          info_tri <- getri
-            (toCEnum RowMajor) (toL ncols)
-            ptr_a (toL leadingDim) ptr_ipiv
+          info_tri <- getri (toCEnum RowMajor) n ptr_a lda ptr_ipiv
           case info_tri of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
       --
@@ -120,7 +118,7 @@ invertMatrix m
 --   default algorithm for solving linear equations
 class LinearEq m a where
   -- | Solve linear equation \(Ax=b\)
-  (\\\) :: (LinearEqRHS rhs a) => m a -> rhs a -> rhs a
+  (\\\) :: (EquationRHS rhs a) => m a -> rhs -> rhs
 
 -- | See 'solveLinEq'
 instance LAPACKy a => LinearEq Matrix a where
@@ -134,54 +132,6 @@ instance LAPACKy a => LinearEq Symmetric a where
 instance LAPACKy a => LinearEq Hermitian a where
   (\\\) = solveLinEqHer
 
--- | When solving linear equations like \(Ax=b\) most of the work is
---   spent on factoring matrix. Thus it's computationally advantageous
---   to batch right hand sides of an equation. This type class exists
---   in order to built such batches in form of matrices from haskell
---   data structures
---
---   Type class is traversal like and should obey following law:
---
---   > rhsGetSolutions rhs (runST (rhsToMatrix rhs >>= unsafeFreeze))
---   >   == rhs
-class LinearEqRHS rhs a where
-  -- | Convert right hand of equation to matrix where each \(b\) is
-  --   arranged as column. We need to create mutable matrix in order
-  --   to ensure that fresh buffer is allocated since LAPACK routines
-  --   frequently reuse storage.
-  rhsToMatrix     :: Storable a => rhs a -> ST s (MMatrix s a)
-  -- | Extract solutions from matrix. First argument is used to retain
-  --   information which isn't right hand sides.
-  rhsGetSolutions :: Storable a => rhs a -> Matrix a -> rhs a
-
-
-instance LinearEqRHS Matrix a where
-  rhsToMatrix     = MMat.clone
-  rhsGetSolutions = const id
-
-instance LinearEqRHS [] a where
-  rhsToMatrix v = MMat.fromColsFF [v]
-  rhsGetSolutions _ m = VG.toList $ getCol m 0
-
-instance LinearEqRHS Vec a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = getCol m 0
-
-instance LinearEqRHS V.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
-
-instance VS.Storable a => LinearEqRHS VS.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
-
-instance VP.Prim a => LinearEqRHS VP.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
-
-instance VU.Unbox a => LinearEqRHS VU.Vector a where
-  rhsToMatrix v = MMat.fromColsFV [v]
-  rhsGetSolutions _ m = VG.convert $ getCol m 0
 
 
 -- | Simple solver for linear equation of the form \(Ax=b\).
@@ -191,33 +141,37 @@ instance VU.Unbox a => LinearEqRHS VU.Vector a where
 --
 --   /Uses _GESV LAPACK routine internally/
 solveLinEq
-  :: (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Matrix a -- ^ Matrix \(A\)
-  -> rhs a    -- ^ Right hand side(s) \(b\)
-  -> rhs a
+  -> rhs      -- ^ Right hand side(s) \(b\)
+  -> rhs
 solveLinEq a _
   | nRows a /= nCols a = error "Matrix A is not square"
-solveLinEq a0 rhs = unsafePerformIO $ do
-  -- Prepare right hand side and check sizes. We also need to clone
-  -- A. It gets destroyed during solution
-  MMatrix a <- MMat.clone a0
-  let n = ncols a
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
-  when (nrows b /= n) $ error "Right hand dimensions don't match"
-  -- Solve equation
-  info <-
-    unsafeWithForeignPtr a.buffer $ \ptr_a    ->
-    unsafeWithForeignPtr b.buffer $ \ptr_b    ->
-    allocaArray n                 $ \ptr_ipiv ->
-      gesv (toCEnum RowMajor)
-        (toL n) (toL (ncols b))
-        ptr_a (toL a.leadingDim)
-        ptr_ipiv
-        ptr_b (toL b.leadingDim)
-  case info of
-    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-    _       -> error "solveLinEq failed"
-
+solveLinEq a0 rhs = runST $ do
+  rhsToMatrix rhs >>= \case
+    EmptyRHS     -> pure $ rhsGetSolutions rhs (nullMatrix @a)
+    InvalidRHS{} -> error "Vectors on right size have different dimensions"
+    PreparedRHS (MMatrix b)
+      | n /= nRows b -> error "Right hand dimensions don't match"
+      | otherwise    -> do
+          -- Prepare right hand side and check sizes. We also need to clone
+          -- A. It gets destroyed during solution
+          MMatrix a <- MMat.clone a0
+          info <-
+            unsafeIOToPrim                $
+            unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+            unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+            allocaArray n                 $ \ptr_ipiv ->
+              gesv (toCEnum RowMajor)
+                (toL n) (toL (ncols b))
+                ptr_a (toL a.leadingDim)
+                ptr_ipiv
+                ptr_b (toL b.leadingDim)
+          case info of
+            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+            _       -> error "solveLinEq failed"
+  where
+    n = nCols a0
 
 -- | Simple solver for linear equation of the form \(Ax=b\) where
 --   \(A\) is symmetric matrix.
@@ -227,30 +181,34 @@ solveLinEq a0 rhs = unsafePerformIO $ do
 --
 --   /Uses _SYSV LAPACK routine internally/
 solveLinEqSym
-  :: (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Symmetric a -- ^ Matrix \(A\)
-  -> rhs a       -- ^ Right hand side(s) \(b\)
-  -> rhs a
-solveLinEqSym a0 rhs = unsafePerformIO $ do
-  -- Clone A it gets destroyed during solution
-  MSymmetric a <- MSym.clone a0
-  -- Prepare right hand side and check sizes. We also need to clone
-  let n = a.size
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
-  when (nrows b /= n) $ error "Right hand dimensions don't match"
-  -- Solve equation
-  info <-
-    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
-    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
-    allocaArray n                   $ \ptr_ipiv ->
-      sysv (toCEnum RowMajor) (toCEnum FortranUP)
-        (toL n) (toL (ncols b))
-        ptr_a (toL a.leadingDim)
-        ptr_ipiv
-        ptr_b (toL b.leadingDim)
-  case info of
-    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-    _       -> error "solveLinEqSym failed"
+  -> rhs         -- ^ Right hand side(s) \(b\)
+  -> rhs
+solveLinEqSym a0 rhs = runST $ do
+  rhsToMatrix rhs >>= \case
+    EmptyRHS     -> pure $ rhsGetSolutions rhs (nullMatrix @a)
+    InvalidRHS{} -> error "Vectors on right size have different dimensions"
+    PreparedRHS (MMatrix b)
+      | n /= nRows b -> error "Right hand dimensions don't match"
+      | otherwise    -> do
+          -- Clone A it gets destroyed during solution
+          MSymmetric a <- MSym.clone a0
+          info <-
+            unsafeIOToPrim                $
+            unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+            unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+            allocaArray n                 $ \ptr_ipiv ->
+              sysv (toCEnum RowMajor) (toCEnum FortranUP)
+                (toL n) (toL (ncols b))
+                ptr_a (toL a.leadingDim)
+                ptr_ipiv
+                ptr_b (toL b.leadingDim)
+          case info of
+            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+            _       -> error "solveLinEqSym failed"
+  where
+    n = nCols a0
 
 -- | Simple solver for linear equation of the form \(Ax=b\) where
 --   \(A\) is hermitian matrix
@@ -260,27 +218,44 @@ solveLinEqSym a0 rhs = unsafePerformIO $ do
 --
 --   /Uses _HESV LAPACK routine internally/
 solveLinEqHer
-  :: (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Hermitian a -- ^ Matrix \(A\)
-  -> rhs a       -- ^ Right hand side(s) \(b\)
-  -> rhs a
-solveLinEqHer a0 rhs = unsafePerformIO $ do
-  -- Clone A it gets destroyed during solution
-  MHermitian a <- MHer.clone a0
-  -- Prepare right hand side and check sizes. We also need to clone
-  let n = a.size
-  MMatrix b <- stToPrim $ rhsToMatrix rhs
-  when (nrows b /= n) $ error "Right hand dimensions don't match"
-  -- Solve equation
-  info <-
-    unsafeWithForeignPtr (a.buffer) $ \ptr_a    ->
-    unsafeWithForeignPtr (b.buffer) $ \ptr_b    ->
-    allocaArray n                   $ \ptr_ipiv ->
-      hesv (toCEnum RowMajor) (toCEnum FortranUP)
-        (toL n) (toL (ncols b))
-        ptr_a (toL a.leadingDim)
-        ptr_ipiv
-        ptr_b (toL b.leadingDim)
-  case info of
-    LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-    _       -> error "solveLinEqSym failed"
+  -> rhs         -- ^ Right hand side(s) \(b\)
+  -> rhs
+solveLinEqHer a0 rhs = runST $ do
+  rhsToMatrix rhs >>= \case
+    EmptyRHS     -> pure $ rhsGetSolutions rhs (nullMatrix @a)
+    InvalidRHS{} -> error "Vectors on right size have different dimensions"
+    PreparedRHS (MMatrix b)
+      | n /= nRows b -> error "Right hand dimensions don't match"
+      | otherwise    -> do
+          -- Clone A it gets destroyed during solution
+          MHermitian a <- MHer.clone a0
+          info <-
+            unsafeIOToPrim                $
+            unsafeWithForeignPtr a.buffer $ \ptr_a    ->
+            unsafeWithForeignPtr b.buffer $ \ptr_b    ->
+            allocaArray n                 $ \ptr_ipiv ->
+              hesv (toCEnum RowMajor) (toCEnum FortranUP)
+                (toL n) (toL (ncols b))
+                ptr_a (toL a.leadingDim)
+                ptr_ipiv
+                ptr_b (toL b.leadingDim)
+          case info of
+            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
+            _       -> error "solveLinEqSym failed"
+  where
+    n = nCols a0
+
+
+-- Empty matrix used as a placeholder value.
+nullMatrix :: Matrix a
+{-# NOINLINE nullMatrix #-}
+nullMatrix = unsafePerformIO $ do
+  buf <- newForeignPtr_ nullPtr
+  pure $ Matrix MView
+    { nrows      = 0
+    , ncols      = 0
+    , leadingDim = 1
+    , buffer     = buf
+    }
