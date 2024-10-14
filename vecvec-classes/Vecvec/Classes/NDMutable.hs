@@ -35,6 +35,7 @@ module Vecvec.Classes.NDMutable
   , Range(..)
   , End(..)
   , Length(..)
+  , Strided(..)
     -- ** Mutable arrays
   , NDMutable(..)
   , unsafeReadArr

@@ -240,7 +240,7 @@ instance (DVS.Storable a, TestData a) => TestData (VV.Vec a) where
   -- extra bit for this case. So we cheat and use list length for that
   unmodel lst
     | odd (length lst) = DVG.fromList $ unmodel <$> lst
-    | otherwise        = Slice.slice ((0,Slice.End) `Strided` stride)
+    | otherwise        = Slice.slice ((0,Slice.End) `Slice.Strided` stride)
                        $ DVG.fromList
                        $ replicate stride =<< map unmodel lst
     where stride = 2

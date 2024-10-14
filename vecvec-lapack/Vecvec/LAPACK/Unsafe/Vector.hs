@@ -3,7 +3,6 @@
 -- Definition of strided storable vectors
 module Vecvec.LAPACK.Unsafe.Vector
   ( Vec(..)
-  , Strided(..)
   , LAPACKy
   ) where
 
@@ -27,9 +26,8 @@ import Data.Vector.Fusion.Util      (liftBox)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 import Vecvec.LAPACK.Unsafe.Compat
-import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..), Strided(..)
-                                             ,blasDotc, blasScal, blasAxpy, clone
-                                             )
+import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..)
+                                           ,blasDotc, blasScal, blasAxpy, clone)
 
 
 ----------------------------------------------------------------
@@ -80,6 +78,9 @@ instance (i ~ Int, Storable a) => Slice (i, Length) (Vec a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceVector
 instance (i ~ Int, Storable a) => Slice (i, End) (Vec a) where
+  {-# INLINE sliceMaybe #-}
+  sliceMaybe = implSliceVector
+instance (Storable a) => Slice (Int, Int) (Vec a) where
   {-# INLINE sliceMaybe #-}
   sliceMaybe = implSliceVector
 instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where

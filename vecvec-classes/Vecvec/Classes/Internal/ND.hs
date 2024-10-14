@@ -35,6 +35,7 @@ module Vecvec.Classes.Internal.ND
   , Range(..)
   , End(..)
   , Length(..)
+  , Strided(..)
     -- ** Mutable arrays
   , NDMutable(..)
   , unsafeReadArr
@@ -143,16 +144,17 @@ inBoundsCVec idx size
 -- Slicing
 ----------------------------------------------------------------
 
--- | Very generic type class for slicing vectors, matrices etc. It's
---   expected that slice is done in /O(1)/. There are many possible
---   parameterizations of slice and different data structures require
---   different parameterizations. This type class is used to abstract
---   over this.
+-- | Very generic type class for slicing N-dimensional arrays. It's
+--   expected that slice is created in /O(1)/ and shares underlying
+--   buffer with parent array. @i@ is a specification of slice and @v@
+--   is array being sliced.
 class Slice i v where
   -- | Expected /O(1)/. Return slice of vector @v@ or @Nothing@ if
   --   required slice is not valid.
   sliceMaybe :: i -> v -> Maybe v
 
+-- | Compute slice of an array @v@. This function raises an exception
+--   if slice specification is not valid.
 slice :: Slice i v => i -> v -> v
 {-# INLINE slice #-}
 slice idx v = case sliceMaybe idx v of
@@ -171,7 +173,7 @@ class Slice1D idx where
 
 instance (i ~ Int) => Slice1D (i, Length) where
   {-# INLINE computeSlice1D #-}
-  computeSlice1D len (i, Length sz)
+  computeSlice1D len (mirror len -> i, Length sz)
     -- FIXME: overflows and stuff
     | i  < 0       = Nothing
     | sz < 0       = Nothing
@@ -180,26 +182,29 @@ instance (i ~ Int) => Slice1D (i, Length) where
 
 instance (i ~ Int) => Slice1D (i, End) where
   {-# INLINE computeSlice1D #-}
-  computeSlice1D len (i, _)
+  computeSlice1D len (mirror len -> i, _)
     | i < 0     = Nothing
     | i > len   = Nothing
     | otherwise = Just (i, len - i)
 
 instance (i ~ Int) => Slice1D (Range i) where
   {-# INLINE computeSlice1D #-}
-  computeSlice1D len (i0 :.. j0)
+  computeSlice1D len ((mirror len -> i) :.. (mirror len -> j))
     | i   < 0      = Nothing
     | sz  < 0      = Just (i, 0)
     | len < i + sz = Nothing
     | otherwise    = Just (i, sz)
     where
-      mirror k | k >= 0    = k
-               | otherwise = len + k
-      i  = mirror i0
-      j  = mirror j0
       sz = j - i
 
+mirror :: Int -> Int -> Int
+{-# INLINE mirror #-}
+mirror len i | i >= 0    = i
+             | otherwise = len + i
 
+instance Slice1D (Int,Int) where
+  {-# INLINE computeSlice1D #-}
+  computeSlice1D len (i,j) = computeSlice1D len (i:..j)
 
 -- | Semiopen range @a :.. b@
 data Range a = a :.. a
@@ -212,6 +217,12 @@ data End = End
 -- | Use length of vector for a slice.
 newtype Length = Length { unLength :: Int }
   deriving stock (Show,Eq,Ord,Generic)
+
+-- | Slice specification for arrays which support striding (selecting
+--   every n'th element). @a `Strided` n@ means selecting slice @a@
+--   and every n'th element from it.
+data Strided a = Strided a !Int
+
 
 
 ----------------------------------------------------------------

@@ -50,7 +50,7 @@ import Data.Vector.Storable   qualified as VS
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.LAPACK.Vector             (Vec,LAPACKy,Strided(..))
+import Vecvec.LAPACK.Vector             (Vec,LAPACKy)
 import Vecvec.LAPACK.Matrix    (Matrix, fromRowsFF)
 import Vecvec.LAPACK.Matrix    qualified as Mat
 import Vecvec.LAPACK.Hermitian (Hermitian,multipleByReal)

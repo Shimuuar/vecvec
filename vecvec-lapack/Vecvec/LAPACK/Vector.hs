@@ -6,7 +6,6 @@
 module Vecvec.LAPACK.Vector
   ( -- * Vector data type
     Vec
-  , Strided(..)
   , LAPACKy
   ) where
 
