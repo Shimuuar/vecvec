@@ -71,7 +71,7 @@ decomposeSVD a = unsafePerformIO $ do
     unsafeWithForeignPtr (mat_U.buffer)      $ \ptr_U ->
     unsafeWithForeignPtr (vecBuffer vec_Sig) $ \ptr_Sig ->
     unsafeWithForeignPtr (mat_VT.buffer)     $ \ptr_VT ->
-      gesdd (toCEnum RowMajor) (fromIntegral $ ord 'A')
+      gesdd RowMajor (fromIntegral $ ord 'A')
             (toL n_row) (toL n_col)
             ptr_A (toL mat_A.leadingDim)
             ptr_Sig
@@ -100,10 +100,10 @@ invertMatrix m
         allocaArray inv.ncols           $ \ptr_ipiv -> do
           let n   = toL inv.ncols
               lda = toL inv.leadingDim
-          info_trf <- getrf (toCEnum RowMajor) n n ptr_a lda ptr_ipiv
+          info_trf <- getrf RowMajor n n ptr_a lda ptr_ipiv
           case info_trf of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
-          info_tri <- getri (toCEnum RowMajor) n ptr_a lda ptr_ipiv
+          info_tri <- getri RowMajor n ptr_a lda ptr_ipiv
           case info_tri of LAPACK0 -> pure ()
                            _       -> error "invertMatrix failed (GETRF)"
       --
@@ -162,7 +162,7 @@ solveLinEq a0 rhs = runST $ do
             unsafeWithForeignPtr a.buffer $ \ptr_a    ->
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
-              gesv (toCEnum RowMajor)
+              gesv RowMajor
                 (toL n) (toL (ncols b))
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
@@ -199,7 +199,7 @@ solveLinEqSym a0 rhs = runST $ do
             unsafeWithForeignPtr a.buffer $ \ptr_a    ->
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
-              sysv (toCEnum RowMajor) (toCEnum FortranUP)
+              sysv RowMajor FortranUP
                 (toL n) (toL (ncols b))
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
@@ -236,7 +236,7 @@ solveLinEqHer a0 rhs = runST $ do
             unsafeWithForeignPtr a.buffer $ \ptr_a    ->
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
-              hesv (toCEnum RowMajor) (toCEnum FortranUP)
+              hesv RowMajor FortranUP
                 (toL n) (toL (ncols b))
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
