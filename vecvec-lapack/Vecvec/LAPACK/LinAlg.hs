@@ -6,7 +6,7 @@ module Vecvec.LAPACK.LinAlg
     -- $linear_eq
     -- ** Type classes
     LinearEq(..)
-  , LinearEqRHS(..)
+  , EquationRHS
   , rhsToMatrix
   , rhsGetSolutions
     -- ** Solvers
@@ -121,7 +121,7 @@ invertMatrix m
 --   default algorithm for solving linear equations
 class LinearEq m a where
   -- | Solve linear equation \(Ax=b\)
-  (\\\) :: (LinearEqRHS rhs a) => m a -> rhs -> rhs
+  (\\\) :: (EquationRHS rhs a) => m a -> rhs -> rhs
 
 -- | See 'solveLinEq'
 instance LAPACKy a => LinearEq Matrix a where
@@ -152,7 +152,7 @@ instance LAPACKy a => LinearEq Hermitian a where
 --
 --   /Uses _GESV LAPACK routine internally/
 solveLinEq
-  :: forall a rhs. (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Matrix a -- ^ Matrix \(A\)
   -> rhs      -- ^ Right hand side(s) \(b\)
   -> rhs
@@ -192,7 +192,7 @@ solveLinEq a0 rhs = runST $ do
 --
 --   /Uses _SYSV LAPACK routine internally/
 solveLinEqSym
-  :: forall a rhs. (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Symmetric a -- ^ Matrix \(A\)
   -> rhs         -- ^ Right hand side(s) \(b\)
   -> rhs
@@ -229,7 +229,7 @@ solveLinEqSym a0 rhs = runST $ do
 --
 --   /Uses _HESV LAPACK routine internally/
 solveLinEqHer
-  :: forall a rhs. (LinearEqRHS rhs a, LAPACKy a)
+  :: forall a rhs. (EquationRHS rhs a, LAPACKy a)
   => Hermitian a -- ^ Matrix \(A\)
   -> rhs         -- ^ Right hand side(s) \(b\)
   -> rhs

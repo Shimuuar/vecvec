@@ -10,7 +10,7 @@ module Vecvec.LAPACK.LinAlg.Types
   , RhsStore(..)
   , RhsParser(..)
   , PreparedRHS(..)
-  , LinearEqRHS(..)
+  , EquationRHS(..)
   , rhsToMatrix
   , rhsGetSolutions
   ) where
@@ -95,7 +95,7 @@ data PreparedRHS s a
 --   to batch right hand sides of an equation. This type class exists
 --   in order to built such batches in form of matrices from haskell
 --   data structures
-class LinearEqRHS rhs a where
+class EquationRHS rhs a where
   -- | Number of right hand sides in a container.
   numberOfRhs :: Proxy a -> rhs -> Int
   -- | Compute dimension of right hand side. Should return @Nothing@
@@ -112,7 +112,7 @@ class LinearEqRHS rhs a where
 --   to ensure that fresh buffer is allocated since LAPACK routines
 --   frequently reuse storage.
 rhsToMatrix
-  :: forall a rhs s. (LinearEqRHS rhs a, Storable a)
+  :: forall a rhs s. (EquationRHS rhs a, Storable a)
   => rhs -> ST s (PreparedRHS s a)
 rhsToMatrix rhs = do
   case dimensionOfRhs (Proxy @a) rhs of
@@ -130,7 +130,7 @@ rhsToMatrix rhs = do
 -- | Extract solutions from matrix. First argument is used to retain
 --   information which isn't right hand sides.
 rhsGetSolutions
-  :: forall a rhs. (LinearEqRHS rhs a, Storable a)
+  :: forall a rhs. (EquationRHS rhs a, Storable a)
   => rhs -> Matrix a -> rhs
 rhsGetSolutions rhs solution =
   case loadRhsFromMatrix rhs of
@@ -141,13 +141,13 @@ rhsGetSolutions rhs solution =
 -- Instances
 ----------------------------------------------------------------
 
-instance (LinearEqRHS r1 a, LinearEqRHS r2 a) => LinearEqRHS (r1,r2) a where
+instance (EquationRHS r1 a, EquationRHS r2 a) => EquationRHS (r1,r2) a where
   numberOfRhs    p  (r1,r2) = numberOfRhs    p r1 +  numberOfRhs    p r2
   dimensionOfRhs p  (r1,r2) = dimensionOfRhs p r1 <> dimensionOfRhs p r2
   storeRhsToMatrix  (r1,r2) = storeRhsToMatrix r1 <> storeRhsToMatrix r2
   loadRhsFromMatrix (r1,r2) = (,) <$> loadRhsFromMatrix r1 <*> loadRhsFromMatrix r2
 
-instance (LinearEqRHS r a) => LinearEqRHS [r] a where
+instance (EquationRHS r a) => EquationRHS [r] a where
   numberOfRhs    p xs = sum $ numberOfRhs p <$> xs
   dimensionOfRhs p    = foldMap (dimensionOfRhs p)
   storeRhsToMatrix    = foldMap storeRhsToMatrix
@@ -155,7 +155,7 @@ instance (LinearEqRHS r a) => LinearEqRHS [r] a where
 
 
 
-instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
+instance (a ~ a', Storable a) => EquationRHS (Matrix a) a' where
   numberOfRhs    _ = nCols
   dimensionOfRhs _ = Dim . nRows
   --
@@ -169,7 +169,7 @@ instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
     where n = nCols rhs
 
 
-instance (a ~ a', Storable a) => LinearEqRHS (Vec a) a' where
+instance (a ~ a', Storable a) => EquationRHS (Vec a) a' where
   numberOfRhs    _ _ = 1
   dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix v = RhsStore $ \rhs i -> do
@@ -177,7 +177,7 @@ instance (a ~ a', Storable a) => LinearEqRHS (Vec a) a' where
     return $! i + 1
   loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, getCol sol i)
 
-instance (a ~ a', Storable a) => LinearEqRHS (V.Vector a) a' where
+instance (a ~ a', Storable a) => EquationRHS (V.Vector a) a' where
   numberOfRhs    _ _ = 1
   dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix v = RhsStore $ \rhs i -> do
@@ -185,7 +185,7 @@ instance (a ~ a', Storable a) => LinearEqRHS (V.Vector a) a' where
     return $! i + 1
   loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
 
-instance (a ~ a', Storable a) => LinearEqRHS (VS.Vector a) a' where
+instance (a ~ a', Storable a) => EquationRHS (VS.Vector a) a' where
   numberOfRhs    _ _ = 1
   dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix v = RhsStore $ \rhs i -> do
@@ -193,7 +193,7 @@ instance (a ~ a', Storable a) => LinearEqRHS (VS.Vector a) a' where
     return $! i + 1
   loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
 
-instance (a ~ a', Storable a, VU.Unbox a) => LinearEqRHS (VU.Vector a) a' where
+instance (a ~ a', Storable a, VU.Unbox a) => EquationRHS (VU.Vector a) a' where
   numberOfRhs    _ _ = 1
   dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix v = RhsStore $ \rhs i -> do
@@ -201,7 +201,7 @@ instance (a ~ a', Storable a, VU.Unbox a) => LinearEqRHS (VU.Vector a) a' where
     return $! i + 1
   loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
 
-instance (a ~ a', Storable a, VP.Prim a) => LinearEqRHS (VP.Vector a) a' where
+instance (a ~ a', Storable a, VP.Prim a) => EquationRHS (VP.Vector a) a' where
   numberOfRhs    _ _ = 1
   dimensionOfRhs _   = Dim . VG.length
   storeRhsToMatrix v = RhsStore $ \rhs i -> do

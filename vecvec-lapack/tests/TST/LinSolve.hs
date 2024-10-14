@@ -98,7 +98,7 @@ tests = testGroup "LinAlg"
 testSimpleSolve
   :: forall mat rhs a.
      ( ArbitraryRHS rhs a
-     , LinearEqRHS  rhs a
+     , EquationRHS  rhs a
      , LinearEq     mat a
      , MatMul a mat Vec Vec
      , Scalar (mat a) ~ a
@@ -131,7 +131,7 @@ prop_invertMatrix (Nonsingular m)
 -- | Test that solution of linear system is indeed solution
 prop_SimpleSolve
   :: forall mat rhs a. ( ArbitraryRHS rhs a
-                       , LinearEqRHS  rhs a
+                       , EquationRHS  rhs a
                        , LinearEq     mat a
                        , MatMul a mat Vec Vec
                        , a ~ Scalar (mat a)
