@@ -68,6 +68,9 @@ tests = testGroup "LinAlg"
         -- Tuples
       , testSimpleSolve @Matrix @(Matrix S, V.Vector S) @S
       , testSimpleSolve @Matrix @(Matrix D, V.Vector D) @D
+        -- Lists
+      , testSimpleSolve @Matrix @[Matrix S] @S
+      , testSimpleSolve @Matrix @[Matrix D] @D
       ]
     , testGroup "Symmetric"
       [ testSimpleSolve @Symmetric @(Matrix S) @S
@@ -221,6 +224,16 @@ instance ( ArbitraryRHS r1 a, ArbitraryRHS r2 a
   checkLinEq a (x1,x2) (r1,r2)
     =    checkLinEq a x1 r1
     .&&. checkLinEq a x2 r2
+
+instance (ArbitraryRHS r a) => ArbitraryRHS [r] a where
+  arbitraryRHS p n = do
+    l <- choose (0,3)
+    replicateM l (arbitraryRHS p n)
+  checkLinEq _ []     []     = property True
+  checkLinEq _ []     _      = property False
+  checkLinEq _ _      []     = property False
+  checkLinEq a (x:xs) (b:bs) = checkLinEq a x  b
+                          .&&. checkLinEq a xs bs
 
 
 
