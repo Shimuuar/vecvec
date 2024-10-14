@@ -19,7 +19,6 @@ module Vecvec.LAPACK.LinAlg
   , decomposeSVD
   ) where
 
-import Control.Monad
 import Control.Monad.ST
 import Control.Monad.Primitive
 import Foreign.Storable
@@ -27,12 +26,6 @@ import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
 import Data.Char
-import Data.Proxy
-import Data.Vector               qualified as V
-import Data.Vector.Unboxed       qualified as VU
-import Data.Vector.Storable      qualified as VS
-import Data.Vector.Primitive     qualified as VP
-import Data.Vector.Generic       qualified as VG
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
@@ -47,10 +40,9 @@ import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
 import Vecvec.LAPACK.FFI
-import Vecvec.LAPACK.Utils
+import Vecvec.LAPACK.LinAlg.Types
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
-import Vecvec.Classes.NDMutable
 
 import System.IO.Unsafe
 
@@ -144,167 +136,11 @@ instance LAPACKy a => LinearEq Hermitian a where
   (\\\) = solveLinEqHer
 
 
--- | Data type used for computing dimension of RHS of equations
-data RhsDim
-  = DimMismatch !Int !Int
-  -- ^ There're at least two vectors with different dimension
-  | UnknownDim
-  -- ^ Dimension is unknown (e.g. RHS is empty)
-  | Dim !Int
-  -- ^ All vectors on RHS have this dimension.
-  deriving (Show)
-
-instance Semigroup RhsDim where
-  Dim n           <> Dim k | n == k = Dim n
-                           | otherwise = DimMismatch n k
-  UnknownDim      <> d               = d
-  d               <> UnknownDim      = d
-  d@DimMismatch{} <> _               = d
-  _               <> d@DimMismatch{} = d
-
-instance Monoid RhsDim where
-  mempty = UnknownDim
-
-
--- | Monoid encoding writing right side of equations to a buffer
-newtype RhsStore s a = RhsStore (MMatrix s a -> Int -> ST s Int)
-
-instance Semigroup (RhsStore s a) where
-  RhsStore fA <> RhsStore fB = RhsStore $ \mat -> fA mat >=> fB mat
-
-instance Monoid (RhsStore s a) where
-  mempty = RhsStore $ \_ -> pure
-
--- | Parser for a right hand side of an equation
-newtype RhsParser a r = RhsParser (Matrix a -> Int -> (Int, r))
-  deriving stock Functor
-
-instance Applicative (RhsParser a) where
-  pure a = RhsParser $ \_ i -> (i,a)
-  RhsParser funF <*> RhsParser funA = RhsParser $ \m i ->
-    case funF m i of
-      (!i', f) -> case funA m i' of
-        (!i'', a) -> (i'', f a)
-
--- | When solving linear equations like \(Ax=b\) most of the work is
---   spent on factoring matrix. Thus it's computationally advantageous
---   to batch right hand sides of an equation. This type class exists
---   in order to built such batches in form of matrices from haskell
---   data structures
-class LinearEqRHS rhs a where
-  -- | Number of right hand sides in a container.
-  numberOfRhs :: Proxy a -> rhs -> Int
-  -- | Compute dimension of right hand side. Should return @Nothing@
-  --   if it's not possible to compute one or right sides have different sizes
-  dimensionOfRhs :: Proxy a -> rhs -> RhsDim
-  -- | Store RHS to a matrix as columns.
-  storeRhsToMatrix :: Storable a => rhs -> RhsStore s a
-  -- | Read solution from a matrix. Original right hand side provides
-  --   information about shape of RHS.
-  loadRhsFromMatrix :: Storable a => rhs -> RhsParser a rhs
-
-
-data PreparedRHS s a
-  = PreparedRHS (MMatrix s a)
-  | EmptyRHS
-  | InvalidRHS !Int !Int
-
--- | Convert right hand of equation to matrix where each \(b\) is
---   arranged as column. We need to create mutable matrix in order
---   to ensure that fresh buffer is allocated since LAPACK routines
---   frequently reuse storage.
-rhsToMatrix
-  :: forall a rhs s. (LinearEqRHS rhs a, Storable a)
-  => rhs -> ST s (PreparedRHS s a)
-rhsToMatrix rhs = do
-  case dimensionOfRhs (Proxy @a) rhs of
-    UnknownDim -> pure $ EmptyRHS
-    Dim k      -> do
-      mat <- MMat.new (k, n)
-      _   <- case storeRhsToMatrix rhs of
-        RhsStore f -> f mat 0
-      return $ PreparedRHS mat
-    DimMismatch i j -> pure $ InvalidRHS i j
-  where
-    n = numberOfRhs (Proxy @a) rhs
-
-
--- | Extract solutions from matrix. First argument is used to retain
---   information which isn't right hand sides.
-rhsGetSolutions
-  :: forall a rhs. (LinearEqRHS rhs a, Storable a)
-  => rhs -> Matrix a -> rhs
-rhsGetSolutions rhs solution =
-  case loadRhsFromMatrix rhs of
-    RhsParser fun -> snd $ fun solution 0
 
 
 
-instance (LinearEqRHS r1 a, LinearEqRHS r2 a) => LinearEqRHS (r1,r2) a where
-  numberOfRhs    p  (r1,r2) = numberOfRhs    p r1 +  numberOfRhs    p r2
-  dimensionOfRhs p  (r1,r2) = dimensionOfRhs p r1 <> dimensionOfRhs p r2
-  storeRhsToMatrix  (r1,r2) = storeRhsToMatrix r1 <> storeRhsToMatrix r2
-  loadRhsFromMatrix (r1,r2) = (,) <$> loadRhsFromMatrix r1 <*> loadRhsFromMatrix r2
-
-instance (LinearEqRHS r a) => LinearEqRHS [r] a where
-  numberOfRhs    p xs = sum $ numberOfRhs p <$> xs
-  dimensionOfRhs p    = foldMap (dimensionOfRhs p)
-  storeRhsToMatrix    = foldMap storeRhsToMatrix
-  loadRhsFromMatrix   = traverse loadRhsFromMatrix
 
 
-instance (a ~ a', Storable a) => LinearEqRHS (Matrix a) a' where
-  numberOfRhs    _ = nCols
-  dimensionOfRhs _ = Dim . nRows
-  --
-  storeRhsToMatrix src = RhsStore $ \dst i -> do
-    let n = nCols src
-    MMat.copy src (((0,End), (i, Length n)) `slice` dst)
-    return $! i + n
-  --
-  loadRhsFromMatrix rhs = RhsParser $ \sol i ->
-    (i+n, ((0,End), (i, Length n)) `slice` sol)
-    where n = nCols rhs
-
-instance (a ~ a', Storable a) => LinearEqRHS (Vec a) a' where
-  numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Dim . VG.length
-  storeRhsToMatrix v = RhsStore $ \dst i -> do
-    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
-    return $! i + 1
-  loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, getCol sol i)
-
-instance (a ~ a', Storable a) => LinearEqRHS (V.Vector a) a' where
-  numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Dim . VG.length
-  storeRhsToMatrix v = RhsStore $ \dst i -> do
-    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
-    return $! i + 1
-  loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
-
-instance (a ~ a', Storable a) => LinearEqRHS (VS.Vector a) a' where
-  numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Dim . VG.length
-  storeRhsToMatrix v = RhsStore $ \dst i -> do
-    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
-    return $! i + 1
-  loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
-
-instance (a ~ a', Storable a, VU.Unbox a) => LinearEqRHS (VU.Vector a) a' where
-  numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Dim . VG.length
-  storeRhsToMatrix v = RhsStore $ \dst i -> do
-    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
-    return $! i + 1
-  loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
-
-instance (a ~ a', Storable a, VP.Prim a) => LinearEqRHS (VP.Vector a) a' where
-  numberOfRhs    _ _ = 1
-  dimensionOfRhs _   = Dim . VG.length
-  storeRhsToMatrix v = RhsStore $ \dst i -> do
-    loop0_ (VG.length v) $ \j -> writeArr dst (j,i) (v ! j)
-    return $! i + 1
-  loadRhsFromMatrix _ = RhsParser $ \sol i -> (i+1, VG.convert $ getCol sol i)
 
 
 
