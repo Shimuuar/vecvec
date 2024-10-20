@@ -375,17 +375,17 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- | LAPACK driver routine for computing SVD decomposition
   --   \(A=U\Sigma{}V^T\).
   gesdd
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CChar              -- ^ Job variant
-    -> LAPACKInt          -- ^ @m@ number of rows of @A@
-    -> LAPACKInt          -- ^ @n@ number of columns of @A@
-    -> Ptr a              -- ^ Matrix @A@
-    -> LAPACKInt          -- ^ Leading dimension size of @A@
-    -> Ptr (R a)          -- ^ Vector of singular values @min(m,n)@
-    -> Ptr a              -- ^ Buffer for matrix @U@
-    -> LAPACKInt          -- ^ Leading dimension size of @U@
-    -> Ptr a              -- ^ Buffer for matrix @tr(V)@
-    -> LAPACKInt          -- ^ Leading dimension of @tr(V)@
+    :: MatrixLayout -- ^ Matrix layout
+    -> CChar        -- ^ Job variant
+    -> LAPACKInt    -- ^ @m@ number of rows of @A@
+    -> LAPACKInt    -- ^ @n@ number of columns of @A@
+    -> Ptr a        -- ^ Matrix @A@
+    -> LAPACKInt    -- ^ Leading dimension size of @A@
+    -> Ptr (R a)    -- ^ Vector of singular values @min(m,n)@
+    -> Ptr a        -- ^ Buffer for matrix @U@
+    -> LAPACKInt    -- ^ Leading dimension size of @U@
+    -> Ptr a        -- ^ Buffer for matrix @tr(V)@
+    -> LAPACKInt    -- ^ Leading dimension of @tr(V)@
     -> IO LAPACKInt
 
   -- | Solve linear system \(Ax=B\) where B could have multiple right
@@ -397,63 +397,63 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- The factored form of A is then used to solve the system of
   -- equations A * X = B.
   gesv
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> LAPACKInt          -- ^ Size of square matrix A
-    -> LAPACKInt          -- ^ Number of right sides
-    -> Ptr a              -- ^ Buffer of @A@. Upon exit factor @L@ and
-                          --   @U@ are stored there.
-    -> LAPACKInt          -- ^ Leading dimension size of @A@
-    -> Ptr LAPACKInt      -- ^ Integer array of size @N@. Upon exit
-                          --   contains pivot indices that define the
-                          --   permutation matrix P; row i of the matrix
-                          --   was interchanged with row IPIV[i].
-    -> Ptr a              -- ^ Right side of equations @B@. On exit
-                          --   contains solutions to equation
-    -> LAPACKInt          -- ^ Leading dimension size of @B@
+    :: MatrixLayout  -- ^ Matrix layout
+    -> LAPACKInt     -- ^ Size of square matrix A
+    -> LAPACKInt     -- ^ Number of right sides
+    -> Ptr a         -- ^ Buffer of @A@. Upon exit factor @L@ and
+                     --   @U@ are stored there.
+    -> LAPACKInt     -- ^ Leading dimension size of @A@
+    -> Ptr LAPACKInt -- ^ Integer array of size @N@. Upon exit
+                     --   contains pivot indices that define the
+                     --   permutation matrix P; row i of the matrix
+                     --   was interchanged with row IPIV[i].
+    -> Ptr a         -- ^ Right side of equations @B@. On exit
+                     --   contains solutions to equation
+    -> LAPACKInt     -- ^ Leading dimension size of @B@
     -> IO LAPACKInt
 
   -- | Solve to a real system of linear equations \(Ax=B\), where @A@ is
   --   an N-by-N symmetric matrix and @X@ and @B@ are N-by-NRHS matrices.
   sysv
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CRepr FortranUpLo  -- ^ Whether upper or lower part of matrix should be referenced
-    -> LAPACKInt          -- ^ Matrix size
-    -> LAPACKInt          -- ^ Number of right hand sizes
-    -> Ptr a              -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
-    -> LAPACKInt          -- ^ Leading dimension size of @A@.
-    -> Ptr LAPACKInt      -- ^ @[out]@ Integer array of size @N@
-    -> Ptr a              -- ^ Buffer of matrix of right hand @B@
-    -> LAPACKInt          -- ^ Leading dimension size of @B@.
-    -> IO LAPACKInt       -- ^ @INFO@ Return parameter. If @INFO=-i@, the
-                          -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
-                          -- exactly singular and solution could not be found
+    :: MatrixLayout  -- ^ Matrix layout
+    -> FortranUpLo   -- ^ Whether upper or lower part of matrix should be referenced
+    -> LAPACKInt     -- ^ Matrix size
+    -> LAPACKInt     -- ^ Number of right hand sizes
+    -> Ptr a         -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
+    -> LAPACKInt     -- ^ Leading dimension size of @A@.
+    -> Ptr LAPACKInt -- ^ @[out]@ Integer array of size @N@
+    -> Ptr a         -- ^ Buffer of matrix of right hand @B@
+    -> LAPACKInt     -- ^ Leading dimension size of @B@.
+    -> IO LAPACKInt  -- ^ @INFO@ Return parameter. If @INFO=-i@, the
+                     -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                     -- exactly singular and solution could not be found
 
   -- | Solve to a real system of linear equations \(Ax=B\), where @A@ is
   --   an N-by-N hermitian matrix and @X@ and @B@ are N-by-NRHS matrices.
   hesv
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> CRepr FortranUpLo  -- ^ Whether upper or lower part of matrix should be referenced
-    -> LAPACKInt          -- ^ Matrix size
-    -> LAPACKInt          -- ^ Number of right hand sizes
-    -> Ptr a              -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
-    -> LAPACKInt          -- ^ Leading dimension size of @A@.
-    -> Ptr LAPACKInt      -- ^ @[out]@ Integer array of size @N@
-    -> Ptr a              -- ^ Buffer of matrix of right hand @B@
-    -> LAPACKInt          -- ^ Leading dimension size of @B@.
-    -> IO LAPACKInt       -- ^ @INFO@ Return parameter. If @INFO=-i@, the
-                          -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
-                          -- exactly singular and solution could not be found
+    :: MatrixLayout  -- ^ Matrix layout
+    -> FortranUpLo   -- ^ Whether upper or lower part of matrix should be referenced
+    -> LAPACKInt     -- ^ Matrix size
+    -> LAPACKInt     -- ^ Number of right hand sizes
+    -> Ptr a         -- ^ Buffer of @A@ matrix. On exit, overwritten if @INFO=0@
+    -> LAPACKInt     -- ^ Leading dimension size of @A@.
+    -> Ptr LAPACKInt -- ^ @[out]@ Integer array of size @N@
+    -> Ptr a         -- ^ Buffer of matrix of right hand @B@
+    -> LAPACKInt     -- ^ Leading dimension size of @B@.
+    -> IO LAPACKInt  -- ^ @INFO@ Return parameter. If @INFO=-i@, the
+                     -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                     -- exactly singular and solution could not be found
 
   -- NOTE: *getrs solves using transposition/conjugation
 
   -- | Compute inverse of square matrix @A@ using the LU factorization
   --   computed by 'getrf' routine.
   getri
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> LAPACKInt          -- ^ Matrix size @N@
-    -> Ptr a              -- ^ LU decomposition of @A@ matrix.
-    -> LAPACKInt          -- ^ Leading dimension of @A@
-    -> Ptr LAPACKInt      -- ^ Buffer of length @N@ for permutation matrix
+    :: MatrixLayout  -- ^ Matrix layout
+    -> LAPACKInt     -- ^ Matrix size @N@
+    -> Ptr a         -- ^ LU decomposition of @A@ matrix.
+    -> LAPACKInt     -- ^ Leading dimension of @A@
+    -> Ptr LAPACKInt -- ^ Buffer of length @N@ for permutation matrix
     -> IO LAPACKInt
 
   -- | Compute LU factorization of a general M-by-N matrix A using
@@ -466,14 +466,13 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   -- diagonal elements (lower trapezoidal if m > n), and U is upper
   -- triangular (upper trapezoidal if m < n).
   getrf
-    :: CRepr MatrixLayout -- ^ Matrix layout
-    -> LAPACKInt          -- ^ @M@: Number of rows of matrix @A@
-    -> LAPACKInt          -- ^ @N@: Number of columns of matrix @A@
-    -> Ptr a              -- ^ Matrix @A@. Overwritten with factors @L@ and @U@.
-    -> LAPACKInt          -- ^ Leading dimension of @A@
-    -> Ptr LAPACKInt      -- ^ Integer array @IPIV@, dimension
-                          --   @min(M,N)@. Row i of the matrix was
-                          --   interchanged with row IPIV(i).
+    :: MatrixLayout  -- ^ Matrix layout
+    -> LAPACKInt     -- ^ @M@: Number of rows of matrix @A@
+    -> LAPACKInt     -- ^ @N@: Number of columns of matrix @A@
+    -> Ptr a         -- ^ Matrix @A@. Overwritten with factors @L@ and @U@.
+    -> LAPACKInt     -- ^ Leading dimension of @A@
+    -> Ptr LAPACKInt -- ^ Integer array @IPIV@, dimension @min(M,N)@. Row i
+                     --   of the matrix was interchanged with row IPIV(i).
     -> IO LAPACKInt
 
 
@@ -496,12 +495,18 @@ instance LAPACKy Float where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd = c_sgesdd
-  gesv  = c_sgesv
-  sysv  = c_ssysv
-  hesv  = sysv
-  getri = c_sgetri
-  getrf = c_sgetrf
+  gesdd layout = c_sgesdd (toCEnum layout)
+  {-# INLINE gesdd #-}
+  gesv layout = c_sgesv (toCEnum layout)
+  {-# INLINE gesv #-}
+  sysv layout uplo = c_ssysv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE sysv #-}
+  hesv = sysv
+  {-# INLINE hesv #-}
+  getri layout = c_sgetri (toCEnum layout)
+  {-# INLINE getri #-}
+  getrf layout = c_sgetrf (toCEnum layout)
+  {-# INLINE getrf #-}
 
 instance LAPACKy Double where
   fillZeros ptr n = setPtr ptr n 0
@@ -522,12 +527,18 @@ instance LAPACKy Double where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd = c_dgesdd
-  gesv  = c_dgesv
-  sysv  = c_dsysv
-  hesv  = sysv
-  getri = c_dgetri
-  getrf = c_dgetrf
+  gesdd layout = c_dgesdd (toCEnum layout)
+  {-# INLINE gesdd #-}
+  gesv layout = c_dgesv (toCEnum layout)
+  {-# INLINE gesv #-}
+  sysv layout uplo = c_dsysv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE sysv #-}
+  hesv = sysv
+  {-# INLINE hesv #-}
+  getri layout = c_dgetri (toCEnum layout)
+  {-# INLINE getri #-}
+  getrf layout = c_dgetrf (toCEnum layout)
+  {-# INLINE getrf #-}
 
 instance LAPACKy (Complex Float) where
   fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) n
@@ -612,12 +623,19 @@ instance LAPACKy (Complex Float) where
         c_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC
   -- LAPACK
-  gesdd = c_cgesdd
-  gesv  = c_cgesv
-  sysv  = c_csysv
-  hesv  = c_chesv
-  getri = c_cgetri
-  getrf = c_cgetrf
+  gesdd layout = c_cgesdd (toCEnum layout)
+  {-# INLINE gesdd #-}
+  gesv layout = c_cgesv (toCEnum layout)
+  {-# INLINE gesv #-}
+  sysv layout uplo = c_csysv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE sysv #-}
+  hesv layout uplo = c_chesv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE hesv #-}
+  getri layout = c_cgetri (toCEnum layout)
+  {-# INLINE getri #-}
+  getrf layout = c_cgetrf (toCEnum layout)
+  {-# INLINE getrf #-}
+
 
 instance LAPACKy (Complex Double) where
   fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) (2*n)
@@ -700,12 +718,19 @@ instance LAPACKy (Complex Double) where
         poke p_β β
         z_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
-  gesdd = c_zgesdd
-  gesv  = c_zgesv
-  sysv  = c_zsysv
-  hesv  = c_zhesv
-  getri = c_zgetri
-  getrf = c_zgetrf
+  gesdd layout = c_zgesdd (toCEnum layout)
+  {-# INLINE gesdd #-}
+  gesv layout = c_zgesv (toCEnum layout)
+  {-# INLINE gesv #-}
+  sysv layout uplo = c_zsysv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE sysv #-}
+  hesv layout uplo = c_zhesv (toCEnum layout) (toCEnum uplo)
+  {-# INLINE hesv #-}
+  getri layout = c_zgetri (toCEnum layout)
+  {-# INLINE getri #-}
+  getrf layout = c_zgetrf (toCEnum layout)
+  {-# INLINE getrf #-}
+
 
 ----------------------------------------------------------------
 -- BLAS FFI
