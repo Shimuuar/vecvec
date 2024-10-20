@@ -293,7 +293,7 @@ eigvecs
   :: (LAPACKy a, Storable (R a))
   => Matrix a
   -- FIXME: What do we want to return???
-  -> (Vec (Complex (R a)), [Vec a])
+  -> (Vec (Complex (R a)), Matrix a)
 eigvecs mat0
   | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
 eigvecs mat0 = runST $ do
@@ -311,8 +311,7 @@ eigvecs mat0 = runST $ do
         ptr_VR  (toL n)
   case info of
     LAPACK0 -> pure ( Vec vec
-                    , Mat.toColList (Matrix vecR))
-
+                    , Matrix vecR)
     _       -> error "solveLinEqSym failed"
   where
     n = nRows mat0
