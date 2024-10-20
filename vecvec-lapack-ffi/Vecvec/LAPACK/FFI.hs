@@ -39,6 +39,7 @@ module Vecvec.LAPACK.FFI
   , FortranUpLo(..)
   , Side(..)
   , EigJob(..)
+  , SvdJob(..)
   ) where
 
 import Data.Complex
@@ -179,6 +180,30 @@ instance CEnum EigJob where
   toCEnum = \case
     EigV -> CRepr 86 -- 'V'
     EigN -> CRepr 78 -- 'N'
+
+-- | How SVD decomposition \(A = U\Sigma\V^T\) should be
+--   computed. \(U\) is @M×M@ matrix, and \(V\) is @N×N@.
+data SvdJob
+  = SvdA -- ^ Matrices U and V are computed fully and returned in
+         --   output arrays
+  | SvdS -- ^ the first @min(M,N)@ columns of U and the first @min(M,N)@
+         --   rows of @V^T@ are computed and returned in output arrays.
+  | SvdO -- ^ If @M >= N@, the first N columns of U are overwritten on
+         --   the array A and all rows of @V^T@ are returned in the
+         --   array @VT@; otherwise, all columns of U are returned in
+         --   the array U and the first M rows of @V^T@ are
+         --   overwritten in the array A;
+  | SvdN -- ^ No columns of U or rows of V^T are computed.
+  deriving stock (Show, Eq)
+
+instance CEnum SvdJob where
+  type CRepresentation SvdJob = CChar
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    SvdA -> CRepr 65 -- 'A'
+    SvdS -> CRepr 83 -- 'S'
+    SvdO -> CRepr 79 -- 'O'
+    SvdN -> CRepr 78 -- 'N'
 
 -- | On which side of multiplication matrix appears
 data Side
@@ -401,7 +426,7 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   --   \(A=U\Sigma{}V^T\).
   gesdd
     :: MatrixLayout -- ^ Matrix layout
-    -> CChar        -- ^ Job variant
+    -> SvdJob       -- ^ Job variant
     -> LAPACKInt    -- ^ @m@ number of rows of @A@
     -> LAPACKInt    -- ^ @n@ number of columns of @A@
     -> Ptr a        -- ^ Matrix @A@
@@ -409,8 +434,8 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> Ptr (R a)    -- ^ Vector of singular values @min(m,n)@
     -> Ptr a        -- ^ Buffer for matrix @U@
     -> LAPACKInt    -- ^ Leading dimension size of @U@
-    -> Ptr a        -- ^ Buffer for matrix @tr(V)@
-    -> LAPACKInt    -- ^ Leading dimension of @tr(V)@
+    -> Ptr a        -- ^ Buffer for matrix \(V^T\)
+    -> LAPACKInt    -- ^ Leading dimension of \(V^T\)
     -> IO LAPACKInt
 
   -- | Solve linear system \(Ax=B\) where B could have multiple right
@@ -548,7 +573,7 @@ instance LAPACKy Float where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd layout = c_sgesdd (toCEnum layout)
+  gesdd layout job = c_sgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_sgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -597,7 +622,7 @@ instance LAPACKy Double where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd layout = c_dgesdd (toCEnum layout)
+  gesdd layout job = c_dgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_dgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -710,7 +735,7 @@ instance LAPACKy (Complex Float) where
         c_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC
   -- LAPACK
-  gesdd layout = c_cgesdd (toCEnum layout)
+  gesdd layout job = c_cgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_cgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -809,7 +834,7 @@ instance LAPACKy (Complex Double) where
         poke p_β β
         z_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
-  gesdd layout = c_zgesdd (toCEnum layout)
+  gesdd layout job = c_zgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_zgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -1106,7 +1131,7 @@ foreign import CCALL unsafe "cblas.h cblas_zhemm" z_hemm
 
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr S -> LAPACKInt
   -> Ptr S
@@ -1115,7 +1140,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr D -> LAPACKInt
   -> Ptr D
@@ -1124,7 +1149,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr C -> LAPACKInt
   -> Ptr S
@@ -1133,7 +1158,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr Z -> LAPACKInt
   -> Ptr D
