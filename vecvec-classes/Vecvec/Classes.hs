@@ -34,7 +34,6 @@ module Vecvec.Classes
   , VectorSpace(..)
   , (./)
   , NormedScalar(..)
-  , scalarNorm
   , InnerSpace(..)
   , magnitude
   , normalize
@@ -175,22 +174,25 @@ normalizeMag v = (v ./ fromR n, n) where n = magnitude v
 --   class in order to be able to compute norm of vector over complex
 --   field.
 --
---   > isReal (a * conjugate a) == True
+--   > ∀x. isReal (x * conjugate x) == True
+--   > ∀x. isReal (fromR x)         == True
+--   > ∀x. isReal x  ⇒  x == conjugate x
 class (Num v, Num (R v)) => NormedScalar v where
   -- | Type representing norm of scalar. @R@ stands for real
   type R v
   -- | Conjugate value.
   conjugate    :: v -> v
-  -- | Square of norm of a value.
+  -- | Compute square of norm of a value.
   scalarNormSq :: v -> R v
+  -- | Compute norm of a scalar.
+  scalarNorm :: (Floating (R v), NormedScalar v) => v -> R v
+  scalarNorm = sqrt . scalarNormSq
+  {-# INLINE scalarNorm #-}
   -- | Convert norm to a scalar
   fromR        :: R v -> v
   -- | Check whether value is pure real.
   isReal       :: v -> Bool
 
-scalarNorm :: (Floating (R v), NormedScalar v) => v -> R v
-{-# INLINE scalarNorm #-}
-scalarNorm = sqrt . scalarNormSq
 
 ----------------------------------------------------------------
 -- Matrix operations
@@ -482,24 +484,26 @@ deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, NormedScalar a) =
 
 instance NormedScalar Float where
   type R Float = Float
-  conjugate = id
+  conjugate      = id
   scalarNormSq x = x * x
-  fromR = id
-  isReal _ = True
+  scalarNorm     = id
+  fromR          = id
+  isReal _       = True
 
 instance NormedScalar Double where
   type R Double = Double
-  conjugate = id
+  conjugate      = id
   scalarNormSq x = x * x
-  fromR = id
-  isReal _ = True
+  scalarNorm     = id
+  fromR          = id
+  isReal _       = True
 
 instance RealFloat a => NormedScalar (Complex a) where
   type R (Complex a) = a
-  conjugate = Complex.conjugate
-  scalarNormSq (r1 :+ i1) = r1*r1 + i1*i1
-  fromR x = x :+ 0
-  isReal (_ :+ im) = im == 0
+  conjugate             = Complex.conjugate
+  scalarNormSq (r :+ i) = r*r + i*i
+  fromR x               = x :+ 0
+  isReal (_ :+ im)      = im == 0
 
 
 ----------------------------------------------------------------
