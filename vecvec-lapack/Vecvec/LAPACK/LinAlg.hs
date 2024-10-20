@@ -19,6 +19,8 @@ module Vecvec.LAPACK.LinAlg
     -- * Eigenvalues and eigenvectors
   , eigvals
   , eigvecs
+  , eigvalsH
+  , eigvecsH
   ) where
 
 import Control.Monad.ST
@@ -310,6 +312,47 @@ eigvecs mat0 = runST $ do
   case info of
     LAPACK0 -> pure ( Vec vec
                     , Matrix vecR)
+    _       -> error "solveLinEqSym failed"
+  where
+    n = nRows mat0
+
+
+eigvalsH
+  :: (LAPACKy a, Storable (R a))
+  => Hermitian a -> Vec (R a)
+eigvalsH mat0 = runST $ do
+  MHermitian mat <- MHer.clone mat0
+  MVec       vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+      heev RowMajor EigN FortranUP
+        (toL n) ptr_A (toL mat.leadingDim) ptr_V
+  case info of
+    LAPACK0 -> pure $ Vec vec
+    _       -> error "solveLinEqSym failed"
+  where
+    n = nRows mat0
+
+eigvecsH
+  :: (LAPACKy a, Storable (R a))
+  => Hermitian a -> (Vec (R a), Matrix a)
+eigvecsH mat0 = runST $ do
+  MHermitian mat <- MHer.clone mat0
+  MVec       vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+      heev RowMajor EigN FortranUP
+        (toL n) ptr_A (toL mat.leadingDim) ptr_V
+  case info of
+    LAPACK0 -> pure ( Vec vec
+                    , Matrix MView{ nrows      = n
+                                  , ncols      = n
+                                  , leadingDim = mat.leadingDim
+                                  , buffer     = mat.buffer
+                                  }
+                    )
     _       -> error "solveLinEqSym failed"
   where
     n = nRows mat0
