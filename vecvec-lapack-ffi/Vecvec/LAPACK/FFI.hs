@@ -501,7 +501,7 @@ class (NormedScalar a, Storable a) => LAPACKy a where
                      --   of the matrix was interchanged with row IPIV(i).
     -> IO LAPACKInt
 
-  -- | Compute eigenvalues of a general matrix
+  -- | Compute eigenvalues and (optionally) eigenvectors of a general matrix
   geev
     :: MatrixLayout        -- ^ Matrix layout
     -> EigJob              -- ^ Whether to compute left eigenvectors
@@ -515,6 +515,18 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> LAPACKInt           -- ^ Leading dimension for left eigenvectors.
     -> Ptr a               -- ^ Buffer for right eigenvectors.
     -> LAPACKInt           -- ^ Leading dimension for right eigenvectors.
+    -> IO LAPACKInt
+
+  -- | Compute eigenvalues and (optionally) eigenvectors of a
+  --   hermitian (symmetric for real @a@ matrix.
+  heev
+    :: MatrixLayout -- ^ Matrix layout
+    -> EigJob       -- ^ Whether to compute eigenvalues
+    -> FortranUpLo  -- ^ Whether upper or lower part of matrix is referenced
+    -> LAPACKInt    -- ^ Size of a matrix
+    -> Ptr a        -- ^ @[IN,OUT]@ Matrix A: N×N array.
+    -> LAPACKInt    -- ^ Leading dimension for @A@
+    -> Ptr (R a)    -- ^ @[OUT]@ eigenvalues of a matrix in ascending order
     -> IO LAPACKInt
 
 instance LAPACKy Float where
@@ -563,6 +575,8 @@ instance LAPACKy Float where
           _       -> pure ()
         return res
   {-# INLINE geev #-}
+  heev layout job uplo = c_ssyev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 instance LAPACKy Double where
   fillZeros ptr n = setPtr ptr n 0
@@ -610,6 +624,8 @@ instance LAPACKy Double where
           _       -> pure ()
         return res
   {-# INLINE geev #-}
+  heev layout job uplo = c_dsyev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 instance LAPACKy (Complex Float) where
   fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) n
@@ -708,6 +724,8 @@ instance LAPACKy (Complex Float) where
   {-# INLINE getrf #-}
   geev layout jobL jobR = c_cgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
   {-# INLINE geev #-}
+  heev layout job uplo = c_cheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 
 instance LAPACKy (Complex Double) where
@@ -805,6 +823,8 @@ instance LAPACKy (Complex Double) where
   {-# INLINE getrf #-}
   geev layout jobL jobR = c_zgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
   {-# INLINE geev #-}
+  heev layout job uplo = c_zheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 
 
@@ -1257,6 +1277,35 @@ foreign import ccall unsafe "lapacke.h LAPACKE_zgeev" c_zgeev
   -> Ptr Z -> LAPACKInt
   -> Ptr Z -> LAPACKInt
   -> IO LAPACKInt
+
+
+foreign import ccall unsafe "lapacke.h LAPACKE_ssyev" c_ssyev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr S -> LAPACKInt
+  -> Ptr S -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dsyev" c_dsyev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr D -> LAPACKInt
+  -> Ptr D -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_cheev" c_cheev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr C -> LAPACKInt
+  -> Ptr (R C) -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zheev" c_zheev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr Z -> LAPACKInt
+  -> Ptr (R Z) -> IO LAPACKInt
 
 
 loop0 :: Int -> (Int -> IO ()) -> IO ()
