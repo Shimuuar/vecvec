@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 -- |
-module Vecvec.Classes.Convert where
+module Vecvec.Classes.Containers where
 
 
 -- | Type class for conversions from one data type to

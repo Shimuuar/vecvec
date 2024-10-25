@@ -29,7 +29,7 @@ Library
                       , fixed-vector     >=1.2.2.1
   Exposed-modules:
     Vecvec.Classes
-    Vecvec.Classes.Convert
+    Vecvec.Classes.Containers
     Vecvec.Classes.NDArray
     Vecvec.Classes.NDMutable
     Vecvec.Classes.Tools

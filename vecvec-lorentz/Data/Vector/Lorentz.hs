@@ -64,7 +64,7 @@ import Data.Vector.Fixed.Unboxed (Vec)
 import GHC.TypeLits
 
 import Vecvec.Classes
-import Vecvec.Classes.Convert
+import Vecvec.Classes.Containers (Convert(..))
 import Vecvec.Classes.Geometry
 
 
