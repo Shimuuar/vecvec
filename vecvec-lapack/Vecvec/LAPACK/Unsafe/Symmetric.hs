@@ -38,6 +38,7 @@ import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Containers
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable    qualified as MMat
 import Vecvec.LAPACK.Unsafe.Matrix            qualified as Mat
 import Vecvec.LAPACK.Unsafe.Matrix            (Matrix)
@@ -73,6 +74,12 @@ instance (Storable a, Eq a) => Eq (Symmetric a) where
                          , j <- [i .. n-1]
                          ]
     where n = nCols a
+
+instance Constrained Symmetric where type ElemConstraint Symmetric = Storable
+instance CFunctor Symmetric where
+  cmap f m = generate (nRows m) (\i j -> f (unsafeIndex m (i,j)))
+  {-# INLINE cmap #-}
+
 
 unsafeFreeze :: (Storable a, PrimMonad m, s ~ PrimState m)
              => MSymmetric s a -> m (Symmetric a)

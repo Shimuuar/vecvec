@@ -40,6 +40,7 @@ import Prelude hiding (replicate)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Containers
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable     qualified as MMat
 import Vecvec.LAPACK.Unsafe.Matrix             qualified as Mat
 import Vecvec.LAPACK.Unsafe.Matrix             (Matrix)
@@ -75,6 +76,12 @@ instance (NormedScalar a, Storable a, Eq a) => Eq (Hermitian a) where
                          , j <- [i .. n-1]
                          ]
     where n = nCols a
+
+instance Constrained Hermitian where
+  type ElemConstraint Hermitian = AndConstraint Storable NormedScalar
+instance CFunctor Hermitian where
+  cmap f m = generate (nRows m) (\i j -> f (unsafeIndex m (i,j)))
+  {-# INLINE cmap #-}
 
 unsafeFreeze :: (Storable a, NormedScalar a, PrimMonad m, s ~ PrimState m)
              => MSym.MHermitian s a -> m (Hermitian a)
