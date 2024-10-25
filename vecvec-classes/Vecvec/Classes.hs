@@ -46,7 +46,7 @@ module Vecvec.Classes
   , AsNum(..)
   , AsVector(..)
   , AsFixedVec(..)
-  , ToMonoid(..)
+  , MonoidFromAdditive(..)
   ) where
 
 import Data.Coerce
@@ -293,13 +293,13 @@ instance (NormedScalar a, F.Vector v a) => InnerSpace (AsFixedVec v a) where
 
 -- | Derive 'Semigroup' and 'Monoid' in terms of 'AdditiveSemigroup'
 --   and 'AdditiveMonoid'
-newtype ToMonoid a = ToMonoid { getToMonoid :: a }
+newtype MonoidFromAdditive a = MonoidFromAdditive a
   deriving stock (Show,Eq,Ord)
 
-instance AdditiveSemigroup a => Semigroup (ToMonoid a) where
+instance AdditiveSemigroup a => Semigroup (MonoidFromAdditive a) where
   (<>) = coerce ((.+.) @a)
 
-instance AdditiveMonoid a => Monoid (ToMonoid a) where
+instance AdditiveMonoid a => Monoid (MonoidFromAdditive a) where
   mempty = coerce (zeroV @a)
 
 
