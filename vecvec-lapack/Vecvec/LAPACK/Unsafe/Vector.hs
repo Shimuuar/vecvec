@@ -25,6 +25,7 @@ import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Containers
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..)
                                            ,blasDotc, blasScal, blasAxpy, clone)
@@ -126,6 +127,11 @@ instance VS.Storable a => VG.Vector Vec a where
              | otherwise = do x <- liftBox $ VG.basicUnsafeIndexM src i
                               MVG.basicUnsafeWrite dst i x
                               loop (i+1)
+
+instance Constrained Vec where type ElemConstraint Vec = Storable
+instance CFunctor Vec where
+  cmap = VG.map
+  {-# INLINE cmap #-}
 
 
 ----------------------------------------------------------------

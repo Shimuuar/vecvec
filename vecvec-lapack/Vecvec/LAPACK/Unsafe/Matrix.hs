@@ -51,6 +51,7 @@ import System.IO.Unsafe
 import Prelude hiding (replicate,all,any)
 
 import Vecvec.Classes
+import Vecvec.Classes.Containers
 import Vecvec.Classes.NDArray
 import Vecvec.Classes.Deriving
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable qualified as M
@@ -149,6 +150,10 @@ instance C.LAPACKy a => VectorSpace (Matrix a) where
     unsafeFreeze resM
   (.*) = flip (*.)
 
+instance Constrained Matrix where type ElemConstraint Matrix = Storable
+instance CFunctor Matrix where
+  cmap f m = generate (shape m) (\i j -> f (unsafeIndex m (i,j)))
+  {-# INLINE cmap #-}
 
 
 ----------------------------------------------------------------
