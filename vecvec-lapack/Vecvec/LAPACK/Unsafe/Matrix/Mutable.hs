@@ -336,7 +336,7 @@ unsafeNew (n,k) = do
   pure $ MMatrix MView { nrows      = n
                        , ncols      = k
                        , leadingDim = k
-                       , buffer     = vecBuffer buffer
+                       , buffer     = buffer.vecBuffer
                        }
 
 -- | Allocate new matrix. Content of buffer zeroed out.
@@ -348,7 +348,7 @@ new (n,k) = do
   pure $ MMatrix MView { nrows      = n
                        , ncols      = k
                        , leadingDim = k
-                       , buffer     = vecBuffer buffer
+                       , buffer     = buffer.vecBuffer
                        }
 
 -- | Fill matrix of given size with provided value.
@@ -524,13 +524,13 @@ unsafeBlasGemm α trA matA trB matB β (MMatrix mC) = stToPrim $ do
   mA <- matrixRepr matA
   mB <- matrixRepr matB
   unsafeIOToPrim $
-    unsafeWithForeignPtr (buffer mA) $ \p_A ->
-    unsafeWithForeignPtr (buffer mB) $ \p_B ->
-    unsafeWithForeignPtr (buffer mC) $ \p_C ->
+    unsafeWithForeignPtr mA.buffer $ \p_A ->
+    unsafeWithForeignPtr mB.buffer $ \p_B ->
+    unsafeWithForeignPtr mC.buffer $ \p_C ->
       C.gemm C.RowMajor trA trB
-        (C.toB $ if trA == C.NoTrans then nrows mA else ncols mA)
-        (C.toB $ if trB == C.NoTrans then ncols mB else nrows mB)
-        (C.toB $ if trB == C.NoTrans then nrows mB else ncols mB)
-        α p_A (C.toB $ leadingDim mA)
-          p_B (C.toB $ leadingDim mB)
-        β p_C (C.toB $ leadingDim mC)
+        (C.toB $ if trA == C.NoTrans then mA.nrows else mA.ncols)
+        (C.toB $ if trB == C.NoTrans then mB.ncols else mB.nrows)
+        (C.toB $ if trB == C.NoTrans then mB.nrows else mB.ncols)
+        α p_A (C.toB $ mA.leadingDim)
+          p_B (C.toB $ mB.leadingDim)
+        β p_C (C.toB $ mC.leadingDim)

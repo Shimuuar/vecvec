@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE ImportQualifiedPost #-}
 -- |
 -- Collection of small utility functions
 module Vecvec.Classes.Tools

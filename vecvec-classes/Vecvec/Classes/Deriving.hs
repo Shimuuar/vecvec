@@ -1,7 +1,6 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ImportQualifiedPost #-}
 -- |
--- Newtype for use with deriving via.
+-- Newtype for use with deriving via and default implementation of
+-- type classes methods.
 module Vecvec.Classes.Deriving
   ( -- * Range checks
     inRange

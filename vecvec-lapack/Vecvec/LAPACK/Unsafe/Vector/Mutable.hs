@@ -161,7 +161,7 @@ deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (MVec s a
 
 instance VS.Storable a => MVG.MVector MVec a where
   {-# INLINE basicLength #-}
-  basicLength (MVec v) = vecSize v
+  basicLength (MVec v) = v.vecSize
   {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice j m (MVec (VecRepr _ inc fp))
     = MVec (VecRepr m inc (updPtr (`advancePtr` (inc*j)) fp))

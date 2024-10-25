@@ -1,6 +1,7 @@
 -- NOTE This is a copy from `vector` package
 --
 {-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FieldSelectors        #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}

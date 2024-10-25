@@ -60,17 +60,17 @@ decomposeSVD a = unsafePerformIO $ do
   -- We need to clone matrix A since is get destroyed when computing
   -- SVD. We need to allocate buffers for products
   MMatrix mat_A  <- MMat.clone a
-  let n_col = ncols mat_A
-      n_row = nrows mat_A
-  MMatrix mat_U   <- MMat.unsafeNew   (n_row, n_row)
-  MVec    vec_Sig <- MVG.unsafeNew (min n_row n_col)
-  MMatrix mat_VT  <- MMat.unsafeNew   (n_col, n_col)
+  let n_col = mat_A.ncols
+      n_row = mat_A.nrows
+  MMatrix mat_U   <- MMat.unsafeNew (n_row, n_row)
+  MVec    vec_Sig <- MVG.unsafeNew  (min n_row n_col)
+  MMatrix mat_VT  <- MMat.unsafeNew (n_col, n_col)
   -- Run SVD
   info <-
-    unsafeWithForeignPtr (mat_A.buffer)      $ \ptr_A ->
-    unsafeWithForeignPtr (mat_U.buffer)      $ \ptr_U ->
-    unsafeWithForeignPtr (vecBuffer vec_Sig) $ \ptr_Sig ->
-    unsafeWithForeignPtr (mat_VT.buffer)     $ \ptr_VT ->
+    unsafeWithForeignPtr mat_A.buffer      $ \ptr_A ->
+    unsafeWithForeignPtr mat_U.buffer      $ \ptr_U ->
+    unsafeWithForeignPtr vec_Sig.vecBuffer $ \ptr_Sig ->
+    unsafeWithForeignPtr mat_VT.buffer     $ \ptr_VT ->
       gesdd RowMajor SvdA
             (toL n_row) (toL n_col)
             ptr_A (toL mat_A.leadingDim)
@@ -163,7 +163,7 @@ solveLinEq a0 rhs = runST $ do
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
               gesv RowMajor
-                (toL n) (toL (ncols b))
+                (toL n) (toL b.ncols)
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
@@ -200,7 +200,7 @@ solveLinEqSym a0 rhs = runST $ do
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
               sysv RowMajor FortranUP
-                (toL n) (toL (ncols b))
+                (toL n) (toL b.ncols)
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
@@ -237,7 +237,7 @@ solveLinEqHer a0 rhs = runST $ do
             unsafeWithForeignPtr b.buffer $ \ptr_b    ->
             allocaArray n                 $ \ptr_ipiv ->
               hesv RowMajor FortranUP
-                (toL n) (toL (ncols b))
+                (toL n) (toL b.ncols)
                 ptr_a (toL a.leadingDim)
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)

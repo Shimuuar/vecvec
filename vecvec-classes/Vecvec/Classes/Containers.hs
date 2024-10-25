@@ -1,7 +1,3 @@
-{-# LANGUAGE ConstraintKinds         #-}
-{-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE ImportQualifiedPost     #-}
-{-# LANGUAGE MultiParamTypeClasses   #-}
 {-# LANGUAGE TypeFamilies            #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 -- |

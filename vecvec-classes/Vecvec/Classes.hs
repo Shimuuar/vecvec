@@ -1,23 +1,6 @@
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE DeriveFoldable             #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DeriveTraversable          #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE UndecidableInstances   #-}
 -- |
 -- This module provides type classes for working with linear algebra.
 -- Design of numeric type classes in base is rather unfortunate. We
