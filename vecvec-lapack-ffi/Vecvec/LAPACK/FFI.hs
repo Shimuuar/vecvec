@@ -1,15 +1,8 @@
 {-# LANGUAGE CApiFFI                    #-}
 {-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE ForeignFunctionInterface   #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 -- |
 module Vecvec.LAPACK.FFI
   ( LAPACKy(..)
@@ -33,10 +26,13 @@ module Vecvec.LAPACK.FFI
   , UpLo(..)
   , FortranUpLo(..)
   , Side(..)
+  , EigJob(..)
+  , SvdJob(..)
   ) where
 
 import Data.Complex
-import Data.Primitive.Ptr
+import Data.Primitive.Ptr       (setPtr)
+import Data.Kind
 #ifdef VECVEC_BLAS64
 import Data.Int
 #endif
@@ -46,6 +42,7 @@ import Foreign.Storable
 import Foreign.Marshal
 import Foreign.Storable.Complex ()
 import Vecvec.Classes           (NormedScalar(..))
+
 
 -- We want to be able to easily switch how we do foreign calls. ccall
 -- is slightly faster while capi allows to check that implementation
@@ -107,13 +104,17 @@ type ARR a r = Ptr a -> BLASInt -> r
 ----------------------------------------------------------------
 
 -- | C representation of an enumeration
-newtype CRepr a = CRepr CInt
-  deriving stock   (Show,Eq)
-  deriving newtype Storable
+newtype CRepr a = CRepr (CRepresentation a)
+
+deriving stock   instance Show     (CRepresentation a) => Show     (CRepr a)
+deriving stock   instance Eq       (CRepresentation a) => Eq       (CRepr a)
+deriving newtype instance Storable (CRepresentation a) => Storable (CRepr a)
 
 -- | Type class for conversion of haskell representation of values and
 --   constants to representation used in FFI calls
 class CEnum a where
+  type family CRepresentation a :: Type
+  type CRepresentation a = CInt
   toCEnum :: a -> CRepr a
 
 -- | Layout of matrix. Could be row or column major.
@@ -154,6 +155,43 @@ instance CEnum FortranUpLo where
   toCEnum = \case
     FortranUP -> CRepr 85 -- 'U'
     FortranLO -> CRepr 76 -- 'L'
+
+-- | Job specification for eigenvector computation
+data EigJob
+  = EigV -- ^ Compute eigenvectors
+  | EigN -- ^ Do not compute eigenvectors
+  deriving stock (Show, Eq)
+
+instance CEnum EigJob where
+  type CRepresentation EigJob = CChar
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    EigV -> CRepr 86 -- 'V'
+    EigN -> CRepr 78 -- 'N'
+
+-- | How SVD decomposition \(A = U\Sigma\V^T\) should be
+--   computed. \(U\) is @M×M@ matrix, and \(V\) is @N×N@.
+data SvdJob
+  = SvdA -- ^ Matrices U and V are computed fully and returned in
+         --   output arrays
+  | SvdS -- ^ the first @min(M,N)@ columns of U and the first @min(M,N)@
+         --   rows of @V^T@ are computed and returned in output arrays.
+  | SvdO -- ^ If @M >= N@, the first N columns of U are overwritten on
+         --   the array A and all rows of @V^T@ are returned in the
+         --   array @VT@; otherwise, all columns of U are returned in
+         --   the array U and the first M rows of @V^T@ are
+         --   overwritten in the array A;
+  | SvdN -- ^ No columns of U or rows of V^T are computed.
+  deriving stock (Show, Eq)
+
+instance CEnum SvdJob where
+  type CRepresentation SvdJob = CChar
+  {-# INLINE toCEnum #-}
+  toCEnum = \case
+    SvdA -> CRepr 65 -- 'A'
+    SvdS -> CRepr 83 -- 'S'
+    SvdO -> CRepr 79 -- 'O'
+    SvdN -> CRepr 78 -- 'N'
 
 -- | On which side of multiplication matrix appears
 data Side
@@ -376,7 +414,7 @@ class (NormedScalar a, Storable a) => LAPACKy a where
   --   \(A=U\Sigma{}V^T\).
   gesdd
     :: MatrixLayout -- ^ Matrix layout
-    -> CChar        -- ^ Job variant
+    -> SvdJob       -- ^ Job variant
     -> LAPACKInt    -- ^ @m@ number of rows of @A@
     -> LAPACKInt    -- ^ @n@ number of columns of @A@
     -> Ptr a        -- ^ Matrix @A@
@@ -384,8 +422,8 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> Ptr (R a)    -- ^ Vector of singular values @min(m,n)@
     -> Ptr a        -- ^ Buffer for matrix @U@
     -> LAPACKInt    -- ^ Leading dimension size of @U@
-    -> Ptr a        -- ^ Buffer for matrix @tr(V)@
-    -> LAPACKInt    -- ^ Leading dimension of @tr(V)@
+    -> Ptr a        -- ^ Buffer for matrix \(V^T\)
+    -> LAPACKInt    -- ^ Leading dimension of \(V^T\)
     -> IO LAPACKInt
 
   -- | Solve linear system \(Ax=B\) where B could have multiple right
@@ -425,8 +463,8 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> Ptr a         -- ^ Buffer of matrix of right hand @B@
     -> LAPACKInt     -- ^ Leading dimension size of @B@.
     -> IO LAPACKInt  -- ^ @INFO@ Return parameter. If @INFO=-i@, the
-                     -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
-                     -- exactly singular and solution could not be found
+                     --   @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                     --   exactly singular and solution could not be found
 
   -- | Solve to a real system of linear equations \(Ax=B\), where @A@ is
   --   an N-by-N hermitian matrix and @X@ and @B@ are N-by-NRHS matrices.
@@ -441,8 +479,9 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> Ptr a         -- ^ Buffer of matrix of right hand @B@
     -> LAPACKInt     -- ^ Leading dimension size of @B@.
     -> IO LAPACKInt  -- ^ @INFO@ Return parameter. If @INFO=-i@, the
-                     -- @i@-th argument has invalid value. If @INFO=i@ block matrix is
-                     -- exactly singular and solution could not be found
+                     --   @i@-th argument has invalid value. If @INFO=i@ block matrix is
+                     --   exactly singular and solution could not be found
+
 
   -- NOTE: *getrs solves using transposition/conjugation
 
@@ -475,6 +514,33 @@ class (NormedScalar a, Storable a) => LAPACKy a where
                      --   of the matrix was interchanged with row IPIV(i).
     -> IO LAPACKInt
 
+  -- | Compute eigenvalues and (optionally) eigenvectors of a general matrix
+  geev
+    :: MatrixLayout        -- ^ Matrix layout
+    -> EigJob              -- ^ Whether to compute left eigenvectors
+    -> EigJob              -- ^ Whether to compute right eigenvectors
+    -> LAPACKInt           -- ^ Size of a matrix
+    -> Ptr a               -- ^ @[IN,OUT]@ Buffer of a matrix. It will
+                           --   be overwritten on exit.
+    -> LAPACKInt           -- ^ Leading dimension of a matrix
+    -> Ptr (Complex (R a)) -- ^ @[OUT]@ buffer for eigenvalues
+    -> Ptr a               -- ^ Buffer for left eigenvectors.
+    -> LAPACKInt           -- ^ Leading dimension for left eigenvectors.
+    -> Ptr a               -- ^ Buffer for right eigenvectors.
+    -> LAPACKInt           -- ^ Leading dimension for right eigenvectors.
+    -> IO LAPACKInt
+
+  -- | Compute eigenvalues and (optionally) eigenvectors of a
+  --   hermitian (symmetric for real @a@ matrix.
+  heev
+    :: MatrixLayout -- ^ Matrix layout
+    -> EigJob       -- ^ Whether to compute eigenvalues
+    -> FortranUpLo  -- ^ Whether upper or lower part of matrix is referenced
+    -> LAPACKInt    -- ^ Size of a matrix
+    -> Ptr a        -- ^ @[IN,OUT]@ Matrix A: N×N array.
+    -> LAPACKInt    -- ^ Leading dimension for @A@
+    -> Ptr (R a)    -- ^ @[OUT]@ eigenvalues of a matrix in ascending order
+    -> IO LAPACKInt
 
 instance LAPACKy Float where
   fillZeros ptr n = setPtr ptr n 0
@@ -495,7 +561,7 @@ instance LAPACKy Float where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd layout = c_sgesdd (toCEnum layout)
+  gesdd layout job = c_sgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_sgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -507,6 +573,23 @@ instance LAPACKy Float where
   {-# INLINE getri #-}
   getrf layout = c_sgetrf (toCEnum layout)
   {-# INLINE getrf #-}
+  geev layout jobL jobR sz@(LAPACKInt (fromIntegral -> sz_i)) ptrA lda w vL ldL vR ldR
+    = allocaArray (2 * sz_i) $ \ptr_v -> do
+        let ptr_re = ptr_v
+            ptr_im = ptr_v `advancePtr` sz_i
+        res <- c_sgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+          sz ptrA lda
+          ptr_re ptr_im
+          vL ldL vR ldR
+        case res of
+          LAPACK0 -> loop0 sz_i $ \i -> do re <- peekElemOff ptr_re i
+                                           im <- peekElemOff ptr_im i
+                                           pokeElemOff w i (re :+ im)
+          _       -> pure ()
+        return res
+  {-# INLINE geev #-}
+  heev layout job uplo = c_ssyev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 instance LAPACKy Double where
   fillZeros ptr n = setPtr ptr n 0
@@ -527,7 +610,7 @@ instance LAPACKy Double where
   {-# INLINE symm #-}
   hemm = symm
   -- LAPACK
-  gesdd layout = c_dgesdd (toCEnum layout)
+  gesdd layout job = c_dgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_dgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -539,6 +622,23 @@ instance LAPACKy Double where
   {-# INLINE getri #-}
   getrf layout = c_dgetrf (toCEnum layout)
   {-# INLINE getrf #-}
+  geev layout jobL jobR sz@(LAPACKInt (fromIntegral -> sz_i)) ptrA lda w vL ldL vR ldR
+    = allocaArray (2 * sz_i) $ \ptr_v -> do
+        let ptr_re = ptr_v
+            ptr_im = ptr_v `advancePtr` sz_i
+        res <- c_dgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+          sz ptrA lda
+          ptr_re ptr_im
+          vL ldL vR ldR
+        case res of
+          LAPACK0 -> loop0 sz_i $ \i -> do re <- peekElemOff ptr_re i
+                                           im <- peekElemOff ptr_im i
+                                           pokeElemOff w i (re :+ im)
+          _       -> pure ()
+        return res
+  {-# INLINE geev #-}
+  heev layout job uplo = c_dsyev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 instance LAPACKy (Complex Float) where
   fillZeros ptr n = fillZeros (castPtr @_ @Double ptr) n
@@ -623,7 +723,7 @@ instance LAPACKy (Complex Float) where
         c_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC
   -- LAPACK
-  gesdd layout = c_cgesdd (toCEnum layout)
+  gesdd layout job = c_cgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_cgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -635,6 +735,10 @@ instance LAPACKy (Complex Float) where
   {-# INLINE getri #-}
   getrf layout = c_cgetrf (toCEnum layout)
   {-# INLINE getrf #-}
+  geev layout jobL jobR = c_cgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+  {-# INLINE geev #-}
+  heev layout job uplo = c_cheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
 
 
 instance LAPACKy (Complex Double) where
@@ -718,7 +822,7 @@ instance LAPACKy (Complex Double) where
         poke p_β β
         z_hemm (toCEnum layout) (toCEnum side) (toCEnum uplo)
           m n p_α bufA lda bufB ldb p_β bufC ldC  -- LAPACK
-  gesdd layout = c_zgesdd (toCEnum layout)
+  gesdd layout job = c_zgesdd (toCEnum layout) (toCEnum job)
   {-# INLINE gesdd #-}
   gesv layout = c_zgesv (toCEnum layout)
   {-# INLINE gesv #-}
@@ -730,6 +834,11 @@ instance LAPACKy (Complex Double) where
   {-# INLINE getri #-}
   getrf layout = c_zgetrf (toCEnum layout)
   {-# INLINE getrf #-}
+  geev layout jobL jobR = c_zgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+  {-# INLINE geev #-}
+  heev layout job uplo = c_zheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
+  {-# INLINE heev #-}
+
 
 
 ----------------------------------------------------------------
@@ -1010,7 +1119,7 @@ foreign import CCALL unsafe "cblas.h cblas_zhemm" z_hemm
 
 
 foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr S -> LAPACKInt
   -> Ptr S
@@ -1019,7 +1128,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_sgesdd" c_sgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr D -> LAPACKInt
   -> Ptr D
@@ -1028,7 +1137,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_dgesdd" c_dgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr C -> LAPACKInt
   -> Ptr S
@@ -1037,7 +1146,7 @@ foreign import ccall unsafe "lapacke.h LAPACKE_cgesdd" c_cgesdd
   -> IO LAPACKInt
 
 foreign import ccall unsafe "lapacke.h LAPACKE_zgesdd" c_zgesdd
-  :: CRepr MatrixLayout -> CChar
+  :: CRepr MatrixLayout -> CRepr SvdJob
   -> LAPACKInt -> LAPACKInt
   -> Ptr Z -> LAPACKInt
   -> Ptr D
@@ -1144,3 +1253,75 @@ foreign import ccall unsafe "lapacke.h LAPACKE_cgetrf" c_cgetrf
   :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr C -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
 foreign import ccall unsafe "lapacke.h LAPACKE_zgetrf" c_zgetrf
   :: CRepr MatrixLayout -> LAPACKInt -> LAPACKInt -> Ptr Z -> LAPACKInt -> Ptr LAPACKInt -> IO LAPACKInt
+
+
+foreign import ccall unsafe "lapacke.h LAPACKE_sgeev" c_sgeev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob -> CRepr EigJob
+  -> LAPACKInt -> Ptr S -> LAPACKInt
+  -> Ptr S -> Ptr S
+  -> Ptr S -> LAPACKInt
+  -> Ptr S -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dgeev" c_dgeev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob -> CRepr EigJob
+  -> LAPACKInt -> Ptr D -> LAPACKInt
+  -> Ptr D -> Ptr D
+  -> Ptr D -> LAPACKInt
+  -> Ptr D -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_cgeev" c_cgeev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob -> CRepr EigJob
+  -> LAPACKInt -> Ptr C -> LAPACKInt
+  -> Ptr C
+  -> Ptr C -> LAPACKInt
+  -> Ptr C -> LAPACKInt
+  -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zgeev" c_zgeev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob -> CRepr EigJob
+  -> LAPACKInt -> Ptr Z -> LAPACKInt
+  -> Ptr Z
+  -> Ptr Z -> LAPACKInt
+  -> Ptr Z -> LAPACKInt
+  -> IO LAPACKInt
+
+
+foreign import ccall unsafe "lapacke.h LAPACKE_ssyev" c_ssyev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr S -> LAPACKInt
+  -> Ptr S -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_dsyev" c_dsyev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr D -> LAPACKInt
+  -> Ptr D -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_cheev" c_cheev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr C -> LAPACKInt
+  -> Ptr (R C) -> IO LAPACKInt
+
+foreign import ccall unsafe "lapacke.h LAPACKE_zheev" c_zheev
+  :: CRepr MatrixLayout
+  -> CRepr EigJob
+  -> CRepr FortranUpLo
+  -> LAPACKInt -> Ptr Z -> LAPACKInt
+  -> Ptr (R Z) -> IO LAPACKInt
+
+
+loop0 :: Int -> (Int -> IO ()) -> IO ()
+loop0 n action = go 0 where
+  go i | i >= n = return ()
+       | otherwise = action i >> go (i+1)

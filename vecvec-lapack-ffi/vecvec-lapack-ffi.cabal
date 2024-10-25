@@ -31,7 +31,17 @@ flag lapack64
   
 Library
   Ghc-options:          -Wall
-  Default-Language:     Haskell2010
+  Default-Language:     GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DataKinds
+                        DerivingStrategies
+                        DerivingVia
+                        LambdaCase
+                        LexicalNegation
+                        MultiWayIf
+                        PatternSynonyms
+                        ViewPatterns
   -- Flag-dependent configuration
   if flag(Blas64)
     cpp-options: -DVECVEC_BLAS64=1

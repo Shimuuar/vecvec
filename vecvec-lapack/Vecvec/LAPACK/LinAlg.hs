@@ -24,7 +24,7 @@ import Foreign.Storable
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
-import Data.Char
+import Data.Complex
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
@@ -71,7 +71,7 @@ decomposeSVD a = unsafePerformIO $ do
     unsafeWithForeignPtr (mat_U.buffer)      $ \ptr_U ->
     unsafeWithForeignPtr (vecBuffer vec_Sig) $ \ptr_Sig ->
     unsafeWithForeignPtr (mat_VT.buffer)     $ \ptr_VT ->
-      gesdd RowMajor (fromIntegral $ ord 'A')
+      gesdd RowMajor SvdA
             (toL n_row) (toL n_col)
             ptr_A (toL mat_A.leadingDim)
             ptr_Sig
