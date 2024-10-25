@@ -1,9 +1,9 @@
--- | Type classes for working with N-dimensional possibly sparse
--- arrays. All indices are assumed to be 0-based. No assumptions about
+-- |
+-- Type classes for working with N-dimensional arrays. Arrays could be
+-- scarce. All indices are assumed to be 0-based. No assumptions about
 -- data layout in memory are made.
 module Vecvec.Classes.NDArray
   ( -- * ND-arrays
-    -- $ndarray
     -- ** Array shape
     Rank
   , HasShape(..)
@@ -32,9 +32,6 @@ module Vecvec.Classes.NDArray
   , Strided(..)
     -- * Unsafe functions
   , unsafeIndex
-    -- * Default implementations
-  , implSliceVector
-  , implSliceMVector
   ) where
 
 import Vecvec.Classes.Internal.ND
