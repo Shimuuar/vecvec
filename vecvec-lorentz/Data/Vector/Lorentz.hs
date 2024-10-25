@@ -1,20 +1,5 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- |
 -- Implementation of Lorentz vectors and boosts.
 module Data.Vector.Lorentz (
@@ -207,7 +192,7 @@ instance (Floating a, Ord a, a ~ a') => Convert (Gamma a) (Speed a') where
     | γ > 0     = Speed v
     | otherwise = Speed (-v)
     where
-      v  = sqrt ((γ2 -1) / γ2)
+      v  = sqrt ((γ2 - 1) / γ2)
       γ2 = γ*γ
 
 instance (Floating a, Ord a, a ~ a') => Convert (Gamma a) (Rapidity a') where
@@ -275,7 +260,7 @@ instance BoostParam Gamma where
                   , -γ*( v*t +   x))
     where
       γ2 = γ * γ
-      v  = sqrt ((γ2 -1) / γ2)
+      v  = sqrt ((γ2 - 1) / γ2)
   {-# INLINE boost1D #-}
   invertBoostP = Gamma . negate . getGamma
 
