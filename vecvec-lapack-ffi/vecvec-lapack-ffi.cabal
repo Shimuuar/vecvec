@@ -34,14 +34,14 @@ Library
   Default-Language:     GHC2021
   Default-extensions:   NoPolyKinds
                         --
-                        DerivingStrategies
                         DataKinds
-                        ViewPatterns
-                        MultiWayIf
-                        LambdaCase
+                        DerivingStrategies
                         DerivingVia
+                        LambdaCase
                         LexicalNegation
+                        MultiWayIf
                         PatternSynonyms
+                        ViewPatterns
   -- Flag-dependent configuration
   if flag(Blas64)
     cpp-options: -DVECVEC_BLAS64=1
