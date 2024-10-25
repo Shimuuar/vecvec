@@ -3,10 +3,27 @@
 {-# LANGUAGE UndecidableInstances   #-}
 -- |
 -- This module provides type classes for working with linear algebra.
--- Design of numeric type classes in base is rather unfortunate. We
--- have to define type classes for addition but other wise treat 'Num'
--- as poor man's ring and 'Fractional' as poor man's field in the name
--- of compatibility with wider ecosystem.
+-- Numeric hierarchy in @base@ is not suitable for working with linear
+-- spaces (vectors, matrices, etc.) so we define additional type
+-- classes but keep using standard numeric class for working with scalars.
+--
+-- We also use standard convention from other languages where
+-- operations on inputs of mismatched size result in an
+-- exception. This has consequences for type class hierarchy. This
+-- means that \"semigroups\", etc are not actually semigroups since
+-- addition is not total and they don't form groups since there's no
+-- unique zero.
+--
+-- * For addition see: 'AdditiveSemigroup', 'AdditiveMonoid',
+--   'AdditiveQuasigroup', 'AdditiveGroup'
+--
+-- * For vector space operations see: 'VectorSpace', 'InnerSpace'.
+--
+-- * For matrix×matrix and matrix×vector multiplication see 'MatMul'.
+--
+-- All law specified in this module are only expected to hold only up
+-- to usual floating point shenanigans. For standard ways of deriving
+-- instances see module "Vecvec.Classes.Deriving".
 module Vecvec.Classes
   ( -- * Additive groups
     AdditiveSemigroup(..)
@@ -25,10 +42,7 @@ module Vecvec.Classes
   , MatMul(..)
   , Tr(..)
   , Conj(..)
-    -- * Deriving via
-  , AsNum(..)
-  , AsVector(..)
-  , AsFixedVec(..)
+    -- * Deriving via wrappers
   , MonoidFromAdditive(..)
   ) where
 
@@ -61,43 +75,46 @@ import Vecvec.Classes.Internal.Types
 -- Additive group
 ----------------------------------------------------------------
 
--- | Values that support addition. Operation must be associative up to
---   usual floating point schenangians. It's not really a semigroup
---   since we admit non-total addition.
+-- | Values that support associative addition. It's not proper
+--   semigroup since we allow partial functions, e.g. addition of
+--   vector of different length could throw exception.
 --
 -- == Laws
 --
--- > (a .+. b) .+. c == a .+. (b .+. c) -- Associativity
---
--- Also if one side of equation is defined other must be defined too.
+-- > 1: (a .+. b) .+. c == a .+. (b .+. c) -- Associativity
+-- > 2: (a .+. b) .+. c ≠ ⊥   ⇒    a .+. (b .+. c) ≠ ⊥
 class AdditiveSemigroup a where
   (.+.) :: a -> a -> a
 
--- | Additive monoid.
+-- | Additive monoid. Which means that exists unique zero. For example
+--   vectors of variable length fail this condition: there's no value
+--   that would act as zero for every vector. It's also excepted that
+--   if such zero exists addition should be defined for all pairs.
 --
 -- == Laws
 --
--- Addition and subtraction (if it's also an instance of
--- 'AdditiveQuasigroup') must be total
+-- > 1: a .+. zeroV = a
+-- > 2: zeroV .+. a = a
+-- > 3: a .+. b     ≠ ⊥
 class AdditiveSemigroup a => AdditiveMonoid a where
   zeroV :: a
 
--- | Additive semigroup with subtraction. Note that we do not require
---   existence of zero. This is because we allow instances for vector
---   with variable length. Those could be though as union of vector
---   spaces of different dimension so there's no common zero.
+-- | Additive semigroup with subtraction which is inverse of
+--   addition. We define laws in a way that don't require existence of
+--   zero. For example there's no unique zero for vector of variable
+--   size.
 --
 -- == Laws
 --
 -- Laws hold if operation is defined.
 --
---   > x .+. (y .-. y) == x
---   > x .-. y == x .+. negateV y
+-- > 1: x .+. (y .-. y) == (x .+. y) .-. y == x
+-- > 2: x .-. y == x .+. negateV y
 class AdditiveSemigroup a => AdditiveQuasigroup a where
   (.-.)   :: a -> a -> a
   negateV :: a -> a
 
--- | Proper additive group
+-- | Proper additive group which has both subtraction and unique zero.
 type AdditiveGroup a = (AdditiveQuasigroup a, AdditiveMonoid a)
 
 infixl 6 .+., .-.
@@ -107,15 +124,23 @@ infixl 6 .+., .-.
 -- Vector spaces
 ----------------------------------------------------------------
 
--- | Vector space. Not it's not quite a vector space
+-- | Vector space. Note it's not quite a vector space since we don't
+--   require 'AdditiveGroup' as superclass, only
+--   'AdditiveQuasigroup'. This is done in order to allow instances
+--   for variable size vectors, matrices, etc. Both left and right
+--   multiplication are defined in for case when multiplication is not
+--   commutative.
 class AdditiveQuasigroup v => VectorSpace v where
   type Scalar v
+  -- | Elementwise multiplication by scalar on the left.
   (*.) :: Scalar v -> v -> v
+  -- | Elementwise multiplication by scalar on the right.
   (.*) :: v -> Scalar v -> v
 
 infixl 7 .*
 infixr 7 *.
 
+-- | Divide by scalar.
 (./) :: (Fractional (Scalar v), VectorSpace v) => v -> Scalar v -> v
 v ./ x = v .* recip x
 {-# INLINE (./) #-}
@@ -126,8 +151,8 @@ v ./ x = v .* recip x
 --
 -- == Laws
 --
--- > (a *. v) <.> w = conjugate a *. (v <.> w)
--- > v <.> (a *. w) = a           *. (v <.> w)
+-- > 1: (a *. v) <.> w = conjugate a *. (v <.> w)
+-- > 2: v <.> (a *. w) = a           *. (v <.> w)
 class (NormedScalar (Scalar v), VectorSpace v) => InnerSpace v where
   -- | Inner product.
   (<.>)       :: v -> v -> Scalar v
@@ -157,9 +182,9 @@ normalizeMag v = (v ./ fromR n, n) where n = magnitude v
 --   class in order to be able to compute norm of vector over complex
 --   field.
 --
---   > ∀x. isReal (x * conjugate x) == True
---   > ∀x. isReal (fromR x)         == True
---   > ∀x. isReal x  ⇒  x == conjugate x
+-- > 1: ∀x. isReal (x * conjugate x) == True
+-- > 2: ∀x. isReal (fromR x)         == True
+-- > 3: ∀x. isReal x  ⇒  x == conjugate x
 class (Num v, Num (R v)) => NormedScalar v where
   -- | Type representing norm of scalar. @R@ stands for real
   type R v
@@ -191,12 +216,14 @@ class MatMul a f g h | f g -> h where
 
 infixl 7 @@
 
--- | Newtype for passing matrix\/vector to '@@' as transposed.
+-- | Newtype for representing vector or matrix as transposed. In
+--   particular it's used in 'MatMul' instances.
 newtype Tr v a = Tr { getTr :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)
 
--- | Newtype for passing matrix\/vector to '@@' as conjugated.
+-- | Newtype for representing vector or matrix as hermitian conjugate. In
+--   particular it's used in 'MatMul' instances.
 newtype Conj v a = Conj { getConj :: v a }
   deriving stock   (Show, Eq, Ord, Functor, Foldable, Traversable, Generic)
   deriving newtype (AdditiveSemigroup,AdditiveMonoid,AdditiveQuasigroup,VectorSpace,InnerSpace)

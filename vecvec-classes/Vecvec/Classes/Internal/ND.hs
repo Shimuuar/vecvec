@@ -219,18 +219,17 @@ data Strided a = Strided a !Int
 -- | Rank of N-dimensional array: 1 for vectors, 2 for matrices, etc.
 type family Rank (arr :: Type -> Type) :: Nat
 
--- | Base type class for N-dimensional arrays. It only contains
---   functions for getting extent of array and checking whether index
---   is in range. Instances could be defined for both mutable and
---   immutable arrays.
+-- | Base type class for N-dimensional arrays. Instances could be
+--   defined for both mutable and immutable arrays.
 class F.Arity (Rank arr) => HasShape arr a where
-  -- | Return shape of N-dimensional array as a tuple of
-  --   @Int@s. 'ContVec' is used as tuple parametric in rank which
-  --   is both parametric in length and optimized well by GHC.
+  -- | Return shape of N-dimensional array as a N-tuple of
+  --   @Int@s. 'ContVec' is used as representation since it's
+  --   parametric in length and optimized well by GHC.
   shapeAsCVec :: arr a -> ContVec (Rank arr) Int
 
 -- | Get shape of an array. Note that this function is polymorphic in
---   its return type.
+--   its return type, so it's either need explicit type annotation or
+--   has its type set by consumer.
 shape :: (IsShape shape (Rank arr), HasShape arr a) => arr a -> shape
 shape = shapeFromCVec . shapeAsCVec
 {-# INLINE shape #-}
@@ -251,9 +250,12 @@ nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 -- Mutable arrays
 ----------------------------------------------------------------
 
--- | Type class for N-dimensional arrays where each dimension is
---   zero-indexed. There's no restriction on actual representation
---   which could be dense or sparse.
+-- | Type class for N-dimensional mutable arrays where each dimension
+--   is zero-indexed. There's no restriction on actual representation
+--   which could be dense or sparse. Reading of an array should be
+--   defined for each in-bounds index. Writing however however could
+--   be defined only on subset of indices. For example for tridiagonal
+--   matrices only writes on diagonals are valid.
 class (forall s. HasShape (arr s) a) => NDMutable arr a where
   -- | /O(1)/ Read element of an array at given index. Provided index
   --   must be in bounds and function must return value in that
@@ -275,8 +277,7 @@ class (forall s. HasShape (arr s) a) => NDMutable arr a where
 
 
 -- | /O(1)/ Read element of an array without performing any range
---   checks. Only generic way to check whether index is in range is
---   to call 'basicRangeCheck'.
+--   checks.
 unsafeReadArr
   :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
   => arr s a -- ^ Mutable array
@@ -285,9 +286,9 @@ unsafeReadArr
 {-# INLINE unsafeReadArr #-}
 unsafeReadArr arr i = stToPrim $ basicUnsafeReadArr arr (shapeToCVec i)
 
--- | /O(1)/ Read element of an array. Should throw if element is out
---   of range. Note that successful read does not imply that it's
---   safe to write at same index for sparse matrices.
+-- | /O(1)/ Read element of an array. Will throw exception if element
+--   is out of range. Note that successful read does not imply that
+--   it's safe to write at same index for sparse matrices.
 readArr
   :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
   => arr s a -- ^ Mutable array
@@ -301,8 +302,8 @@ readArr arr (shapeToCVec -> i)
     sz = shapeAsCVec arr
 
 -- | /O(1)/ Write element to an array without performing any range
---   checks. Only generic way to check whether index is in range is
---   to call 'basicRangeCheck'.
+--   checks. Note that it's not enough to check that index is in
+--   range, one need to use 'basicIsWritable' too.
 unsafeWriteArr
   :: (NDMutable arr a, IsShape idx (Rank (arr s)), PrimMonad m, s ~ PrimState m)
   => arr s a -- ^ Mutable array

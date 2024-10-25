@@ -25,6 +25,7 @@ import Data.Vector.Fusion.Util      (liftBox)
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Deriving
 import Vecvec.Classes.Containers
 import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Vector.Mutable (LAPACKy, MVec(..), VecRepr(..), InVector(..)
