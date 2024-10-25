@@ -1,17 +1,20 @@
+Cabal-Version:  3.0
+Build-Type:     Simple
+--
 Name:           vecvec-classes
-Version:        0.0.1
+Version:        0.1.0
 Synopsis:       Type classes for working with linear algebra
 Description:
-  This package package defines set of type classes used for working with liner algebra
-
-Cabal-Version:  >= 1.10
-License:        BSD3
+  This package defines set of type classes for working with
+  linear spaces and N-dimensional arrays.
+--
+License:        BSD-3-Clause
 License-File:   LICENSE
 Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
-Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
-Category:       Data
-Build-Type:     Simple
+Bug-reports:    https://github.com/Shimuuar/vecvec/issues
+Category:       Math,Numeric
+
 extra-source-files:
   ChangeLog.md
 

@@ -1,17 +1,20 @@
+Cabal-Version:  3.0
+Build-Type:     Simple
+--
 Name:           vecvec-lapack-ffi
 Version:        0.0.1
-Synopsis:       Low level LAPACK bindings
+Synopsis:       Low level BLAS & LAPACK bindings
 Description:
-  Linear algebra for haskell
-
-Cabal-Version:  >= 1.10
-License:        BSD3
+  This package contains low-level FFI wrappers which are used by
+  vecvec-lapack.
+--
+License:        BSD-3-Clause
 License-File:   LICENSE
 Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
-Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
-Category:       Data
-Build-Type:     Simple
+Bug-reports:    https://github.com/Shimuuar/vecvec/issues
+Category:
+
 extra-source-files:
   ChangeLog.md
   cbits/blastest.c

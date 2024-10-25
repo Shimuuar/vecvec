@@ -3,15 +3,16 @@ Build-type:          Simple
 --
 Name:                vecvec-lorentz
 Version:             0.1.0.0
-Synopsis:            Lorentz vectors
+Synopsis:            Implementation of Lorentz vectors
 Description:
-  Implementation of Lorentz vector.
+  This library contains implementation of Lorentz vector, boosts on top of
+  fixed-vector library.
 --
 License:             BSD-3-Clause
 License-file:        LICENSE
 Author:              Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Maintainer:          Aleksey Khudyakov <alexey.skladnoy@gmail.com>
-Category:            Math
+Category:            Math, Physics
 
 extra-source-files:
   ChangeLog.md

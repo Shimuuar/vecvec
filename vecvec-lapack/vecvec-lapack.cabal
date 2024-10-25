@@ -3,17 +3,17 @@ Build-Type:     Simple
 --
 Name:           vecvec-lapack
 Version:        0.0.1
-Synopsis:       Yet another set of high level BALS & LAPACK wrappers
+Synopsis:       High level BLAS & LAPACK bindings
 Description:
   Linear algebra for haskell. This library provides high level
-  wrappers for BLAS and LAPACK libraries.
+  bindings for BLAS and LAPACK libraries.
 --
 License:        BSD-3-Clause
 License-File:   LICENSE
 Author:         Aleksey Khudyakov <alexey.skladnoy@gmail.com>
 Maintainer:     Aleksey Khudyakov <alexey.skladnoy@gmail.com>
-Bug-reports:    https://github.com/Shimuuar/fixed-vector/issues
-Category:       Data
+Bug-reports:    https://github.com/Shimuuar/vecvec/issues
+Category:       Math,Numeric
 
 extra-source-files:
   ChangeLog.md
