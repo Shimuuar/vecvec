@@ -236,7 +236,7 @@ new n = do
   MVec buffer <- MVG.new (n * n)
   pure $ MSymmetric MSymView { size       = n
                              , leadingDim = n
-                             , buffer     = vecBuffer buffer
+                             , buffer     = buffer.vecBuffer
                              }
 
 -- | Allocate new matrix. Content of buffer if not touched and may
@@ -249,7 +249,7 @@ unsafeNew n = do
   MVec buffer <- MVG.unsafeNew (n * n)
   pure $ MSymmetric MSymView { size       = n
                                  , leadingDim = n
-                                 , buffer     = vecBuffer buffer
+                                 , buffer     = buffer.vecBuffer
                                  }
 
 -- | Fill matrix of given size with provided value.

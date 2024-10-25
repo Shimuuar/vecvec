@@ -39,6 +39,7 @@ common language
                         -- Records
                         DuplicateRecordFields
                         OverloadedRecordDot
+                        NoFieldSelectors
 
 ----------------------------------------------------------------
 

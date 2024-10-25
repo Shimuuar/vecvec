@@ -107,7 +107,7 @@ instance VS.Storable a => VG.Vector Vec a where
   {-# INLINE basicUnsafeThaw #-}
   basicUnsafeThaw = pure . coerce
   {-# INLINE basicLength #-}
-  basicLength (Vec v) = vecSize v
+  basicLength (Vec v) = v.vecSize
   {-# INLINE basicUnsafeSlice #-}
   basicUnsafeSlice j m (Vec (VecRepr _ inc fp))
     = Vec (VecRepr m inc (updPtr (`advancePtr` (inc*j)) fp))
