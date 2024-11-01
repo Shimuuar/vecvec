@@ -17,10 +17,12 @@ module Vecvec.LAPACK.LinAlg
     -- * Matrix decomposition
   , decomposeSVD
     -- * Eigenvalues and eigenvectors
+  , eig
   , eigvals
-  , eigvecs
+  , eigH
   , eigvalsH
-  , eigvecsH
+  , eigS
+  , eigvalsH
   ) where
 
 import Control.Monad.ST
@@ -41,6 +43,7 @@ import Vecvec.LAPACK.Unsafe.Symmetric.Mutable qualified as MSym
 import Vecvec.LAPACK.Unsafe.Symmetric.Mutable (MSymmetric(..), MSymView(..))
 import Vecvec.LAPACK.Unsafe.Hermitian.Mutable qualified as MHer
 import Vecvec.LAPACK.Unsafe.Hermitian.Mutable (MHermitian(..))
+import Vecvec.LAPACK.Unsafe.Hermitian         (asHermitian)
 import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
@@ -289,14 +292,17 @@ eigvals mat0 = runST $ do
     n = nRows mat0
 
 
-eigvecs
+-- | Compute eigenvalue and eigenvector of a general matrix.
+--   Eigenvectors are returned as columns of a matrix
+eig
   :: (LAPACKy a, Storable (R a))
-  => Matrix a
-  -- FIXME: What do we want to return???
+  => Matrix a -- ^ Matrix \(A\)
   -> (Vec (Complex (R a)), Matrix a)
-eigvecs mat0
+  -- ^ Vector of real eigenvalues and corresponding eigenvectors of
+  --   \(A\).
+eig mat0
   | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
-eigvecs mat0 = runST $ do
+eig mat0 = runST $ do
   MMatrix mat  <- MMat.clone mat0
   MVec    vec  <- MVG.unsafeNew n
   MMatrix vecR <- MMat.unsafeNew (n,n)
@@ -316,10 +322,11 @@ eigvecs mat0 = runST $ do
   where
     n = nRows mat0
 
-
+-- | Compute eigenvalues of a hermitian matrix.
 eigvalsH
   :: (LAPACKy a, Storable (R a))
-  => Hermitian a -> Vec (R a)
+  => Hermitian a -- ^ Hermitian matrix \(A\)
+  -> Vec (R a)   -- ^ Vector of real eigenvalues
 eigvalsH mat0 = runST $ do
   MHermitian mat <- MHer.clone mat0
   MVec       vec <- MVG.unsafeNew n
@@ -334,10 +341,16 @@ eigvalsH mat0 = runST $ do
   where
     n = nRows mat0
 
-eigvecsH
+-- | Compute eigenvalues and eigenvectors of hermitian
+--   matrix. Eigenvectors are returned as columns of matrix.
+eigH
   :: (LAPACKy a, Storable (R a))
-  => Hermitian a -> (Vec (R a), Matrix a)
-eigvecsH mat0 = runST $ do
+  => Hermitian a
+  -- ^ Hermitian matrix \(A\)
+  -> (Vec (R a), Matrix a)
+  -- ^ Vector of real eigenvalues and corresponding eigenvectors of
+  --   \(A\).
+eigH mat0 = runST $ do
   MHermitian mat <- MHer.clone mat0
   MVec       vec <- MVG.unsafeNew n
   info <- unsafePrimToPrim $
@@ -356,3 +369,20 @@ eigvecsH mat0 = runST $ do
     _       -> error "solveLinEqSym failed"
   where
     n = nRows mat0
+
+-- | Compute eigenvalues and eigenvectors of symmetric real valued
+--   matrix. Eigenvectors are returned as columns of matrix.
+eigS
+  :: (LAPACKy a, R a ~ a)
+  => Symmetric a       -- ^ Symmetric matrix \(A\).
+  -> (Vec a, Matrix a) -- ^ Vector of eigenvalues and corresponding
+                       --   eigenvectors of \(A\).
+eigS = eigH . asHermitian
+
+-- | Compute eigenvalues of symmetric real valued
+--   matrix.
+eigvalsS
+  :: (LAPACKy a, R a ~ a)
+  => Symmetric a -- ^ Symmetric matrix \(A\).
+  -> Vec a       -- ^ Vector of eigenvalues of \(A\).
+eigvalsS = eigvalsH . asHermitian
