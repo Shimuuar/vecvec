@@ -66,7 +66,7 @@ newtype BLASInt = BLASInt
 #else
     CInt
 #endif
-  deriving newtype Storable
+  deriving newtype (Show,Eq,Ord,Storable)
 
 -- | Integer type used by LAPACK
 newtype LAPACKInt = LAPACKInt
@@ -75,7 +75,7 @@ newtype LAPACKInt = LAPACKInt
 #else
     CInt
 #endif
-  deriving newtype Storable
+  deriving newtype (Show,Eq,Ord,Storable)
 
 -- FIXME: We should really trap overflows. But...
 

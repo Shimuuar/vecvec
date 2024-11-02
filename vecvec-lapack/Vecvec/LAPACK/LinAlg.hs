@@ -92,7 +92,7 @@ decomposeSVD a = unsafePerformIO $ do
                     , Vec    vec_Sig
                     , Matrix mat_VT
                     )
-    _ -> error "SVD failed"
+    _ -> error $ "SVD failed. GESDD error = " ++ show info
 
 
 ----------------------------------------------------------------
@@ -111,11 +111,13 @@ invertMatrix m
           let n   = toL inv.ncols
               lda = toL inv.leadingDim
           info_trf <- getrf RowMajor n n ptr_a lda ptr_ipiv
-          case info_trf of LAPACK0 -> pure ()
-                           _       -> error "invertMatrix failed (GETRF)"
+          case info_trf of
+            LAPACK0 -> pure ()
+            _       -> error $ "invertMatrix failed. GETRF error = " ++ show info_trf
           info_tri <- getri RowMajor n ptr_a lda ptr_ipiv
-          case info_tri of LAPACK0 -> pure ()
-                           _       -> error "invertMatrix failed (GETRF)"
+          case info_tri of
+            LAPACK0 -> pure ()
+            _       -> error $ "invertMatrix failed. GETRI error = " ++ show info_tri
       --
       pure $ Matrix inv
 
@@ -178,8 +180,8 @@ solveLinEq a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEq failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEq failed. GESV error = " ++ show info
   where
     n = nCols a0
 
@@ -215,8 +217,8 @@ solveLinEqSym a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEqSym failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEqSym failed. SYSV error = " ++ show info
   where
     n = nCols a0
 
@@ -252,8 +254,8 @@ solveLinEqHer a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEqSym failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEqHer failed. HESV error = " ++ show info
   where
     n = nCols a0
 
@@ -287,8 +289,8 @@ eigvals mat0 = runST $ do
         ptr_V
         nullPtr (toL 1) nullPtr (toL 1)
   case info of
-    LAPACK0 -> pure $ Vec vec
-    _       -> error "eigvals failed"
+    LAPACK0 -> pure  $ Vec vec
+    _       -> error $ "eigvals failed: GEEV error = " ++ show info
   where
     n = nRows mat0
 
@@ -319,7 +321,7 @@ eig mat0 = runST $ do
   case info of
     LAPACK0 -> pure ( Vec vec
                     , Matrix vecR)
-    _       -> error "eig failed"
+    _       -> error $ "eig failed: GEEV error = " ++ show info
   where
     n = nRows mat0
 
@@ -338,7 +340,7 @@ eigvalsH mat0 = runST $ do
         (toL n) ptr_A (toL mat.leadingDim) ptr_V
   case info of
     LAPACK0 -> pure $ Vec vec
-    _       -> error "eigvalsH failed"
+    _       -> error $ "eigvalsH failed: HEEV error = " ++ show info
   where
     n = nRows mat0
 
@@ -367,7 +369,7 @@ eigH mat0 = runST $ do
                                   , buffer     = mat.buffer
                                   }
                     )
-    _       -> error "eigH failed"
+    _       -> error $ "eigH failed: HEEV error = " ++ show info
   where
     n = nRows mat0
 
