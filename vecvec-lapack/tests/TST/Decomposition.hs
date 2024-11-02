@@ -12,6 +12,7 @@ import Test.Tasty.QuickCheck
 
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
+import Vecvec.Classes.Containers
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
 import Vecvec.LAPACK.Matrix          (Matrix,LAPACKy,gdiag)
 import Vecvec.LAPACK.Matrix          qualified as Mat
@@ -112,7 +113,7 @@ prop_eig_valid (Square mat)
                        $ counterexample ("λV = " ++ show v2)
                          False
             | (λ,v) <- eigvecs
-            , let v1 = VG.map toComplex $ mat @@ v
+            , let v1 = VG.map toComplex $ cmap toComplex mat @@ v
                   v2 = VG.map ((*λ) . toComplex) v
               
             ] 

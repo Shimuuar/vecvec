@@ -524,18 +524,18 @@ class (NormedScalar a, Storable a) => LAPACKy a where
     -> IO LAPACKInt
 
   -- | Compute eigenvalues and (optionally) eigenvectors of a general matrix
+  --   Matrix must use row major memory layout
   geev
-    :: MatrixLayout        -- ^ Matrix layout
-    -> EigJob              -- ^ Whether to compute left eigenvectors
+    :: EigJob              -- ^ Whether to compute left eigenvectors
     -> EigJob              -- ^ Whether to compute right eigenvectors
     -> LAPACKInt           -- ^ Size of a matrix
     -> Ptr a               -- ^ @[IN,OUT]@ Buffer of a matrix. It will
                            --   be overwritten on exit.
     -> LAPACKInt           -- ^ Leading dimension of a matrix
     -> Ptr (Complex (R a)) -- ^ @[OUT]@ buffer for eigenvalues
-    -> Ptr a               -- ^ Buffer for left eigenvectors.
+    -> Ptr (Complex (R a)) -- ^ Buffer for left eigenvectors.
     -> LAPACKInt           -- ^ Leading dimension for left eigenvectors.
-    -> Ptr a               -- ^ Buffer for right eigenvectors.
+    -> Ptr (Complex (R a)) -- ^ Buffer for right eigenvectors.
     -> LAPACKInt           -- ^ Leading dimension for right eigenvectors.
     -> IO LAPACKInt
 
@@ -582,18 +582,22 @@ instance LAPACKy Float where
   {-# INLINE getri #-}
   getrf layout = c_sgetrf (toCEnum layout)
   {-# INLINE getrf #-}
-  geev layout jobL jobR sz@(LAPACKInt (fromIntegral -> sz_i)) ptrA lda w vL ldL vR ldR
-    = allocaArray (2 * sz_i) $ \ptr_v -> do
-        let ptr_re = ptr_v
-            ptr_im = ptr_v `advancePtr` sz_i
-        res <- c_sgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
-          sz ptrA lda
-          ptr_re ptr_im
-          vL ldL vR ldR
+  geev jobL jobR sz@(fromL -> sz_i) ptrA lda w vL ldL vR ldR
+    = allocaGeevEigVals sz_i      $ \ptr_re ptr_im ->
+      allocaGeevEigVec  sz_i jobL $ \ptr_L ->
+      allocaGeevEigVec  sz_i jobR $ \ptr_R -> do
+        res <- c_sgeev (toCEnum RowMajor) (toCEnum jobL) (toCEnum jobR)
+          sz ptrA lda  ptr_re ptr_im  ptr_L sz ptr_R sz
         case res of
-          LAPACK0 -> loop0 sz_i $ \i -> do re <- peekElemOff ptr_re i
-                                           im <- peekElemOff ptr_im i
-                                           pokeElemOff w i (re :+ im)
+          LAPACK0 -> loop0 sz_i $ \i -> do
+            -- Copy eigenvalues
+            re <- peekElemOff ptr_re i
+            im <- peekElemOff ptr_im i
+            pokeElemOff w i (re :+ im)
+            case jobL of EigN -> pure ()
+                         EigV -> copyEigVector sz_i i ptr_im ptr_L vL (fromL ldL)
+            case jobR of EigN -> pure ()
+                         EigV -> copyEigVector sz_i i ptr_im ptr_R vR (fromL ldR)
           _       -> pure ()
         return res
   {-# INLINE geev #-}
@@ -631,18 +635,21 @@ instance LAPACKy Double where
   {-# INLINE getri #-}
   getrf layout = c_dgetrf (toCEnum layout)
   {-# INLINE getrf #-}
-  geev layout jobL jobR sz@(LAPACKInt (fromIntegral -> sz_i)) ptrA lda w vL ldL vR ldR
-    = allocaArray (2 * sz_i) $ \ptr_v -> do
-        let ptr_re = ptr_v
-            ptr_im = ptr_v `advancePtr` sz_i
-        res <- c_dgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
-          sz ptrA lda
-          ptr_re ptr_im
-          vL ldL vR ldR
+  geev jobL jobR sz@(fromL -> sz_i) ptrA lda w vL ldL vR ldR
+    = allocaGeevEigVals sz_i      $ \ptr_re ptr_im ->
+      allocaGeevEigVec  sz_i jobL $ \ptr_L ->
+      allocaGeevEigVec  sz_i jobR $ \ptr_R -> do
+        res <- c_dgeev (toCEnum RowMajor) (toCEnum jobL) (toCEnum jobR)
+          sz ptrA lda   ptr_re ptr_im   ptr_L sz ptr_R sz
         case res of
-          LAPACK0 -> loop0 sz_i $ \i -> do re <- peekElemOff ptr_re i
-                                           im <- peekElemOff ptr_im i
-                                           pokeElemOff w i (re :+ im)
+          LAPACK0 -> loop0 sz_i $ \i -> do
+            re <- peekElemOff ptr_re i
+            im <- peekElemOff ptr_im i
+            pokeElemOff w i (re :+ im)
+            case jobL of EigN -> pure ()
+                         EigV -> copyEigVector sz_i i ptr_im ptr_L vL (fromL ldL)
+            case jobR of EigN -> pure ()
+                         EigV -> copyEigVector sz_i i ptr_im ptr_R vR (fromL ldR)
           _       -> pure ()
         return res
   {-# INLINE geev #-}
@@ -744,7 +751,7 @@ instance LAPACKy (Complex Float) where
   {-# INLINE getri #-}
   getrf layout = c_cgetrf (toCEnum layout)
   {-# INLINE getrf #-}
-  geev layout jobL jobR = c_cgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+  geev jobL jobR = c_cgeev (toCEnum RowMajor) (toCEnum jobL) (toCEnum jobR)
   {-# INLINE geev #-}
   heev layout job uplo = c_cheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
   {-# INLINE heev #-}
@@ -843,7 +850,7 @@ instance LAPACKy (Complex Double) where
   {-# INLINE getri #-}
   getrf layout = c_zgetrf (toCEnum layout)
   {-# INLINE getrf #-}
-  geev layout jobL jobR = c_zgeev (toCEnum layout) (toCEnum jobL) (toCEnum jobR)
+  geev jobL jobR = c_zgeev (toCEnum RowMajor) (toCEnum jobL) (toCEnum jobR)
   {-# INLINE geev #-}
   heev layout job uplo = c_zheev (toCEnum layout) (toCEnum job) (toCEnum uplo)
   {-# INLINE heev #-}
@@ -1334,3 +1341,41 @@ loop0 :: Int -> (Int -> IO ()) -> IO ()
 loop0 n action = go 0 where
   go i | i >= n = return ()
        | otherwise = action i >> go (i+1)
+
+allocaGeevEigVals :: Storable a => Int -> (Ptr a -> Ptr a -> IO b) -> IO b
+{-# INLINE allocaGeevEigVals #-}
+allocaGeevEigVals sz action =
+  allocaArray (2*sz) $ \ptr -> do
+    let ptr_re = ptr
+        ptr_im = ptr `advancePtr` sz
+    action ptr_re ptr_im
+
+allocaGeevEigVec :: Storable a => Int -> EigJob -> (Ptr a -> IO b) -> IO b
+allocaGeevEigVec _  EigN action = action nullPtr
+allocaGeevEigVec sz EigV action =
+  allocaArray (sz*sz) action
+
+copyEigVector
+  :: (Num a, Ord a, Storable a)
+  => Int             -- ^ Matrix size
+  -> Int             -- ^ Eigenvector number
+  -> Ptr a           -- ^ Imaginary part of eigenvector
+  -> Ptr a           -- ^ GEEV encoded eigenvector
+  -> Ptr (Complex a) -- ^ Output array
+  -> Int             -- ^ Leading dimension
+  -> IO ()
+copyEigVector n i ptr_im src dst ld = do
+  eigv_im <- peekElemOff ptr_im i
+  case eigv_im `compare` 0 of
+    -- Real eigenvalue. Just copy corresponding column
+    EQ -> loop0 n $ \j -> do
+      x <- peekElemOff src (j*n + i)
+      pokeElemOff dst (j*ld + i) (x :+ 0)
+    -- Positive imaginary part. It always comes first
+    GT -> loop0 n $ \j -> do
+      re <- peekElemOff src (j*n + i)
+      im <- peekElemOff src (j*n + (i+1))
+      pokeElemOff dst (j*ld + i)     (re :+ im)
+      pokeElemOff dst (j*ld + (i+1)) (re :+ -im)
+    -- Negative imaginary part
+    LT -> return ()

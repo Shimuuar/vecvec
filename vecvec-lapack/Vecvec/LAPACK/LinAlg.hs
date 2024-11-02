@@ -22,7 +22,7 @@ module Vecvec.LAPACK.LinAlg
   , eigH
   , eigvalsH
   , eigS
-  , eigvalsH
+  , eigvalsS
   ) where
 
 import Control.Monad.ST
@@ -281,7 +281,7 @@ eigvals mat0 = runST $ do
   info <- unsafePrimToPrim $
     unsafeWithForeignPtr mat.buffer $ \ptr_A ->
     unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
-      geev RowMajor EigN EigN
+      geev EigN EigN
         (toL n) ptr_A (toL mat.leadingDim)
         ptr_V
         nullPtr (toL 1) nullPtr (toL 1)
@@ -297,7 +297,7 @@ eigvals mat0 = runST $ do
 eig
   :: (LAPACKy a, Storable (R a))
   => Matrix a -- ^ Matrix \(A\)
-  -> (Vec (Complex (R a)), Matrix a)
+  -> (Vec (Complex (R a)), Matrix (Complex (R a)))
   -- ^ Vector of real eigenvalues and corresponding eigenvectors of
   --   \(A\).
 eig mat0
@@ -310,7 +310,7 @@ eig mat0 = runST $ do
     unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
     unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
     unsafeWithForeignPtr vecR.buffer   $ \ptr_VR -> do
-      geev RowMajor EigN EigV
+      geev EigN EigV
         (toL n) ptr_A (toL mat.leadingDim)
         ptr_V
         nullPtr (toL 1)
