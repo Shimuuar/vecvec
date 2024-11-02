@@ -18,6 +18,7 @@ module TST.Tools.MatModel
   , X(..)
   , Size2D(..)
   , Nonsingular(..)
+  , Square(..)
   , Pair1(..)
     -- * Models
   , TestMat(..)
@@ -193,6 +194,14 @@ genNonsingularHermitian sz = do
   pure $  multipleByReal (2 * maxGenScacar * fromIntegral sz) (Sym.eye sz)
       .+. mat
 
+-- | Generate square matrix
+newtype Square a = Square (Matrix a)
+  deriving stock Show
+
+instance (SmallScalar a, Num a, Storable a) => Arbitrary (Square a) where
+  arbitrary = do
+    sz <- genSize @Int
+    Square <$> arbitraryShape (sz,sz)
 
 -- | Pair of values with same size
 data Pair1 v a = Pair1 (v a) (v a)

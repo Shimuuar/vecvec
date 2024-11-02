@@ -4,6 +4,7 @@
 module TST.Decomposition (tests) where
 
 import Foreign.Storable (Storable)
+import Data.Complex     (Complex)
 import Data.Typeable
 import Data.Vector.Generic qualified as VG
 import Test.Tasty
@@ -28,6 +29,12 @@ tests = testGroup "Decomposition"
     , testSVD @C
     , testSVD @Z
     ]
+  , testGroup "eig"
+    [ testEig @S
+    , testEig @D
+    , testEig @C
+    , testEig @Z
+    ]  
   ]
 
 
@@ -79,3 +86,36 @@ prop_SVD_unitarity mat
     (u,_,v) = decomposeSVD mat
     deltaU  = (Conj u @@ u) .-. Mat.eye n
     deltaV  = (Conj v @@ v) .-. Mat.eye k
+
+
+testEig
+  :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a, ToComplex a
+               , Storable (R a), Epsilon (R a), Ord (R a), RealFloat (R a)
+               , Show (R a), LAPACKy (R a), LAPACKy (Complex (R a))
+               )
+  => TestTree
+testEig = testGroup (show (typeOf (undefined :: a)))
+  [ testProperty "eig valid"   $ prop_eig_valid     @a
+  ]
+
+prop_eig_valid
+  :: ( LAPACKy a, Show a, ToComplex a, LAPACKy (R a), LAPACKy (Complex (R a))
+     , Storable (R a), Epsilon (R a), Ord (R a), RealFloat (R a), Show (R a))
+  => Square a
+  -> Property
+prop_eig_valid (Square mat)
+  = conjoin [ case magnitude (v1 .-. v2) < epsilon of
+                True  -> property True
+                False -> counterexample ("λ  = " ++ show λ)
+                       $ counterexample ("v  = " ++ show v)
+                       $ counterexample ("Av = " ++ show v1)
+                       $ counterexample ("λV = " ++ show v2)
+                         False
+            | (λ,v) <- eigvecs
+            , let v1 = VG.map toComplex $ mat @@ v
+                  v2 = VG.map ((*λ) . toComplex) v
+              
+            ] 
+  where
+    eigvecs = case eig mat of
+      (val,vec) -> VG.toList val `zip` Mat.toColList vec

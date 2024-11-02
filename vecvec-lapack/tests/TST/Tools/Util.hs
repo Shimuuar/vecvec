@@ -9,18 +9,20 @@ module TST.Tools.Util
   ( -- * Utility
     qualTypeName
   , zipWithX
+  , ToComplex(..)
     -- * Precision
   , Epsilon(..)
   ) where
 
+import Data.Complex
 import Data.Typeable
 import Data.Monoid
-
 import Data.Vector           qualified as V
 import Data.Vector.Unboxed   qualified as VU
 import Data.Vector.Storable  qualified as VS
 import Data.Vector.Primitive qualified as VP
 
+import Vecvec.Classes
 
 -- | Pretty print name of type
 qualTypeName :: forall v. (Typeable v) => String
@@ -62,3 +64,15 @@ class Epsilon a where
 
 instance Epsilon Float  where epsilon = 1e-4
 instance Epsilon Double where epsilon = 1e-12
+
+
+
+class ToComplex a where
+  toComplex :: a -> Complex (R a)
+
+instance ToComplex (Complex a) where
+  toComplex = id
+instance ToComplex Float where
+  toComplex = (:+0)
+instance ToComplex Double where
+  toComplex = (:+0)
