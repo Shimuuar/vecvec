@@ -37,7 +37,6 @@ import Vecvec.LAPACK.Unsafe.Compat
 import Vecvec.LAPACK.Unsafe.Matrix
 import Vecvec.LAPACK.Unsafe.Symmetric         (Symmetric)
 import Vecvec.LAPACK.Unsafe.Hermitian         (Hermitian)
-import Vecvec.LAPACK.Unsafe.Matrix            qualified as Mat
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable    qualified as MMat
 import Vecvec.LAPACK.Unsafe.Matrix.Mutable    (MMatrix(..), MView(..))
 import Vecvec.LAPACK.Unsafe.Symmetric.Mutable qualified as MSym
@@ -283,11 +282,11 @@ eigvals mat0 = runST $ do
   MVec    vec <- MVG.unsafeNew n
   info <- unsafePrimToPrim $
     unsafeWithForeignPtr mat.buffer $ \ptr_A ->
-    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V -> do
+      let n_L = toL n
       geev EigN EigN
-        (toL n) ptr_A (toL mat.leadingDim)
-        ptr_V
-        nullPtr (toL 1) nullPtr (toL 1)
+        n_L ptr_A (toL mat.leadingDim)
+        ptr_V   nullPtr n_L   nullPtr n_L
   case info of
     LAPACK0 -> pure  $ Vec vec
     _       -> error $ "eigvals failed: GEEV error = " ++ show info
@@ -313,13 +312,13 @@ eig mat0 = runST $ do
     unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
     unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
     unsafeWithForeignPtr vecR.buffer   $ \ptr_VR -> do
+      let n_L = toL n
       geev EigN EigV
-        (toL n) ptr_A (toL mat.leadingDim)
-        ptr_V
-        nullPtr (toL 1)
-        ptr_VR  (toL n)
+        n_L ptr_A (toL mat.leadingDim)
+        ptr_V   nullPtr n_L   ptr_VR  n_L
   case info of
-    LAPACK0 -> pure ( Vec vec
+    LAPACK0 -> pure (
+      Vec vec
                     , Matrix vecR)
     _       -> error $ "eig failed: GEEV error = " ++ show info
   where
