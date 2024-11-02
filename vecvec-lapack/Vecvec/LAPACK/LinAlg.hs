@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg
@@ -16,6 +17,13 @@ module Vecvec.LAPACK.LinAlg
   , invertMatrix
     -- * Matrix decomposition
   , decomposeSVD
+    -- * Eigenvalues and eigenvectors
+  , eig
+  , eigvals
+  , eigH
+  , eigvalsH
+  , eigS
+  , eigvalsS
   ) where
 
 import Control.Monad.ST
@@ -35,11 +43,12 @@ import Vecvec.LAPACK.Unsafe.Symmetric.Mutable qualified as MSym
 import Vecvec.LAPACK.Unsafe.Symmetric.Mutable (MSymmetric(..), MSymView(..))
 import Vecvec.LAPACK.Unsafe.Hermitian.Mutable qualified as MHer
 import Vecvec.LAPACK.Unsafe.Hermitian.Mutable (MHermitian(..))
+import Vecvec.LAPACK.Unsafe.Hermitian         (asHermitian)
 import Vecvec.LAPACK.Unsafe.Vector
 import Vecvec.LAPACK.Unsafe.Vector.Mutable
 import Data.Vector.Generic.Mutable qualified as MVG
-import Vecvec.LAPACK.FFI
 import Vecvec.LAPACK.LinAlg.Types
+import Vecvec.LAPACK.FFI hiding (S,D,C,Z)
 import Vecvec.Classes
 import Vecvec.Classes.NDArray
 
@@ -82,7 +91,7 @@ decomposeSVD a = unsafePerformIO $ do
                     , Vec    vec_Sig
                     , Matrix mat_VT
                     )
-    _ -> error "SVD failed"
+    _ -> error $ "SVD failed. GESDD error = " ++ show info
 
 
 ----------------------------------------------------------------
@@ -101,11 +110,13 @@ invertMatrix m
           let n   = toL inv.ncols
               lda = toL inv.leadingDim
           info_trf <- getrf RowMajor n n ptr_a lda ptr_ipiv
-          case info_trf of LAPACK0 -> pure ()
-                           _       -> error "invertMatrix failed (GETRF)"
+          case info_trf of
+            LAPACK0 -> pure ()
+            _       -> error $ "invertMatrix failed. GETRF error = " ++ show info_trf
           info_tri <- getri RowMajor n ptr_a lda ptr_ipiv
-          case info_tri of LAPACK0 -> pure ()
-                           _       -> error "invertMatrix failed (GETRF)"
+          case info_tri of
+            LAPACK0 -> pure ()
+            _       -> error $ "invertMatrix failed. GETRI error = " ++ show info_tri
       --
       pure $ Matrix inv
 
@@ -168,8 +179,8 @@ solveLinEq a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEq failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEq failed. GESV error = " ++ show info
   where
     n = nCols a0
 
@@ -205,8 +216,8 @@ solveLinEqSym a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEqSym failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEqSym failed. SYSV error = " ++ show info
   where
     n = nCols a0
 
@@ -242,8 +253,8 @@ solveLinEqHer a0 rhs = runST $ do
                 ptr_ipiv
                 ptr_b (toL b.leadingDim)
           case info of
-            LAPACK0 -> pure $ rhsGetSolutions rhs (Matrix b)
-            _       -> error "solveLinEqSym failed"
+            LAPACK0 -> pure  $ rhsGetSolutions rhs (Matrix b)
+            _       -> error $ "solveLinEqHer failed. HESV error = " ++ show info
   where
     n = nCols a0
 
@@ -259,3 +270,121 @@ nullMatrix = unsafePerformIO $ do
     , leadingDim = 1
     , buffer     = buf
     }
+
+
+eigvals
+  :: (LAPACKy a, Storable (R a))
+  => Matrix a -> Vec (Complex (R a))
+eigvals mat0
+  | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
+eigvals mat0 = runST $ do
+  MMatrix mat <- MMat.clone mat0
+  MVec    vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V -> do
+      let n_L = toL n
+      geev EigN EigN
+        n_L ptr_A (toL mat.leadingDim)
+        ptr_V   nullPtr n_L   nullPtr n_L
+  case info of
+    LAPACK0 -> pure  $ Vec vec
+    _       -> error $ "eigvals failed: GEEV error = " ++ show info
+  where
+    n = nRows mat0
+
+
+-- | Compute eigenvalue and eigenvector of a general matrix.
+--   Eigenvectors are returned as columns of a matrix
+eig
+  :: (LAPACKy a, Storable (R a))
+  => Matrix a -- ^ Matrix \(A\)
+  -> (Vec (Complex (R a)), Matrix (Complex (R a)))
+  -- ^ Vector of real eigenvalues and corresponding eigenvectors of
+  --   \(A\).
+eig mat0
+  | nRows mat0 /= nCols mat0 = error "eigvals: Matrix is not square"
+eig mat0 = runST $ do
+  MMatrix mat  <- MMat.clone mat0
+  MVec    vec  <- MVG.unsafeNew n
+  MMatrix vecR <- MMat.unsafeNew (n,n)
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+    unsafeWithForeignPtr vecR.buffer   $ \ptr_VR -> do
+      let n_L = toL n
+      geev EigN EigV
+        n_L ptr_A (toL mat.leadingDim)
+        ptr_V   nullPtr n_L   ptr_VR  n_L
+  case info of
+    LAPACK0 -> pure (
+      Vec vec
+                    , Matrix vecR)
+    _       -> error $ "eig failed: GEEV error = " ++ show info
+  where
+    n = nRows mat0
+
+-- | Compute eigenvalues of a hermitian matrix.
+eigvalsH
+  :: (LAPACKy a, Storable (R a))
+  => Hermitian a -- ^ Hermitian matrix \(A\)
+  -> Vec (R a)   -- ^ Vector of real eigenvalues
+eigvalsH mat0 = runST $ do
+  MHermitian mat <- MHer.clone mat0
+  MVec       vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+      heev RowMajor EigN FortranUP
+        (toL n) ptr_A (toL mat.leadingDim) ptr_V
+  case info of
+    LAPACK0 -> pure $ Vec vec
+    _       -> error $ "eigvalsH failed: HEEV error = " ++ show info
+  where
+    n = nRows mat0
+
+-- | Compute eigenvalues and eigenvectors of hermitian
+--   matrix. Eigenvectors are returned as columns of matrix.
+eigH
+  :: (LAPACKy a, Storable (R a))
+  => Hermitian a
+  -- ^ Hermitian matrix \(A\)
+  -> (Vec (R a), Matrix a)
+  -- ^ Vector of real eigenvalues and corresponding eigenvectors of
+  --   \(A\).
+eigH mat0 = runST $ do
+  MHermitian mat <- MHer.clone mat0
+  MVec       vec <- MVG.unsafeNew n
+  info <- unsafePrimToPrim $
+    unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
+    unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
+      heev RowMajor EigV FortranUP
+        (toL n) ptr_A (toL mat.leadingDim) ptr_V
+  case info of
+    LAPACK0 -> pure ( Vec vec
+                    , Matrix MView{ nrows      = n
+                                  , ncols      = n
+                                  , leadingDim = mat.leadingDim
+                                  , buffer     = mat.buffer
+                                  }
+                    )
+    _       -> error $ "eigH failed: HEEV error = " ++ show info
+  where
+    n = nRows mat0
+
+-- | Compute eigenvalues and eigenvectors of symmetric real valued
+--   matrix. Eigenvectors are returned as columns of matrix.
+eigS
+  :: (LAPACKy a, R a ~ a)
+  => Symmetric a       -- ^ Symmetric matrix \(A\).
+  -> (Vec a, Matrix a) -- ^ Vector of eigenvalues and corresponding
+                       --   eigenvectors of \(A\).
+eigS = eigH . asHermitian
+
+-- | Compute eigenvalues of symmetric real valued
+--   matrix.
+eigvalsS
+  :: (LAPACKy a, R a ~ a)
+  => Symmetric a -- ^ Symmetric matrix \(A\).
+  -> Vec a       -- ^ Vector of eigenvalues of \(A\).
+eigvalsS = eigvalsH . asHermitian

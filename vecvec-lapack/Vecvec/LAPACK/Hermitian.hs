@@ -10,6 +10,7 @@ module Vecvec.LAPACK.Hermitian
   , thaw
   , toDense
   , asSymmetric
+  , asHermitian
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation

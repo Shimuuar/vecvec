@@ -8,6 +8,8 @@ module Vecvec.LAPACK.Unsafe.Symmetric.Types
   , Hermitian(..)
   , MSymmetric(..)
   , Symmetric(..)
+  , asSymmetric
+  , asHermitian
   ) where
 
 import Data.Vector.Fixed.Cont qualified as FC
@@ -15,6 +17,7 @@ import Foreign.ForeignPtr
 import Foreign.Storable
 import Foreign.Marshal.Array
 
+import Vecvec.Classes
 import Vecvec.Classes.NDMutable
 import Vecvec.LAPACK.Unsafe.Compat
 
@@ -75,6 +78,17 @@ type instance Rank Hermitian = 2
 instance HasShape Hermitian a where
   shapeAsCVec (Hermitian _ MSymView{..}) = FC.mk2 size size
   {-# INLINE shapeAsCVec #-}
+
+-- | /O(1)/ cast hermitian matrix to symmetric if its elements are
+--   real.
+asSymmetric :: (R a ~ a) => Hermitian a -> Symmetric a
+asSymmetric (Hermitian tag repr) = Symmetric tag repr
+
+-- | /O(1)/ cast hermitian matrix to symmetric if its elements are
+--   real.
+asHermitian :: (R a ~ a) => Symmetric a -> Hermitian a
+asHermitian (Symmetric tag repr) = Hermitian tag repr
+
 
 
 ----------------------------------------------------------------

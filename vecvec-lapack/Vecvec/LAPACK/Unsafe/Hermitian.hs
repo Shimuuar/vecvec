@@ -13,6 +13,7 @@ module Vecvec.LAPACK.Unsafe.Hermitian
   , thaw
   , toDense
   , asSymmetric
+  , asHermitian
     -- ** Access
   , reallyUnsafeIndex
     -- ** Creation
@@ -107,11 +108,6 @@ toDense (Hermitian () MSym.MSymView{..}) =
     , leadingDim = leadingDim
     , buffer     = buffer
     }
-
--- | /O(1)/ cast hermitian matrix to symmetric if its elements are
---   real.
-asSymmetric :: (R a ~ a) => Hermitian a -> Symmetric a
-asSymmetric (Hermitian tag repr) = Symmetric tag repr
 
 
 ----------------------------------------------------------------
