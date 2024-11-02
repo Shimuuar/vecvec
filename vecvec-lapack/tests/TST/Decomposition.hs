@@ -110,7 +110,8 @@ testEig
                )
   => TestTree
 testEig = testGroup (show (typeOf (undefined :: a)))
-  [ testProperty "eig valid"   $ prop_eig_valid     @a
+  [ testProperty "eig valid"     $ prop_eig_valid     @a
+  , testProperty "eigvals valid" $ prop_eigvals_valid @a
   ]
 
 prop_eig_valid
@@ -139,6 +140,17 @@ prop_eig_valid (Square mat)
     eigvecs = case eig mat of
       (val,vec) -> VG.toList val `zip` Mat.toColList vec
 
+prop_eigvals_valid
+  :: ( LAPACKy a, Storable (R a), Eq (R a), Show (R a))
+  => Square a
+  -> Property
+prop_eigvals_valid (Square mat)
+  = counterexample ("e1 = " ++ show e1)
+  $ counterexample ("e2 = " ++ show e2)
+  $ e1 == e2
+  where
+    (e1,_) = eig mat
+    e2     = eigvals mat
 
 testEigH
   :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a
@@ -147,7 +159,8 @@ testEigH
                )
   => TestTree
 testEigH = testGroup (show (typeOf (undefined :: a)))
-  [ testProperty "eigH valid" $ prop_eigH_valid @a
+  [ testProperty "eigH valid"     $ prop_eigH_valid     @a
+  , testProperty "eigvalsH valid" $ prop_eigvalsH_valid @a
   ]
 
 prop_eigH_valid
@@ -176,6 +189,18 @@ prop_eigH_valid mat
     eigvecs = case eigH mat of
       (val,vec) -> VG.toList val `zip` Mat.toColList vec
 
+prop_eigvalsH_valid
+  :: ( LAPACKy a 
+     , Storable (R a), RealFloat (R a), Show (R a))
+  => Hermitian a
+  -> Property
+prop_eigvalsH_valid mat
+  = counterexample ("e1 = " ++ show e1)
+  $ counterexample ("e2 = " ++ show e2)
+  $ e1 == e2
+  where
+    (e1,_) = eigH     mat
+    e2     = eigvalsH mat
 
 testEigS
   :: forall a. ( a ~ R a, LAPACKy a, Typeable a, SmallScalar a, Show a
@@ -183,7 +208,8 @@ testEigS
                )
   => TestTree
 testEigS = testGroup (show (typeOf (undefined :: a)))
-  [ testProperty "eigS valid" $ prop_eigS_valid @a
+  [ testProperty "eigS     valid" $ prop_eigS_valid @a
+  , testProperty "eigvalsS valid" $ prop_eigvalsS_valid @a
   ]
 
 prop_eigS_valid
@@ -211,3 +237,16 @@ prop_eigS_valid mat
   where
     eigvecs = case eigS mat of
       (val,vec) -> VG.toList val `zip` Mat.toColList vec
+
+prop_eigvalsS_valid
+  :: ( a ~ R a, LAPACKy a 
+     , Storable (R a), RealFloat (R a), Show (R a))
+  => Symmetric a
+  -> Property
+prop_eigvalsS_valid mat
+  = counterexample ("e1 = " ++ show e1)
+  $ counterexample ("e2 = " ++ show e2)
+  $ e1 == e2
+  where
+    (e1,_) = eigS     mat
+    e2     = eigvalsS mat
