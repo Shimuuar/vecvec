@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- |
 -- Linear algebra routines.
 module Vecvec.LAPACK.LinAlg
