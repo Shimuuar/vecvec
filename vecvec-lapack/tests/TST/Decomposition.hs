@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- |
 -- Tests for matrix decomposition
 module TST.Decomposition (tests) where
