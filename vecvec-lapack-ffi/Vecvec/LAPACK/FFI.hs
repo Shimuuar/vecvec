@@ -15,8 +15,10 @@ module Vecvec.LAPACK.FFI
     -- $BLAS_int
   , BLASInt
   , toB
+  , fromB
   , LAPACKInt
   , toL
+  , fromL
   , pattern LAPACK0
     -- * Enumeration wrappers
   , CRepr(..)
@@ -80,8 +82,15 @@ newtype LAPACKInt = LAPACKInt
 toB :: Int -> BLASInt
 toB = BLASInt . fromIntegral
 
+fromB :: BLASInt -> Int
+fromB (BLASInt i) = fromIntegral i
+
 toL :: Int -> LAPACKInt
 toL = LAPACKInt . fromIntegral
+
+fromL :: LAPACKInt -> Int
+fromL (LAPACKInt i) = fromIntegral i
+
 
 -- | Zero (used in error checking)
 pattern LAPACK0 :: LAPACKInt
