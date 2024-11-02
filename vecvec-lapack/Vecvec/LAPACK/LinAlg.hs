@@ -287,7 +287,7 @@ eigvals mat0 = runST $ do
         nullPtr (toL 1) nullPtr (toL 1)
   case info of
     LAPACK0 -> pure $ Vec vec
-    _       -> error "solveLinEqSym failed"
+    _       -> error "eigvals failed"
   where
     n = nRows mat0
 
@@ -318,7 +318,7 @@ eig mat0 = runST $ do
   case info of
     LAPACK0 -> pure ( Vec vec
                     , Matrix vecR)
-    _       -> error "solveLinEqSym failed"
+    _       -> error "eig failed"
   where
     n = nRows mat0
 
@@ -337,7 +337,7 @@ eigvalsH mat0 = runST $ do
         (toL n) ptr_A (toL mat.leadingDim) ptr_V
   case info of
     LAPACK0 -> pure $ Vec vec
-    _       -> error "solveLinEqSym failed"
+    _       -> error "eigvalsH failed"
   where
     n = nRows mat0
 
@@ -366,7 +366,7 @@ eigH mat0 = runST $ do
                                   , buffer     = mat.buffer
                                   }
                     )
-    _       -> error "solveLinEqSym failed"
+    _       -> error "eigH failed"
   where
     n = nRows mat0
 
