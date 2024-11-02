@@ -16,6 +16,8 @@ import Vecvec.Classes.Containers
 import Vecvec.LAPACK.FFI             (S,D,C,Z)
 import Vecvec.LAPACK.Matrix          (Matrix,LAPACKy,gdiag)
 import Vecvec.LAPACK.Matrix          qualified as Mat
+import Vecvec.LAPACK.Hermitian       (Hermitian)
+import Vecvec.LAPACK.Symmetric       (Symmetric)
 import Vecvec.LAPACK.LinAlg
 
 import TST.Tools.MatModel
@@ -30,12 +32,24 @@ tests = testGroup "Decomposition"
     , testSVD @C
     , testSVD @Z
     ]
-  , testGroup "eig"
-    [ testEig @S
-    , testEig @D
-    , testEig @C
-    , testEig @Z
-    ]  
+  , testGroup "eigenvector"
+    [ testGroup "eig"
+      [ testEig @S
+      , testEig @D
+      , testEig @C
+      , testEig @Z
+      ]
+    , testGroup "eigH"
+      [ testEigH @S
+      , testEigH @D
+      , testEigH @C
+      , testEigH @Z
+      ]
+    , testGroup "eigS"
+      [ testEigS @S
+      , testEigS @D
+      ]
+    ]
   ]
 
 
@@ -91,8 +105,8 @@ prop_SVD_unitarity mat
 
 testEig
   :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a, ToComplex a
-               , Storable (R a), Epsilon (R a), Ord (R a), RealFloat (R a)
-               , Show (R a), LAPACKy (R a), LAPACKy (Complex (R a))
+               , Storable (R a), Epsilon (R a), RealFloat (R a)
+               , Show (R a), LAPACKy (Complex (R a))
                )
   => TestTree
 testEig = testGroup (show (typeOf (undefined :: a)))
@@ -100,23 +114,100 @@ testEig = testGroup (show (typeOf (undefined :: a)))
   ]
 
 prop_eig_valid
-  :: ( LAPACKy a, Show a, ToComplex a, LAPACKy (R a), LAPACKy (Complex (R a))
-     , Storable (R a), Epsilon (R a), Ord (R a), RealFloat (R a), Show (R a))
+  :: ( LAPACKy a, ToComplex a, LAPACKy (Complex (R a))
+     , Storable (R a), Epsilon (R a), RealFloat (R a), Show (R a))
   => Square a
   -> Property
 prop_eig_valid (Square mat)
-  = conjoin [ case magnitude (v1 .-. v2) < epsilon of
-                True  -> property True
-                False -> counterexample ("λ  = " ++ show λ)
-                       $ counterexample ("v  = " ++ show v)
-                       $ counterexample ("Av = " ++ show v1)
-                       $ counterexample ("λV = " ++ show v2)
-                         False
-            | (λ,v) <- eigvecs
-            , let v1 = VG.map toComplex $ cmap toComplex mat @@ v
-                  v2 = VG.map ((*λ) . toComplex) v
-              
-            ] 
+  = conjoin $ concat
+    [ [counterexample "Eigenvector is eigenvector"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ counterexample ("Av = " ++ show v1)
+      $ counterexample ("λV = " ++ show v2)
+      $ magnitude (v1 .-. v2) < epsilon
+      , counterexample "Eigenvector magnitude"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ abs (magnitude v - 1) < epsilon
+      ]
+    | (λ,v) <- eigvecs
+    , let v1 = VG.map toComplex $ cmap toComplex mat @@ v
+          v2 = VG.map ((*λ) . toComplex) v
+    ]
   where
     eigvecs = case eig mat of
+      (val,vec) -> VG.toList val `zip` Mat.toColList vec
+
+
+testEigH
+  :: forall a. ( LAPACKy a, Typeable a, SmallScalar a, Show a
+               , Storable (R a), Epsilon (R a), RealFloat (R a)
+               , Show (R a)
+               )
+  => TestTree
+testEigH = testGroup (show (typeOf (undefined :: a)))
+  [ testProperty "eigH valid" $ prop_eigH_valid @a
+  ]
+
+prop_eigH_valid
+  :: ( LAPACKy a, Show a
+     , Storable (R a), Epsilon (R a), RealFloat (R a), Show (R a))
+  => Hermitian a
+  -> Property
+prop_eigH_valid mat
+  = conjoin $ concat
+    [ [counterexample "Eigenvector is eigenvector"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ counterexample ("Av = " ++ show v1)
+      $ counterexample ("λV = " ++ show v2)
+      $ magnitude (v1 .-. v2) < epsilon
+      , counterexample "Eigenvector magnitude"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ abs (magnitude v - 1) < epsilon
+      ]
+    | (λ,v) <- eigvecs
+    , let v1 = mat @@ v
+          v2 = VG.map (* fromR λ) v
+    ]
+  where
+    eigvecs = case eigH mat of
+      (val,vec) -> VG.toList val `zip` Mat.toColList vec
+
+
+testEigS
+  :: forall a. ( a ~ R a, LAPACKy a, Typeable a, SmallScalar a, Show a
+               , Storable (R a), Epsilon (R a), RealFloat (R a)
+               )
+  => TestTree
+testEigS = testGroup (show (typeOf (undefined :: a)))
+  [ testProperty "eigS valid" $ prop_eigS_valid @a
+  ]
+
+prop_eigS_valid
+  :: ( a ~ R a, LAPACKy a, Show a
+     , Storable (R a), Epsilon (R a), RealFloat (R a))
+  => Symmetric a
+  -> Property
+prop_eigS_valid mat
+  = conjoin $ concat
+    [ [counterexample "Eigenvector is eigenvector"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ counterexample ("Av = " ++ show v1)
+      $ counterexample ("λV = " ++ show v2)
+      $ magnitude (v1 .-. v2) < epsilon
+      , counterexample "Eigenvector magnitude"
+      $ counterexample ("λ  = " ++ show λ)
+      $ counterexample ("v  = " ++ show v)
+      $ abs (magnitude v - 1) < epsilon
+      ]
+    | (λ,v) <- eigvecs
+    , let v1 = mat @@ v
+          v2 = VG.map (* fromR λ) v
+    ]
+  where
+    eigvecs = case eigS mat of
       (val,vec) -> VG.toList val `zip` Mat.toColList vec

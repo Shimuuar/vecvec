@@ -356,7 +356,7 @@ eigH mat0 = runST $ do
   info <- unsafePrimToPrim $
     unsafeWithForeignPtr mat.buffer    $ \ptr_A ->
     unsafeWithForeignPtr vec.vecBuffer $ \ptr_V ->
-      heev RowMajor EigN FortranUP
+      heev RowMajor EigV FortranUP
         (toL n) ptr_A (toL mat.leadingDim) ptr_V
   case info of
     LAPACK0 -> pure ( Vec vec
