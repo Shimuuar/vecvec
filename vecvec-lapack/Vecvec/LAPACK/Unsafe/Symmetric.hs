@@ -63,7 +63,7 @@ instance MTSym.InSymmetric s Symmetric where
   symmetricRepr (Symmetric _ mat) = pure mat
 
 instance Storable a => NDArray Symmetric a where
-  basicUnsafeIndex mat (N2 i j)
+  basicUnsafeIndex mat (D2 i j)
     | j >= i    = reallyUnsafeIndex mat (i,j)
     | otherwise = reallyUnsafeIndex mat (j,i)
 

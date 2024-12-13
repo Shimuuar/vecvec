@@ -65,7 +65,7 @@ instance MSym.InHermitian s Hermitian where
   symmetricRepr (Hermitian _ mat) = pure mat
 
 instance (NormedScalar a, Storable a) => NDArray Hermitian a where
-  basicUnsafeIndex mat (N2 i j)
+  basicUnsafeIndex mat (D2 i j)
     | j >= i    = reallyUnsafeIndex mat (i,j)
     | otherwise = conjugate $ reallyUnsafeIndex mat (j,i)
 

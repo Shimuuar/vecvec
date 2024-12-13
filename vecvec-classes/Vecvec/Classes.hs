@@ -485,11 +485,11 @@ deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)   
 deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => VectorSpace        (FP.Vec n a)
 deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, NormedScalar a) => InnerSpace         (FP.Vec n a)
 
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveSemigroup  (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveMonoid     (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => AdditiveQuasigroup (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, Num a)          => VectorSpace        (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.Arity n, NormedScalar a) => InnerSpace         (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveSemigroup  (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveMonoid     (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveQuasigroup (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => VectorSpace        (F.ContVec n a)
+deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, NormedScalar a) => InnerSpace         (F.ContVec n a)
 
 
 instance NormedScalar Float where

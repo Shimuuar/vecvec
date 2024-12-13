@@ -91,7 +91,7 @@ instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MView a) where
                  , buffer     = updPtr (`advancePtr` (leadingDim * i + j)) buffer
                  }
 
-type instance Rank MView = 2
+type instance Rank MView = FC.N2
 
 instance HasShape MView a where
   shapeAsCVec MView{..} = FC.mk2 nrows ncols
@@ -120,7 +120,7 @@ newtype MMatrix s a = MMatrix (MView a)
 
 deriving newtype instance (Slice1D i, Slice1D j, Storable a) => Slice (i,j) (MMatrix s a)
 
-type instance Rank (MMatrix s) = 2
+type instance Rank (MMatrix s) = FC.N2
 
 instance HasShape (MMatrix s) a where
   shapeAsCVec (MMatrix MView{..}) = FC.mk2 nrows ncols

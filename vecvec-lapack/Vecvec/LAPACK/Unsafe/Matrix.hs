@@ -77,7 +77,7 @@ instance M.InMatrix s Matrix where
   {-# INLINE matrixRepr #-}
   matrixRepr = pure . coerce
 
-type instance Rank Matrix = 2
+type instance Rank Matrix = FC.N2
 
 instance HasShape Matrix a where
   shapeAsCVec (Matrix M.MView{..}) = FC.mk2 nrows ncols

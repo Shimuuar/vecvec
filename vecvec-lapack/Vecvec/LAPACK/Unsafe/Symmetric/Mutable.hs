@@ -112,10 +112,10 @@ asMHermitian = coerce
 ----------------------------------------------------------------
 
 instance Storable a => NDMutable MSymmetric a where
-  basicUnsafeReadArr mat (N2 i j)
+  basicUnsafeReadArr mat (D2 i j)
     | j >= i    = reallyUnsafeRead mat (i,j)
     | otherwise = reallyUnsafeRead mat (j,i)
-  basicUnsafeWriteArr mat (N2 i j)
+  basicUnsafeWriteArr mat (D2 i j)
     | j >= i    = reallyUnsafeWrite mat (i,j)
     | otherwise = reallyUnsafeWrite mat (j,i)
 
