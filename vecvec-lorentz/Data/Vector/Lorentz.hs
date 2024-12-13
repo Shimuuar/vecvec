@@ -7,9 +7,9 @@ module Data.Vector.Lorentz (
     LorentzG(..)
   , LorentzCV
   , LorentzU
-  , Lorentz2
-  , Lorentz3
-  , Lorentz4
+  -- , Lorentz2
+  -- , Lorentz3
+  -- , Lorentz4
   , Lorentz
     -- ** Constructors
   , fromMomentum
@@ -42,11 +42,10 @@ module Data.Vector.Lorentz (
 import Control.DeepSeq
 import Data.Coerce
 import Data.Proxy
-import Data.Vector.Fixed         (Vector,VectorN,Dim,(!))
+import Data.Vector.Fixed         (Vector,Dim,(!),PeanoNum(..))
 import Data.Vector.Fixed         qualified as F
 import Data.Vector.Fixed.Cont    qualified as FC
 import Data.Vector.Fixed.Unboxed (Vec)
-import GHC.TypeLits
 
 import Vecvec.Classes
 import Vecvec.Classes.Deriving
@@ -63,67 +62,65 @@ import Vecvec.Classes.Geometry
 --   @(+1,-1,-1,-1)@.
 --
 --   @v@ is type of vector used for representation.
-newtype LorentzG v (n :: Nat) a = Lorentz (v n a)
+newtype LorentzG v a = Lorentz (v a)
   deriving stock   (Show, Eq)
   deriving newtype NFData
 
-type instance Dim (LorentzG v n) = n
+type instance Dim (LorentzG v) = Dim v
 
-instance (VectorN v n a) => Vector (LorentzG v n) a where
+instance (Vector v a) => Vector (LorentzG v) a where
   construct             = fmap Lorentz F.construct
   inspect (Lorentz v) f = F.inspect v f
-
-instance (VectorN v n a) => VectorN (LorentzG v) n a
+  {-# INLINE construct #-}
+  {-# INLINE inspect   #-}
 
 -- | Lorentz vector which uses unboxed vector for storage
-type LorentzU = LorentzG Vec
+type LorentzU n = LorentzG (Vec n)
 
 -- | Lorentz vector which uses 'F.ContVec' as representation. It's
 --   advisable to perform calculations using this type since underlying
 --   @ByteArray@ is impenetrable array for GHC optimizer.
-type LorentzCV = LorentzG F.ContVec
+type LorentzCV n = LorentzG (F.ContVec n)
 
--- | 2-dimensional (1+1) Lorentz vector.
-type Lorentz2 v = LorentzG v 2
+-- FIXME: ???
+-- -- | 2-dimensional (1+1) Lorentz vector.
+-- type Lorentz2 v = LorentzG v 2
 
--- | 3-dimensional (1+2) Lorentz vector.
-type Lorentz3 v = LorentzG v 3
+-- -- | 3-dimensional (1+2) Lorentz vector.
+-- type Lorentz3 v = LorentzG v 3
 
--- | 4-dimensional (1+3) Lorentz vector.
-type Lorentz4 v = LorentzG v 4
+-- -- | 4-dimensional (1+3) Lorentz vector.
+-- type Lorentz4 v = LorentzG v 4
 
 -- | Unboxed 4-dimensional Lorentz vector.
 type Lorentz = LorentzU 4
 
 
 -- | Spatial part of the Lorentz vector.
-spatialPart :: (VectorN v n a, VectorN v (n+1) a)
-            => LorentzG v (n+1) a -> v n a
+spatialPart :: (Vector v a, Vector w a, Dim v ~ 'S (Dim w))
+            => LorentzG v a -> w a
 spatialPart = F.tail
 {-# INLINE spatialPart #-}
 
 -- | Split Lorentz vector into temporal and spatial part.
-splitLorentz :: ( VectorN v n a
-                , VectorN v (n+1) a
-                , 1 <= (n+1)
-                )
-             => LorentzG v (n+1) a -> (a, v n a)
+splitLorentz :: ( Vector v a, Vector w a, Dim v ~ 'S (Dim w))
+             => LorentzG v a -> (a, w a)
 splitLorentz p = (F.head p, F.tail p)
 {-# INLINE splitLorentz #-}
 
 
 -- | Change representation of Lorentz vector
-changeLorentzRep :: (VectorN v n a, VectorN w n a) => LorentzG v n a -> LorentzG w n a
+changeLorentzRep :: (Vector v a, Vector w a, Dim v ~ Dim w) => LorentzG v a -> LorentzG w a
 {-# INLINE changeLorentzRep #-}
-changeLorentzRep (Lorentz v) = Lorentz (F.convert v)
+changeLorentzRep = F.convert
 
 -- | Switch to 'F.ContVec' as representation.
-toLorentzCV :: (VectorN v n a) => LorentzG v n a -> LorentzCV n a
+toLorentzCV :: (Vector v a) => LorentzG v a -> LorentzCV (Dim v) a
 {-# INLINE toLorentzCV #-}
 toLorentzCV (Lorentz v) = Lorentz (F.cvec v)
 
 -- | Switch from 'F.ContVec' as representation
-fromLorentzCV :: (VectorN v n a) => LorentzCV n a -> LorentzG v n a
+fromLorentzCV :: (Vector v a) => LorentzCV (Dim v) a -> LorentzG v a
 {-# INLINE fromLorentzCV #-}
 fromLorentzCV (Lorentz v) = Lorentz (F.vector v)
 
@@ -131,15 +128,15 @@ fromLorentzCV (Lorentz v) = Lorentz (F.vector v)
 -- | Construct energy-momentum vector from mass and momentum of
 --   particle.
 fromMomentum
-  :: ( VectorN v n     a
-     , VectorN v (n+1) a
+  :: ( Vector v a, Vector w a
+     , Dim v ~ 'S (Dim w)
      , Floating a
      , NormedScalar a
      , R a ~ a
      )
-  => a                          -- ^ Mass of particle \(m\)
-  -> v n a                      -- ^ Spatial momentum \(p\)
-  -> LorentzG v (n+1) a
+  => a                        -- ^ Mass of particle \(m\)
+  -> w a                      -- ^ Spatial momentum \(p\)
+  -> LorentzG v a
 {-# INLINE fromMomentum #-}
 fromMomentum m p
   = F.cons e p
@@ -150,10 +147,10 @@ fromMomentum m p
 --   particle. Obviously wa can't recover direction so we have to use
 --   1+1 lorentz vectors. Still it's useful for simple calculations
 fromEnergy
-  :: (VectorN v 2 a, Floating a)
+  :: (Vector v a, Dim v ~ F.N2, Floating a)
   => a                          -- ^ Mass of particle
   -> a                          -- ^ Energy of particle
-  -> LorentzG v 2 a
+  -> LorentzG v a
 {-# INLINE fromEnergy #-}
 fromEnergy m e = F.mk2 e (sqrt $ e*e - m*m)
 
@@ -276,11 +273,11 @@ instance BoostParam Rapidity where
   invertBoostP = Rapidity . negate . getRapidity
 
 -- | Boost along axis
-boostAxis :: (BoostParam b, VectorN v n a, Floating a, Ord a)
+boostAxis :: (BoostParam b, Vector v a, Floating a, Ord a)
           => b a                -- ^ Boost parameter
           -> Int                -- ^ Axis number. /X/-0, /Y/-1 ...
-          -> LorentzG v n a
-          -> LorentzG v n a
+          -> LorentzG v a
+          -> LorentzG v a
 {-# INLINE boostAxis #-}
 boostAxis b n v
   = F.imap trans v
@@ -293,44 +290,46 @@ boostAxis b n v
     t       = v ! 0
     x       = v ! (n+1)
 
+-- FIXME: dimensional constraints
 
 -- | Boost along X axis.
-boostX :: (BoostParam b, VectorN v n a, Floating a, Ord a, 2 <= n)
+boostX :: (BoostParam b, Vector v a, Floating a, Ord a)
        => b a                -- ^ Boost parameter
-       -> LorentzG v n a
-       -> LorentzG v n a
+       -> LorentzG v a
+       -> LorentzG v a
 {-# INLINE boostX #-}
 boostX b = boostAxis b 0
 
 -- | Boost along X axis.
-boostY :: (BoostParam b, VectorN v n a, Floating a, Ord a, 3 <= n)
+boostY :: (BoostParam b, Vector v a, Floating a, Ord a)
        => b a                -- ^ Boost parameter
-       -> LorentzG v n a
-       -> LorentzG v n a
+       -> LorentzG v a
+       -> LorentzG v a
 {-# INLINE boostY #-}
 boostY b = boostAxis b 1
 
 -- | Boost along X axis.
-boostZ :: (BoostParam b, VectorN v n a, Floating a, Ord a, 4 <= n)
+boostZ :: (BoostParam b, Vector v a, Floating a, Ord a)
        => b a                -- ^ Boost parameter
-       -> LorentzG v n a
-       -> LorentzG v n a
+       -> LorentzG v a
+       -> LorentzG v a
 {-# INLINE boostZ #-}
 boostZ b = boostAxis b 2
 
 
 -- | Boost along arbitrary direction
 boostAlong
-  :: ( VectorN v (n+1) a, VectorN v n a, 1 <= n+1
+  :: ( Vector v a, Vector w a
+     , Dim v ~ 'S (Dim w)
      , BoostParam b
      , NormedScalar a, Floating a, Ord a
      , R a ~ a
      )
   => b a                        -- ^ Boost parameter
-  -> v n a                      -- ^ Vector along which boost should
+  -> w a                      -- ^ Vector along which boost should
                                 --   be performed. Need not to be normalized.
-  -> LorentzG v (n+1) a
-  -> LorentzG v (n+1) a
+  -> LorentzG v a
+  -> LorentzG v a
 {-# INLINE boostAlong #-}
 boostAlong b (F.cvec -> k) (toLorentzCV -> p)
   = Lorentz
@@ -357,24 +356,24 @@ factorLorentz :: Lorentz Double -> (Double, Lorentz Double -> Lorentz Double)
 factorLorentz v
   = (m, boostAlong (Gamma (e/m)) p)
   where
-    m     = magnitude    v
-    (e,p) = splitLorentz v
+    m = magnitude v
+    (e,p::F.ContVec F.N3 Double) = splitLorentz v
 
 
 ----------------------------------------------------------------
 -- Instances
 ----------------------------------------------------------------
 
-deriving via (AsFixedVec (LorentzG v n) a)
-    instance (VectorN v n a, Num a) => AdditiveSemigroup (LorentzG v n a)
-deriving via (AsFixedVec (LorentzG v n) a)
-    instance (VectorN v n a, Num a) => AdditiveMonoid (LorentzG v n a)
-deriving via (AsFixedVec (LorentzG v n) a)
-    instance (VectorN v n a, Num a) => AdditiveQuasigroup (LorentzG v n a)
-deriving via (AsFixedVec (LorentzG v n) a)
-    instance (VectorN v n a, Num a) => VectorSpace (LorentzG v n a)
+deriving via (AsFixedVec (LorentzG v) a)
+    instance (Vector v a, Num a) => AdditiveSemigroup (LorentzG v a)
+deriving via (AsFixedVec (LorentzG v) a)
+    instance (Vector v a, Num a) => AdditiveMonoid (LorentzG v a)
+deriving via (AsFixedVec (LorentzG v) a)
+    instance (Vector v a, Num a) => AdditiveQuasigroup (LorentzG v a)
+deriving via (AsFixedVec (LorentzG v) a)
+    instance (Vector v a, Num a) => VectorSpace (LorentzG v a)
 
-instance (VectorN v n a, NormedScalar a) => InnerSpace (LorentzG v n a) where
+instance (Vector v a, NormedScalar a) => InnerSpace (LorentzG v a) where
   v <.> u = F.sum $ F.izipWith minkovsky v u
     where
       minkovsky 0 x y =   conjugate x * y
@@ -386,17 +385,17 @@ instance (VectorN v n a, NormedScalar a) => InnerSpace (LorentzG v n a) where
   {-# INLINE (<.>)       #-}
   {-# INLINE magnitudeSq #-}
 
-instance (2 <= n, n <= 4, F.VectorN v n a) => FieldX a (LorentzG v n a) where
+instance (F.Vector v a, F.Index F.N1 (Dim v)) => FieldX a (LorentzG v a) where
   _X   = F.elementTy  (Proxy @1)
   getX = flip F.index (Proxy @1)
   {-# INLINE _X   #-}
   {-# INLINE getX #-}
-instance (3 <= n, n <= 4, F.VectorN v n a) => FieldY a (LorentzG v n a) where
+instance (F.Vector v a, F.Index F.N2 (Dim v)) => FieldY a (LorentzG v a) where
   _Y   = F.elementTy  (Proxy @2)
   getY = flip F.index (Proxy @2)
   {-# INLINE _Y   #-}
   {-# INLINE getY #-}  
-instance (4 <= n, n <= 4, F.VectorN v n a) => FieldZ a (LorentzG v n a) where
+instance (F.Vector v a, F.Index F.N3 (Dim v)) => FieldZ a (LorentzG v a) where
   _Z   = F.elementTy  (Proxy @3)
   getZ = flip F.index (Proxy @3)
   {-# INLINE _Z   #-}
