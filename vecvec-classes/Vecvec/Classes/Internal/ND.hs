@@ -13,8 +13,8 @@ module Vecvec.Classes.Internal.ND
   , IsShape(..)
   , inBounds
   , inBoundsCVec
-  , pattern N1
-  , pattern N2
+  , pattern D1
+  , pattern D2
     -- ** Slicing
   , Slice(..)
   , slice
@@ -57,8 +57,7 @@ import Data.Vector.Primitive         qualified as VP
 import Data.Vector.Primitive.Mutable qualified as MVP
 import Data.Vector.Fixed             qualified as F
 import Data.Vector.Fixed.Cont        qualified as FC
-import Data.Vector.Fixed.Cont        (Arity,ContVec(..),runContVec,Fun(..))
-import GHC.TypeLits
+import Data.Vector.Fixed.Cont        (ArityPeano,PeanoNum,N1,N2,ContVec(..),runContVec,Fun(..))
 import GHC.Generics
 
 import Vecvec.Classes
@@ -71,11 +70,11 @@ import Vecvec.Classes
 --   It's product of N @Int@s. There are two instances: one for Int
 --   which allows bare Int as shape and index for arrays and N-element
 --   arrays of @Int@s which include tuples.
-class IsShape shape (n :: Nat) | shape -> n where
+class IsShape shape (n :: PeanoNum) | shape -> n where
   shapeToCVec   :: shape -> ContVec n Int
   shapeFromCVec :: ContVec n Int -> shape
 
-instance n ~ 1 => IsShape Int n where
+instance n ~ N1 => IsShape Int n where
   shapeToCVec   = FC.mk1
   shapeFromCVec = FC.head
   {-# INLINE shapeToCVec   #-}
@@ -88,25 +87,25 @@ instance (n ~ F.Dim v, F.Vector v Int, a ~ Int) => IsShape (v a) n where
   {-# INLINE shapeFromCVec #-}
 
 -- | Patterns for matching on shape of arrays of rank-1.
-pattern N1 :: IsShape shape 1 => Int -> shape
-pattern N1 i <- (runContVec (Fun id) . shapeToCVec @_ @1 -> i)
+pattern D1 :: IsShape shape N1 => Int -> shape
+pattern D1 i <- (runContVec (Fun id) . shapeToCVec @_ @N1 -> i)
   where
-    N1 i = shapeFromCVec (FC.mk1 i)
-{-# INLINE   N1 #-}
-{-# COMPLETE N1 #-}
+    D1 i = shapeFromCVec (FC.mk1 i)
+{-# INLINE   D1 #-}
+{-# COMPLETE D1 #-}
 
 -- | Patterns for matching on shape of arrays of rank-2.
-pattern N2 :: IsShape shape 2 => Int -> Int -> shape
-pattern N2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @2 -> (i,j))
+pattern D2 :: IsShape shape N2 => Int -> Int -> shape
+pattern D2 i j <- (runContVec (Fun (\i j -> (i,j))) . shapeToCVec @_ @N2 -> (i,j))
   where
-    N2 i j = shapeFromCVec (FC.mk2 i j)
-{-# INLINE   N2 #-}
-{-# COMPLETE N2 #-}
+    D2 i j = shapeFromCVec (FC.mk2 i j)
+{-# INLINE   D2 #-}
+{-# COMPLETE D2 #-}
 
 
 -- | Check that index is in bounds for a N-dimensional array.
 inBounds
-  :: (IsShape idx n, Arity n)
+  :: (IsShape idx n, ArityPeano n)
   => idx -- ^ 0-based index
   -> idx -- ^ Size of array
   -> Bool
@@ -117,7 +116,7 @@ inBounds idx size
 
 -- | Check that index is in bounds for a N-dimensional array.
 inBoundsCVec
-  :: (Arity n)
+  :: (ArityPeano n)
   => ContVec n Int -- ^ 0-based index
   -> ContVec n Int -- ^ Size of array
   -> Bool
@@ -217,11 +216,11 @@ data Strided a = Strided a !Int
 ----------------------------------------------------------------
 
 -- | Rank of N-dimensional array: 1 for vectors, 2 for matrices, etc.
-type family Rank (arr :: Type -> Type) :: Nat
+type family Rank (arr :: Type -> Type) :: PeanoNum
 
 -- | Base type class for N-dimensional arrays. Instances could be
 --   defined for both mutable and immutable arrays.
-class F.Arity (Rank arr) => HasShape arr a where
+class F.ArityPeano (Rank arr) => HasShape arr a where
   -- | Return shape of N-dimensional array as a N-tuple of
   --   @Int@s. 'ContVec' is used as representation since it's
   --   parametric in length and optimized well by GHC.
@@ -235,12 +234,12 @@ shape = shapeFromCVec . shapeAsCVec
 {-# INLINE shape #-}
 
 -- | Number of columns of two dimensional array (@k@, if size is @(n,k)@)
-nCols :: (Rank arr ~ 2, HasShape arr a) => arr a -> Int
+nCols :: (Rank arr ~ N2, HasShape arr a) => arr a -> Int
 nCols v = runContVec (Fun $ \_ n -> n) (shapeAsCVec v)
 {-# INLINE nCols #-}
 
 -- | Number of rows of two dimensional array (@n@, if size is @(n,k)@)
-nRows :: (Rank arr ~ 2, HasShape arr a) => arr a -> Int
+nRows :: (Rank arr ~ N2, HasShape arr a) => arr a -> Int
 nRows v = runContVec (Fun $ \n _ -> n) (shapeAsCVec v)
 {-# INLINE nRows #-}
 
@@ -388,15 +387,15 @@ indexMaybe arr (shapeToCVec -> i)
 -- Instances
 ----------------------------------------------------------------
 
-type instance Rank V.Vector  = 1
-type instance Rank VS.Vector = 1
-type instance Rank VU.Vector = 1
-type instance Rank VP.Vector = 1
+type instance Rank V.Vector  = N1
+type instance Rank VS.Vector = N1
+type instance Rank VU.Vector = N1
+type instance Rank VP.Vector = N1
 
-type instance Rank (MV.MVector  s) = 1
-type instance Rank (MVS.MVector s) = 1
-type instance Rank (MVU.MVector s) = 1
-type instance Rank (MVP.MVector s) = 1
+type instance Rank (MV.MVector  s) = N1
+type instance Rank (MVS.MVector s) = N1
+type instance Rank (MVU.MVector s) = N1
+type instance Rank (MVP.MVector s) = N1
 
 instance HasShape V.Vector a where
   shapeAsCVec = FC.mk1 . VG.length
@@ -427,10 +426,10 @@ instance VP.Prim a => HasShape (MVP.MVector s) a where
 type instance Rank (Tr   v) = Rank v
 type instance Rank (Conj v) = Rank v
 
-instance (HasShape arr a, Rank arr ~ 2) => HasShape (Tr arr) a where
+instance (HasShape arr a, Rank arr ~ N2) => HasShape (Tr arr) a where
   shapeAsCVec (Tr arr) = swapFC2 $ shapeAsCVec arr
   {-# INLINE shapeAsCVec #-}
-instance (HasShape arr a, Rank arr ~ 2) => HasShape (Conj arr) a where
+instance (HasShape arr a, Rank arr ~ N2) => HasShape (Conj arr) a where
   shapeAsCVec (Conj arr) = swapFC2 $ shapeAsCVec arr
   {-# INLINE shapeAsCVec #-}
 
@@ -471,10 +470,10 @@ instance (VP.Prim a) => NDMutable MVP.MVector a where
   {-# INLINE basicUnsafeWriteArr #-}
 
 
-instance (NDArray arr a, Rank arr ~ 2) => NDArray (Tr arr) a where
+instance (NDArray arr a, Rank arr ~ N2) => NDArray (Tr arr) a where
   basicUnsafeIndex (Tr arr) = basicUnsafeIndex arr . swapFC2
   {-# INLINE basicUnsafeIndex #-}
-instance (NDArray arr a, Rank arr ~ 2) => NDArray (Conj arr) a where
+instance (NDArray arr a, Rank arr ~ N2) => NDArray (Conj arr) a where
   basicUnsafeIndex (Conj arr) = basicUnsafeIndex arr . swapFC2
   {-# INLINE basicUnsafeIndex #-}
 
@@ -514,7 +513,7 @@ instance (Slice1D idx, VU.Unbox a) => Slice idx (MVU.MVector s a) where
 
 
 
-swapFC2 :: ContVec 2 a -> ContVec 2 a
+swapFC2 :: ContVec N2 a -> ContVec N2 a
 swapFC2 (ContVec cont) = ContVec $ \(Fun f) -> cont (Fun $ flip f)
 {-# INLINE swapFC2 #-}
 

@@ -11,8 +11,8 @@ module Vecvec.Classes.NDMutable
   , nRows
   , IsShape(..)
   , inBounds
-  , pattern N1
-  , pattern N2
+  , pattern D1
+  , pattern D2
     -- ** Slicing
   , Slice(..)
   , slice

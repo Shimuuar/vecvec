@@ -91,7 +91,7 @@ instance (i ~ Int, Storable a) => Slice (Range i) (Vec a) where
 
 deriving newtype instance (Slice1D i, Storable a) => Slice (Strided i) (Vec a)
 
-type instance Rank Vec = 1
+type instance Rank Vec = FC.N1
 
 instance Storable a => HasShape Vec a where
   shapeAsCVec = FC.mk1 . VG.length

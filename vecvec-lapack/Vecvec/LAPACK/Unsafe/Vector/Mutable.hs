@@ -133,7 +133,7 @@ fromMVector (MVS.MVector len buf) = MVec (VecRepr len 1 buf)
 
 
 
-type instance Rank (MVec s) = 1
+type instance Rank (MVec s) = FC.N1
 
 instance Storable a => HasShape (MVec s) a where
   shapeAsCVec = FC.mk1 . MVG.length

@@ -12,8 +12,8 @@ module Vecvec.Classes.NDArray
   , nRows
   , IsShape(..)
   , inBounds
-  , pattern N1
-  , pattern N2
+  , pattern D1
+  , pattern D2
     -- ** Immutable arrays
   , NDArray(..)
   , index

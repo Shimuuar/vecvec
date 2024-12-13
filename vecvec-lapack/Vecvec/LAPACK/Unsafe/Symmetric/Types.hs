@@ -57,7 +57,7 @@ newtype MHermitian s a = MHermitian (MSymView a)
 
 deriving newtype instance (Slice1D i, Storable a) => Slice i (MHermitian s a)
 
-type instance Rank (MHermitian s) = 2
+type instance Rank (MHermitian s) = FC.N2
 
 instance HasShape (MHermitian s) a where
   shapeAsCVec (MHermitian MSymView{..}) = FC.mk2 size size
@@ -73,7 +73,7 @@ instance (Slice1D i, Storable a) => Slice i (Hermitian a) where
     view' <- sliceMaybe i view
     pure $ Hermitian flag view'
 
-type instance Rank Hermitian = 2
+type instance Rank Hermitian = FC.N2
 
 instance HasShape Hermitian a where
   shapeAsCVec (Hermitian _ MSymView{..}) = FC.mk2 size size
@@ -101,7 +101,7 @@ newtype MSymmetric s a = MSymmetric (MSymView a)
 
 deriving newtype instance (Slice1D i, Storable a) => Slice i (MSymmetric s a)
 
-type instance Rank (MSymmetric s) = 2
+type instance Rank (MSymmetric s) = FC.N2
 
 instance HasShape (MSymmetric s) a where
   shapeAsCVec (MSymmetric MSymView{..}) = FC.mk2 size size
@@ -117,7 +117,7 @@ instance (Slice1D i, Storable a) => Slice i (Symmetric a) where
     view' <- sliceMaybe i view
     pure $ Symmetric flag view'
 
-type instance Rank Symmetric = 2
+type instance Rank Symmetric = FC.N2
 
 instance HasShape Symmetric a where
   shapeAsCVec (Symmetric _ MSymView{..}) = FC.mk2 size size
