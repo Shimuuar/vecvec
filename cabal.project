@@ -4,3 +4,4 @@ packages:
         vecvec-hmatrix
         vecvec-lapack
         vecvec-lapack-ffi
+        ../fixed-vector/fixed-vector
