@@ -141,7 +141,7 @@ fromMomentum
 fromMomentum m p
   = F.cons e p
   where
-    e = sqrt $ m*m + magnitudeSq (AsFixedVec p)
+    e = sqrt $ m*m + magnitudeSq (ViaFixed p)
 
 -- | Construct energy-momentum vector from energy and mass of
 --   particle. Obviously wa can't recover direction so we have to use
@@ -364,13 +364,13 @@ factorLorentz v
 -- Instances
 ----------------------------------------------------------------
 
-deriving via (AsFixedVec (LorentzG v) a)
+deriving via (ViaFixed (LorentzG v) a)
     instance (Vector v a, Num a) => AdditiveSemigroup (LorentzG v a)
-deriving via (AsFixedVec (LorentzG v) a)
+deriving via (ViaFixed (LorentzG v) a)
     instance (Vector v a, Num a) => AdditiveMonoid (LorentzG v a)
-deriving via (AsFixedVec (LorentzG v) a)
+deriving via (ViaFixed (LorentzG v) a)
     instance (Vector v a, Num a) => AdditiveQuasigroup (LorentzG v a)
-deriving via (AsFixedVec (LorentzG v) a)
+deriving via (ViaFixed (LorentzG v) a)
     instance (Vector v a, Num a) => VectorSpace (LorentzG v a)
 
 instance (Vector v a, NormedScalar a) => InnerSpace (LorentzG v a) where
