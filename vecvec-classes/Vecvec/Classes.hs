@@ -60,6 +60,7 @@ import Data.Vector.Primitive       qualified as VP
 import Data.Vector.Generic         qualified as VG
 import Data.Vector.Fusion.Bundle   qualified as Bundle
 import Data.Vector.Fixed           qualified as F
+import Data.Vector.Fixed           (ViaFixed(..))
 import Data.Vector.Fixed.Cont      qualified as FC
 import Data.Vector.Fixed.Unboxed   qualified as FU
 import Data.Vector.Fixed.Boxed     qualified as FB
@@ -276,26 +277,26 @@ instance (NormedScalar a, VG.Vector v a) => InnerSpace (AsVector v a) where
   {-# INLINE magnitudeSq #-}
 
 
-instance (Num a, F.Vector v a) => AdditiveSemigroup (AsFixedVec v a) where
+instance (Num a, F.Vector v a) => AdditiveSemigroup (ViaFixed v a) where
   (.+.) = coerce (F.zipWith @v @a (+))
   {-# INLINE (.+.) #-}
-instance (Num a, F.Vector v a) => AdditiveMonoid    (AsFixedVec v a) where
+instance (Num a, F.Vector v a) => AdditiveMonoid    (ViaFixed v a) where
   zeroV = coerce (F.replicate @v @a 0)
   {-# INLINE zeroV #-}
-instance (Num a, F.Vector v a) => AdditiveQuasigroup (AsFixedVec v a) where
+instance (Num a, F.Vector v a) => AdditiveQuasigroup (ViaFixed v a) where
   (.-.) = coerce (F.zipWith @v @a (-))
   negateV = coerce (F.map @v @a negate)
   {-# INLINE negateV #-}
   {-# INLINE (.-.)   #-}
-instance (Num a, F.Vector v a) => VectorSpace (AsFixedVec v a) where
-  type Scalar (AsFixedVec v a) = a
+instance (Num a, F.Vector v a) => VectorSpace (ViaFixed v a) where
+  type Scalar (ViaFixed v a) = a
   a *. v = coerce (F.map @v @a (a*)) v
   v .* a = coerce (F.map @v @a (*a)) v
   {-# INLINE (*.) #-}
   {-# INLINE (.*) #-}
-instance (NormedScalar a, F.Vector v a) => InnerSpace (AsFixedVec v a) where
-  magnitudeSq (AsFixedVec v) = FC.sum $ FC.map scalarNormSq $ FC.cvec v
-  AsFixedVec v <.> AsFixedVec u
+instance (NormedScalar a, F.Vector v a) => InnerSpace (ViaFixed v a) where
+  magnitudeSq (ViaFixed v) = FC.sum $ FC.map scalarNormSq $ FC.cvec v
+  ViaFixed v <.> ViaFixed u
     = FC.sum $ FC.zipWith (\a b -> conjugate a * b) (FC.cvec v) (FC.cvec u)
   {-# INLINE magnitudeSq #-}
   {-# INLINE (<.>)       #-}
@@ -461,35 +462,35 @@ deriving via AsVector VP.Vector a instance (Num a, VP.Prim a)          => Additi
 deriving via AsVector VP.Vector a instance (Num a, VP.Prim a)          => VectorSpace        (VP.Vector a)
 deriving via AsVector VP.Vector a instance (NormedScalar a, VP.Prim a) => InnerSpace         (VP.Vector a)
 
-deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveSemigroup  (FB.Vec n a)
-deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveMonoid     (FB.Vec n a)
-deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveQuasigroup (FB.Vec n a)
-deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, Num a)          => VectorSpace        (FB.Vec n a)
-deriving via (AsFixedVec (FB.Vec n) a) instance (F.Arity n, NormedScalar a) => InnerSpace         (FB.Vec n a)
+deriving via (ViaFixed (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveSemigroup  (FB.Vec n a)
+deriving via (ViaFixed (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveMonoid     (FB.Vec n a)
+deriving via (ViaFixed (FB.Vec n) a) instance (F.Arity n, Num a)          => AdditiveQuasigroup (FB.Vec n a)
+deriving via (ViaFixed (FB.Vec n) a) instance (F.Arity n, Num a)          => VectorSpace        (FB.Vec n a)
+deriving via (ViaFixed (FB.Vec n) a) instance (F.Arity n, NormedScalar a) => InnerSpace         (FB.Vec n a)
 
-deriving via (AsFixedVec (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveSemigroup  (FU.Vec n a)
-deriving via (AsFixedVec (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveMonoid     (FU.Vec n a)
-deriving via (AsFixedVec (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveQuasigroup (FU.Vec n a)
-deriving via (AsFixedVec (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => VectorSpace        (FU.Vec n a)
-deriving via (AsFixedVec (FU.Vec n) a) instance (FU.Unbox n a, NormedScalar a) => InnerSpace         (FU.Vec n a)
+deriving via (ViaFixed (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveSemigroup  (FU.Vec n a)
+deriving via (ViaFixed (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveMonoid     (FU.Vec n a)
+deriving via (ViaFixed (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => AdditiveQuasigroup (FU.Vec n a)
+deriving via (ViaFixed (FU.Vec n) a) instance (FU.Unbox n a, Num a)          => VectorSpace        (FU.Vec n a)
+deriving via (ViaFixed (FU.Vec n) a) instance (FU.Unbox n a, NormedScalar a) => InnerSpace         (FU.Vec n a)
 
-deriving via (AsFixedVec (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveSemigroup  (FS.Vec n a)
-deriving via (AsFixedVec (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveMonoid     (FS.Vec n a)
-deriving via (AsFixedVec (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveQuasigroup (FS.Vec n a)
-deriving via (AsFixedVec (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => VectorSpace        (FS.Vec n a)
-deriving via (AsFixedVec (FS.Vec n) a) instance (F.Arity n, FS.Storable a, NormedScalar a) => InnerSpace         (FS.Vec n a)
+deriving via (ViaFixed (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveSemigroup  (FS.Vec n a)
+deriving via (ViaFixed (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveMonoid     (FS.Vec n a)
+deriving via (ViaFixed (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => AdditiveQuasigroup (FS.Vec n a)
+deriving via (ViaFixed (FS.Vec n) a) instance (F.Arity n, FS.Storable a, Num a)          => VectorSpace        (FS.Vec n a)
+deriving via (ViaFixed (FS.Vec n) a) instance (F.Arity n, FS.Storable a, NormedScalar a) => InnerSpace         (FS.Vec n a)
 
-deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveSemigroup  (FP.Vec n a)
-deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveMonoid     (FP.Vec n a)
-deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveQuasigroup (FP.Vec n a)
-deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => VectorSpace        (FP.Vec n a)
-deriving via (AsFixedVec (FP.Vec n) a) instance (F.Arity n, FP.Prim a, NormedScalar a) => InnerSpace         (FP.Vec n a)
+deriving via (ViaFixed (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveSemigroup  (FP.Vec n a)
+deriving via (ViaFixed (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveMonoid     (FP.Vec n a)
+deriving via (ViaFixed (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => AdditiveQuasigroup (FP.Vec n a)
+deriving via (ViaFixed (FP.Vec n) a) instance (F.Arity n, FP.Prim a, Num a)          => VectorSpace        (FP.Vec n a)
+deriving via (ViaFixed (FP.Vec n) a) instance (F.Arity n, FP.Prim a, NormedScalar a) => InnerSpace         (FP.Vec n a)
 
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveSemigroup  (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveMonoid     (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveQuasigroup (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => VectorSpace        (F.ContVec n a)
-deriving via (AsFixedVec (F.ContVec n) a) instance (F.ArityPeano n, NormedScalar a) => InnerSpace         (F.ContVec n a)
+deriving via (ViaFixed (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveSemigroup  (F.ContVec n a)
+deriving via (ViaFixed (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveMonoid     (F.ContVec n a)
+deriving via (ViaFixed (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => AdditiveQuasigroup (F.ContVec n a)
+deriving via (ViaFixed (F.ContVec n) a) instance (F.ArityPeano n, Num a)          => VectorSpace        (F.ContVec n a)
+deriving via (ViaFixed (F.ContVec n) a) instance (F.ArityPeano n, NormedScalar a) => InnerSpace         (F.ContVec n a)
 
 
 instance NormedScalar Float where

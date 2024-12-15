@@ -20,10 +20,3 @@ newtype AsVector v a = AsVector (v a)
 --   It could be used to derive instances for type classes from
 --   "Vecvec.Classes.NDArray".
 newtype AsMVector v s a = AsMVector (v s a)
-
--- | Derive instances for data type which is instance of
---   'Data.Vector.Generic.Vector'.
---
---   It could be used to derive instances for type classes from
---   "Vecvec.Classes".
-newtype AsFixedVec v a = AsFixedVec (v a)
