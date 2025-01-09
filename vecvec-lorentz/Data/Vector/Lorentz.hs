@@ -1,3 +1,4 @@
+{-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 -- |
@@ -19,6 +20,7 @@ module Data.Vector.Lorentz (
   , fromLorentzCV
     -- ** Inspection
   , spatialPart
+  , spatialPartCV
   , splitLorentz
     -- * Boosts
     -- ** Variables
@@ -46,6 +48,7 @@ import Data.Vector.Fixed         (Vector,Dim,(!),PeanoNum(..))
 import Data.Vector.Fixed         qualified as F
 import Data.Vector.Fixed.Cont    qualified as FC
 import Data.Vector.Fixed.Unboxed (Vec)
+import GHC.Exts                  (proxy#)
 
 import Vecvec.Classes
 import Vecvec.Classes.Deriving
@@ -96,11 +99,19 @@ type LorentzCV n = LorentzG (F.ContVec n)
 type Lorentz = LorentzU 4
 
 
--- | Spatial part of the Lorentz vector.
+-- | Spatial part of the Lorentz vector. Note that function is
+--   polymorphic in type of vector it returns. If it's ambiguous you
+--   may want to use 'spatialPartCV'.
 spatialPart :: (Vector v a, Vector w a, Dim v ~ 'S (Dim w))
             => LorentzG v a -> w a
 spatialPart = F.tail
 {-# INLINE spatialPart #-}
+
+-- | Spatial part of the Lorentz vector.
+spatialPartCV :: forall v n a. (Vector v a, Dim v ~ 'S n)
+              => LorentzG v a -> F.ContVec n a
+spatialPartCV = FC.dictionaryPred (proxy# @(S n)) F.tail
+{-# INLINE spatialPartCV #-}
 
 -- | Split Lorentz vector into temporal and spatial part.
 splitLorentz :: ( Vector v a, Vector w a, Dim v ~ 'S (Dim w))
