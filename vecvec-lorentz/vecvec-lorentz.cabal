@@ -43,7 +43,7 @@ Library
   Build-Depends:
     base           >= 4.12 && <5,
     deepseq,
-    fixed-vector   >= 1.2,
+    fixed-vector   >= 2.1,
     vecvec-classes
   Exposed-modules:
     Data.Vector.Lorentz
