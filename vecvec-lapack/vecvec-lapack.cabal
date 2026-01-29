@@ -25,6 +25,8 @@ source-repository head
 ----------------------------------------------------------------
 common language
   Ghc-options:          -Wall
+  if impl(ghc > 9.8)
+    Ghc-options:        -Wno-x-partial
   Default-Language:     GHC2021
   Default-extensions:   NoPolyKinds
                         --
@@ -125,4 +127,4 @@ test-suite vecvec-lapack-doctest
                   , vecvec-lapack  -any
                   , vecvec-classes -any
                   , vecvec-lapack-ffi
-                  , doctest       >=0.22 && <0.23
+                  , doctest       >=0.22 && <0.25

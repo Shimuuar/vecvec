@@ -9,11 +9,12 @@ module Vecvec.Classes.Deriving
   , AsNum(..)
   , AsVector(..)
   , AsMVector(..)
-  , AsFixedVec(..)
+  , ViaFixed(..)
     -- * Default implementations of methods
   , implSliceVector
   , implSliceMVector
   ) where
 
+import Data.Vector.Fixed (ViaFixed(..))
 import Vecvec.Classes.Internal.ND
 import Vecvec.Classes.Internal.Types
