@@ -66,6 +66,7 @@ import Data.Vector.Fixed.Unboxed   qualified as FU
 import Data.Vector.Fixed.Boxed     qualified as FB
 import Data.Vector.Fixed.Storable  qualified as FS
 import Data.Vector.Fixed.Primitive qualified as FP
+import Data.Vector.Fixed.Mono      qualified as FM
 import GHC.Generics                (Generic)
 
 import Vecvec.Classes.Internal.Types
@@ -298,6 +299,30 @@ instance (NormedScalar a, F.Vector v a) => InnerSpace (ViaFixed v a) where
   magnitudeSq (ViaFixed v) = FC.sum $ FC.map scalarNormSq $ FC.cvec v
   ViaFixed v <.> ViaFixed u
     = FC.sum $ FC.zipWith (\a b -> conjugate a * b) (FC.cvec v) (FC.cvec u)
+  {-# INLINE magnitudeSq #-}
+  {-# INLINE (<.>)       #-}
+
+instance (Num a, FM.Vector a v) => AdditiveSemigroup (FM.ViaFixed a v) where
+  (.+.) = coerce (FM.zipWith @v @a (+))
+  {-# INLINE (.+.) #-}
+instance (Num a, FM.Vector a v) => AdditiveMonoid    (FM.ViaFixed a v) where
+  zeroV = coerce (FM.replicate @v @a 0)
+  {-# INLINE zeroV #-}
+instance (Num a, FM.Vector a v) => AdditiveQuasigroup (FM.ViaFixed a v) where
+  (.-.) = coerce (FM.zipWith @v @a (-))
+  negateV = coerce (FM.map @v @a negate)
+  {-# INLINE negateV #-}
+  {-# INLINE (.-.)   #-}
+instance (Num a, FM.Vector a v) => VectorSpace (FM.ViaFixed a v) where
+  type Scalar (FM.ViaFixed a v) = a
+  a *. v = coerce (FM.map @v @a (a*)) v
+  v .* a = coerce (FM.map @v @a (*a)) v
+  {-# INLINE (*.) #-}
+  {-# INLINE (.*) #-}
+instance (NormedScalar a, FM.Vector a v) => InnerSpace (FM.ViaFixed a v) where
+  magnitudeSq (FM.ViaFixed v) = FC.sum $ FC.map scalarNormSq $ FM.cvec v
+  FM.ViaFixed v <.> FM.ViaFixed u
+    = FC.sum $ FC.zipWith (\a b -> conjugate a * b) (FM.cvec v) (FM.cvec u)
   {-# INLINE magnitudeSq #-}
   {-# INLINE (<.>)       #-}
 

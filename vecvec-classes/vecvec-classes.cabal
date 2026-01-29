@@ -44,7 +44,7 @@ Library
                       , primitive        >=0.7
                       , vector           >=0.13
                       , vector-stream    >=0.1
-                      , fixed-vector     >=2.0
+                      , fixed-vector     >=2.1
   Exposed-modules:
     Vecvec.Classes
     Vecvec.Classes.Containers
