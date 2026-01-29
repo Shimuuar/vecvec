@@ -125,4 +125,4 @@ test-suite vecvec-lapack-doctest
                   , vecvec-lapack  -any
                   , vecvec-classes -any
                   , vecvec-lapack-ffi
-                  , doctest       >=0.22 && <0.23
+                  , doctest       >=0.22 && <0.25
