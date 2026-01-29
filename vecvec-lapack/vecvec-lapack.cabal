@@ -25,6 +25,8 @@ source-repository head
 ----------------------------------------------------------------
 common language
   Ghc-options:          -Wall
+  if impl(ghc > 9.8)
+    Ghc-options:        -Wno-x-partial
   Default-Language:     GHC2021
   Default-extensions:   NoPolyKinds
                         --

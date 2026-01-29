@@ -41,9 +41,9 @@ import Data.List             (transpose)
 import Foreign.Storable      (Storable)
 import Linear.Matrix         ((!*), (!*!))
 import Test.Tasty.QuickCheck
-import GHC.TypeLits          (Nat)
 
 import Data.Vector.Fixed.Cont qualified as FC
+import Data.Vector.Fixed.Cont (N1,N2)
 import Data.Vector.Generic    qualified as VG
 import Data.Vector            qualified as V
 import Data.Vector.Unboxed    qualified as VU
@@ -106,8 +106,8 @@ maxGenScacar = 10
 
 
 -- | Generate random NDarray with specified shape
-class (Arbitrary a, FC.Arity (CreationRank arr)) => ArbitraryShape arr a where
-  type CreationRank arr :: Nat
+class (Arbitrary a, FC.ArityPeano (CreationRank arr)) => ArbitraryShape arr a where
+  type CreationRank arr :: FC.PeanoNum
   type CreationRank arr = Rank arr
   -- | Generate array with given shape
   arbitraryShape :: (IsShape shape (CreationRank arr)) => shape -> Gen (arr a)
@@ -130,7 +130,7 @@ instance Arbitrary Size2D where
 ----------------------------------------------------------------
 
 -- | Generate size for N-dimensional array
-genSize :: forall shape n. (FC.Arity n, IsShape shape n) => Gen shape
+genSize :: forall shape n. (FC.ArityPeano n, IsShape shape n) => Gen shape
 genSize = shapeFromCVec <$> FC.replicateM @n (choose (1,2))
 
 -- | Generate stride for vectors
@@ -238,6 +238,7 @@ newtype M v a = M (Model1M v a)
 deriving newtype instance Show      (Model1M v a) => Show      (M v a)
 deriving newtype instance Arbitrary (Model1M v a) => Arbitrary (M v a)
 instance ( ArbitraryShape (Model1M v) a
+         , FC.ArityPeano  (CreationRank (Model1M v))
          , Arbitrary a
          ) => ArbitraryShape (M v) a where
   type CreationRank (M v) = CreationRank (Model1M v)
@@ -340,7 +341,7 @@ data ModelVec a = ModelVec
 pattern ModelVec' :: [a] -> ModelVec a
 pattern ModelVec' xs = ModelVec 1 xs
 
-type instance Rank ModelVec = 1
+type instance Rank ModelVec = N1
 
 instance HasShape ModelVec a where
   shapeAsCVec = FC.mk1 . length . (.vec)
@@ -370,7 +371,7 @@ instance SmallScalar a => Arbitrary (ModelVec a) where
     return $ ModelVec n' x
 
 instance SmallScalar a => ArbitraryShape ModelVec a where
-  arbitraryShape (N1 n) = ModelVec <$> genStride <*> replicateM n genScalar
+  arbitraryShape (D1 n) = ModelVec <$> genStride <*> replicateM n genScalar
   arbitraryNRows = arbitraryShape
   arbitraryNCols = error "arbitraryNCols is not defined for ModelVec"
 
@@ -388,7 +389,7 @@ data ModelMat a = ModelMat
 pattern ModelMat' :: [[a]] -> ModelMat a
 pattern ModelMat' xs = ModelMat 0 0 xs
 
-type instance Rank ModelMat = 2
+type instance Rank ModelMat = N2
 
 instance HasShape ModelMat a where
   shapeAsCVec ModelMat{mat} = FC.mk2 (length mat) (length (head mat))
@@ -416,7 +417,7 @@ instance (SmallScalar a, Eq a) => Arbitrary (ModelMat a) where
     return mat
 
 instance (SmallScalar a) => ArbitraryShape ModelMat a where
-  arbitraryShape (N2 m n)
+  arbitraryShape (D2 m n)
      =  ModelMat
     <$> genOffset
     <*> genOffset
@@ -436,7 +437,7 @@ data ModelHer a = ModelHer
   }
   deriving stock (Show, Eq)
 
-type instance Rank ModelHer = 2
+type instance Rank ModelHer = N2
 
 instance HasShape ModelHer a where
   shapeAsCVec m = let n = length m.mat in FC.mk2 n n
@@ -457,8 +458,8 @@ instance (SmallScalar a) => Arbitrary (ModelHer a) where
   arbitrary = arbitraryShape =<< genSize @Int
   
 instance (SmallScalar a) => ArbitraryShape ModelHer a where
-  type CreationRank ModelHer = 1
-  arbitraryShape (N1 n)
+  type CreationRank ModelHer = N1
+  arbitraryShape (D1 n)
     =  ModelHer
    <$> genOffset
    <*> sequence [ sequence [ if i == j then genRealScalar else genScalar
@@ -478,7 +479,7 @@ data ModelSym a = ModelSym
   }
   deriving stock (Show, Eq)
 
-type instance Rank ModelSym = 2
+type instance Rank ModelSym = N2
 
 instance HasShape ModelSym a where
   shapeAsCVec m = let n = length m.mat in FC.mk2 n n
@@ -499,8 +500,8 @@ instance (SmallScalar a) => Arbitrary (ModelSym a) where
   arbitrary = arbitraryShape =<< genSize @Int
   
 instance (SmallScalar a) => ArbitraryShape ModelSym a where
-  type CreationRank ModelSym = 1
-  arbitraryShape (N1 n)
+  type CreationRank ModelSym = N1
+  arbitraryShape (D1 n)
     =  ModelSym
    <$> genOffset
    <*> sequence [ sequence [ genScalar | _ <- [i .. n-1]]
@@ -585,31 +586,31 @@ defaultMulMV m v = ModelVec 1 $ ((.mat) . toModelMat) m !* v.vec
 -- Arbitrary instances
 ----------------------------------------------------------------
 
-class FC.Arity n => TransposeShape n where
+class FC.ArityPeano n => TransposeShape n where
   transposeShape :: FC.ContVec n a -> FC.ContVec n a
 
-instance TransposeShape 1 where
+instance TransposeShape N1 where
   transposeShape = id
   {-# INLINE transposeShape #-}
-instance TransposeShape 2 where
+instance TransposeShape N2 where
   transposeShape (FC.ContVec cont) = FC.ContVec $ \(FC.Fun f) -> cont (FC.Fun $ flip f)
   {-# INLINE transposeShape #-}
 
 
-instance ( Rank arr ~ 2
+instance ( Rank arr ~ N2
          , TransposeShape (CreationRank arr)
          , ArbitraryShape arr a
          ) => Arbitrary (Tr arr a) where
   arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
-instance ( Rank arr ~ 2
+instance ( Rank arr ~ N2
          , TransposeShape (CreationRank arr)
          , ArbitraryShape arr a
          ) => Arbitrary (Conj arr a) where
   arbitrary = arbitraryShape =<< genSize @(FC.ContVec (CreationRank arr) Int)
 
 
-instance ( Rank arr ~ 2
+instance ( Rank arr ~ N2
          , TransposeShape (CreationRank arr)
          , ArbitraryShape arr a
          ) => ArbitraryShape (Tr arr) a where
@@ -618,7 +619,7 @@ instance ( Rank arr ~ 2
   arbitraryNCols = fmap Tr . arbitraryNRows
   arbitraryNRows = fmap Tr . arbitraryNCols
 
-instance ( Rank arr ~ 2
+instance ( Rank arr ~ N2
          , TransposeShape (CreationRank arr)
          , ArbitraryShape arr a
          ) => ArbitraryShape (Conj arr) a where
@@ -636,14 +637,14 @@ instance (SmallScalar a, Storable a, Num a
 
 instance (SmallScalar a, Storable a
          ) => ArbitraryShape Symmetric a where
-  type CreationRank Symmetric = 1
+  type CreationRank Symmetric = N1
   arbitraryShape = fmap unmodelMat . arbitraryShape
   arbitraryNCols = fmap unmodelMat . arbitraryNCols
   arbitraryNRows = fmap unmodelMat . arbitraryNRows
 
 instance (SmallScalar a, Storable a, NormedScalar a
          ) => ArbitraryShape Hermitian a where
-  type CreationRank Hermitian = 1
+  type CreationRank Hermitian = N1
   arbitraryShape = fmap unmodelMat . arbitraryShape
   arbitraryNCols = fmap unmodelMat . arbitraryNCols
   arbitraryNRows = fmap unmodelMat . arbitraryNRows
