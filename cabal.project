@@ -1,6 +1,7 @@
 packages:
         vecvec-classes
         vecvec-lorentz
+        vecvec-lorentz2
         vecvec-hmatrix
         vecvec-lapack
         vecvec-lapack-ffi

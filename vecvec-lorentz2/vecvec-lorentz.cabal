@@ -1,0 +1,65 @@
+Cabal-version:       3.0
+Build-type:          Simple
+--
+Name:                vecvec-lorentz2
+Version:             0.1.0.0
+Synopsis:            Implementation of Lorentz vectors
+Description:
+  This library contains implementation of Lorentz vector, boosts on top of
+  fixed-vector library.
+--
+License:             BSD-3-Clause
+License-file:        LICENSE
+Author:              Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Maintainer:          Aleksey Khudyakov <alexey.skladnoy@gmail.com>
+Category:            Math, Physics
+
+extra-source-files:
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: http://github.com/Shimuuar/vecvec
+
+----------------------------------------------------------------
+common language
+  Ghc-options:          -Wall
+  Default-Language:     GHC2021
+  Default-extensions:   NoPolyKinds
+                        --
+                        DataKinds
+                        DerivingStrategies
+                        DerivingVia
+                        LambdaCase
+                        LexicalNegation
+                        MultiWayIf
+                        PatternSynonyms
+                        ViewPatterns
+
+----------------------------------------------------------------
+  
+Library
+  import: language
+  Build-Depends:
+    base           >= 4.12 && <5,
+    deepseq,
+    fixed-vector   >= 2.1,
+    vecvec-classes
+  Exposed-modules:
+    Data.Vector.Lorentz2
+
+-- test-suite vecvec-lorentz-tests
+--   import:           language
+--   type:             exitcode-stdio-1.0
+--   hs-source-dirs:   test
+--   main-is:          main.hs
+--   build-depends: base -any
+--                , vecvec-classes
+--                , vecvec-lorentz
+--                , tasty
+--                , tasty-quickcheck
+--                , QuickCheck
+--                , ad                >=4
+--                , numbers           >=3000.2
+--   other-modules:
+--     QC
