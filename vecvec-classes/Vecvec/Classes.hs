@@ -44,11 +44,13 @@ module Vecvec.Classes
   , Conj(..)
     -- * Deriving via wrappers
   , MonoidFromAdditive(..)
+  , Elem
   ) where
 
 import Data.Coerce
 import Data.Int
 import Data.Word
+import Data.Kind             (Type)
 import Data.Functor.Classes
 import Data.Complex          (Complex(..))
 import Data.Complex          qualified as Complex
@@ -72,6 +74,8 @@ import GHC.Generics                (Generic)
 import Vecvec.Classes.Internal.Types
 
 
+
+type family Elem (v :: Type) :: Type
 
 ----------------------------------------------------------------
 -- Additive group
@@ -302,24 +306,24 @@ instance (NormedScalar a, F.Vector v a) => InnerSpace (ViaFixed v a) where
   {-# INLINE magnitudeSq #-}
   {-# INLINE (<.>)       #-}
 
-instance (Num a, FM.Vector a v) => AdditiveSemigroup (FM.ViaFixed a v) where
+instance (Num a, FM.Vector a v) => AdditiveSemigroup (FM.ViaFixed v) where
   (.+.) = coerce (FM.zipWith @v @a (+))
   {-# INLINE (.+.) #-}
-instance (Num a, FM.Vector a v) => AdditiveMonoid    (FM.ViaFixed a v) where
+instance (Num a, FM.Vector a v) => AdditiveMonoid    (FM.ViaFixed v) where
   zeroV = coerce (FM.replicate @v @a 0)
   {-# INLINE zeroV #-}
-instance (Num a, FM.Vector a v) => AdditiveQuasigroup (FM.ViaFixed a v) where
+instance (Num a, FM.Vector a v) => AdditiveQuasigroup (FM.ViaFixed v) where
   (.-.) = coerce (FM.zipWith @v @a (-))
   negateV = coerce (FM.map @v @a negate)
   {-# INLINE negateV #-}
   {-# INLINE (.-.)   #-}
-instance (Num a, FM.Vector a v) => VectorSpace (FM.ViaFixed a v) where
-  type Scalar (FM.ViaFixed a v) = a
+instance (a ~ Elem v, Num a, FM.Vector a v) => VectorSpace (FM.ViaFixed v) where
+  type Scalar (FM.ViaFixed v) = Elem v
   a *. v = coerce (FM.map @v @a (a*)) v
   v .* a = coerce (FM.map @v @a (*a)) v
   {-# INLINE (*.) #-}
   {-# INLINE (.*) #-}
-instance (NormedScalar a, FM.Vector a v) => InnerSpace (FM.ViaFixed a v) where
+instance (a ~ Elem v, NormedScalar a, FM.Vector a v) => InnerSpace (FM.ViaFixed v) where
   magnitudeSq (FM.ViaFixed v) = FC.sum $ FC.map scalarNormSq $ FM.cvec v
   FM.ViaFixed v <.> FM.ViaFixed u
     = FC.sum $ FC.zipWith (\a b -> conjugate a * b) (FM.cvec v) (FM.cvec u)
