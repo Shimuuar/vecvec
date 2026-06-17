@@ -59,11 +59,13 @@ deriving via ViaFixed (V v [X,Y,Z]) instance (GoodVec a v [X,Y,Z], NormedScalar 
 
 
 instance (RealFloat a, Repr2 a v, Repr2 a w) => Convert (V v [X,Y]) (V w [Rho,Phi]) where
+  {-# INLINE convert #-}
   convert (FM.V2 x y) = FM.V2 r phi where
     r   = sqrt $ x*x + y*y
     phi = atan2 y x
 
 instance (RealFloat a, Repr2 a v, Repr2 a w) => Convert (V v [Rho,Phi]) (V w [X,Y]) where
+  {-# INLINE convert #-}
   convert (FM.V2 r phi) = FM.V2 x y where
     x = r * cos phi
     y = r * sin phi
